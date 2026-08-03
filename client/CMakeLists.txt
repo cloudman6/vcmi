@@ -168,6 +168,7 @@ set(vcmiclientcommon_SRCS
 	windows/CCreatureWindow.cpp
 	windows/CStackExperienceDetailsWindow.cpp
 	windows/CExchangeWindow.cpp
+	windows/CExchangeWindowPanelRequestAdapter.cpp
 	windows/CHeroOverview.cpp
 	windows/CHeroWindow.cpp
 	windows/CKingdomInterface.cpp
@@ -415,6 +416,7 @@ set(vcmiclientcommon_HEADERS
 	windows/CCreatureWindow.h
 	windows/CStackExperienceDetailsWindow.h
 	windows/CExchangeWindow.h
+	windows/CExchangeWindowPanelRequestAdapter.h
 	windows/CHeroOverview.h
 	windows/CHeroWindow.h
 	windows/CKingdomInterface.h
