@@ -16,10 +16,6 @@
 namespace BattleControllerFocusSpikeFixture
 {
 	inline const BattleHex initialFocus(77);
-	inline const BattleHex doubleWideHead(76);
-	inline const BattleHex doubleWideTail = doubleWideHead.cloneInDirection(BattleHex::EDir::RIGHT, false);
-	inline const BattleHex primaryAttackFrom = doubleWideHead.cloneInDirection(BattleHex::EDir::TOP_LEFT, false);
-	inline const BattleHex alternateAttackFrom = doubleWideHead.cloneInDirection(BattleHex::EDir::BOTTOM_RIGHT, false);
 
 	constexpr std::array<BattleHex::EDir, 6> sixWayDirections =
 	{

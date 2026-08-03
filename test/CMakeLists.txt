@@ -251,6 +251,8 @@ enable_pch(vcmitest)
 # bindings or the public navigation contract.
 add_executable(vcmi_battle_controller_focus_spike
 
+		mock/mock_BonusBearer.cpp
+		battle/BattleControllerFocusBattleFixture.cpp
 		battle/BattleControllerFocusSpikeSupport.cpp
 		battle/BattleControllerFocusHarness.cpp
 		battle/BattleControllerFocusSpikeTest.cpp

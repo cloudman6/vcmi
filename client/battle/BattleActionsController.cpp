@@ -9,6 +9,7 @@
  */
 #include "StdInc.h"
 #include "BattleActionsController.h"
+#include "BattleActionsControllerMeleeTargeting.h"
 
 #include "BattleFieldController.h"
 #include "BattleHero.h"
@@ -181,23 +182,7 @@ static std::string prepareSpellEffectText(int gnrlTextID, const spells::effects:
 
 static BattleHex findAttackFromHex(const BattleInterface & owner, const CStack * attacker, const BattleHex & targetHex, bool allowLongWeapon)
 {
-	if(!attacker || !targetHex.isValid())
-		return BattleHex::INVALID;
-
-	const auto preferredDirection = owner.fieldController->selectAttackDirection(targetHex);
-	BattleHex attackFromHex = owner.getBattle()->fromWhichHexAttack(attacker, targetHex, preferredDirection, allowLongWeapon);
-
-	if(attackFromHex.isValid())
-		return attackFromHex;
-
-	for(int direction = 0; direction < 8; ++direction)
-	{
-		attackFromHex = owner.getBattle()->fromWhichHexAttack(attacker, targetHex, static_cast<BattleHex::EDir>(direction), allowLongWeapon);
-		if(attackFromHex.isValid())
-			return attackFromHex;
-	}
-
-	return BattleHex::INVALID;
+	return battle::controller::MeleeTargeting::resolve(*owner.getBattle(), attacker, targetHex, owner.fieldController->selectAttackDirection(targetHex), allowLongWeapon);
 }
 
 BattleActionsController::BattleActionsController(BattleInterface & owner):

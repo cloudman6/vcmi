@@ -10,6 +10,7 @@
 #pragma once
 
 #include "../../lib/battle/BattleHex.h"
+#include "../../lib/battle/BattleAction.h"
 
 #include <optional>
 
@@ -34,7 +35,7 @@ public:
 	bool setFocus(BattleHex hex);
 	bool move(BattleHex::EDir direction);
 	bool selectAttackDirection(BattleHex::EDir direction);
-	void refreshAfterBattleReply();
+	void onActionReply(const BattleAction & action);
 	bool confirm();
 
 	const BattleHex & focusedHex() const;

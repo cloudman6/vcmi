@@ -9,8 +9,11 @@
  */
 #include "StdInc.h"
 
+#include "BattleControllerFocusBattleFixture.h"
 #include "BattleControllerFocusHarness.h"
 #include "BattleControllerFocusSpikeFixture.h"
+
+#include "../../client/battle/BattleActionsControllerMeleeTargeting.h"
 
 #include <gtest/gtest.h>
 
@@ -38,6 +41,7 @@ class BattleControllerFocusSpikeTest : public testing::Test
 protected:
 	RecordingBattleActionsSink actions;
 	BattleControllerFocusHarness focus{actions};
+	BattleControllerFocusBattleFixture battleFixture;
 };
 }
 
@@ -59,20 +63,43 @@ TEST_F(BattleControllerFocusSpikeTest, MovesFocusThroughAllSixHexDirections)
 
 TEST_F(BattleControllerFocusSpikeTest, KeepsTargetFocusWhileSelectingEitherLegalMeleeApproachDirection)
 {
-	ASSERT_TRUE(focus.setFocus(BattleControllerFocusSpikeFixture::doubleWideHead));
+	auto & attacker = battleFixture.addUnit(BattleHex(60), BattleSide::ATTACKER, true);
+	auto & target = battleFixture.addUnit(BattleHex(90), BattleSide::DEFENDER, true);
+	const std::array<BattleHex::EDir, 2> legalDirections =
+	{
+		BattleHex::EDir::TOP_LEFT,
+		BattleHex::EDir::BOTTOM_RIGHT,
+	};
 
-	ASSERT_TRUE(focus.selectAttackDirection(BattleHex::EDir::TOP_LEFT));
-	EXPECT_EQ(focus.attackDirection(), BattleHex::EDir::TOP_LEFT);
-	EXPECT_EQ(focus.focusedHex(), BattleControllerFocusSpikeFixture::doubleWideHead);
+	BattleHexArray availableApproaches;
+	std::array<BattleHex, legalDirections.size()> expectedApproaches;
 
-	ASSERT_TRUE(focus.selectAttackDirection(BattleHex::EDir::BOTTOM_RIGHT));
-	EXPECT_EQ(focus.attackDirection(), BattleHex::EDir::BOTTOM_RIGHT);
-	EXPECT_EQ(focus.focusedHex(), BattleControllerFocusSpikeFixture::doubleWideHead);
+	for(size_t index = 0; index < legalDirections.size(); ++index)
+	{
+		expectedApproaches[index] = battleFixture.battle().fromWhichHexAttack(&attacker, target.getPosition(), legalDirections[index], false);
+		ASSERT_TRUE(expectedApproaches[index].isValid());
+		availableApproaches.insert(expectedApproaches[index]);
+	}
 
-	EXPECT_EQ(BattleControllerFocusSpikeFixture::primaryAttackFrom, BattleControllerFocusSpikeFixture::doubleWideHead.cloneInDirection(BattleHex::EDir::TOP_LEFT, false));
-	EXPECT_EQ(BattleControllerFocusSpikeFixture::alternateAttackFrom, BattleControllerFocusSpikeFixture::doubleWideHead.cloneInDirection(BattleHex::EDir::BOTTOM_RIGHT, false));
-	EXPECT_NE(BattleControllerFocusSpikeFixture::primaryAttackFrom, BattleControllerFocusSpikeFixture::alternateAttackFrom);
-	EXPECT_EQ(BattleControllerFocusSpikeFixture::doubleWideTail, BattleControllerFocusSpikeFixture::doubleWideHead.cloneInDirection(BattleHex::EDir::RIGHT, false));
+	EXPECT_NE(expectedApproaches[0], expectedApproaches[1]);
+
+	for(int direction = 0; direction < 8; ++direction)
+	{
+		const auto candidateDirection = static_cast<BattleHex::EDir>(direction);
+		const bool expectedLegal = candidateDirection == legalDirections[0] || candidateDirection == legalDirections[1];
+		EXPECT_EQ(battleFixture.battle().battleCanAttackHex(availableApproaches, &attacker, target.getPosition(), candidateDirection), expectedLegal);
+	}
+
+	ASSERT_TRUE(focus.setFocus(target.getPosition()));
+	for(size_t index = 0; index < legalDirections.size(); ++index)
+	{
+		ASSERT_TRUE(focus.selectAttackDirection(legalDirections[index]));
+		EXPECT_EQ(focus.attackDirection(), legalDirections[index]);
+		EXPECT_EQ(focus.focusedHex(), target.getPosition());
+		EXPECT_EQ(battle::controller::MeleeTargeting::resolve(battleFixture.battle(), availableApproaches, &attacker, target.getPosition(), legalDirections[index], false), expectedApproaches[index]);
+	}
+
+	EXPECT_EQ(battle::controller::MeleeTargeting::resolve(battleFixture.battle(), availableApproaches, &attacker, target.getPosition(), BattleHex::EDir::TOP_RIGHT, false), expectedApproaches[0]);
 }
 
 TEST_F(BattleControllerFocusSpikeTest, RejectsNonHexAttackDirectionsAndInvalidFocusMoves)
@@ -85,16 +112,26 @@ TEST_F(BattleControllerFocusSpikeTest, RejectsNonHexAttackDirectionsAndInvalidFo
 
 TEST_F(BattleControllerFocusSpikeTest, RefreshesAndRechecksFocusAfterWaitDefendAndSpellReplies)
 {
-	const std::array<const char *, 3> commands = {"wait", "defend", "spell"};
+	auto & actor = battleFixture.addUnit(BattleControllerFocusSpikeFixture::initialFocus, BattleSide::ATTACKER, false);
+	BattleAction heroSpell;
+	heroSpell.actionType = EActionType::HERO_SPELL;
+	heroSpell.side = BattleSide::ATTACKER;
 
-	for(const auto * command : commands)
+	const std::array<BattleAction, 3> replies =
 	{
-		SCOPED_TRACE(command);
+		BattleAction::makeWait(&actor),
+		BattleAction::makeDefend(&actor),
+		heroSpell,
+	};
+
+	for(const auto & reply : replies)
+	{
+		SCOPED_TRACE(static_cast<int>(reply.actionType));
 		ASSERT_TRUE(focus.setFocus(BattleControllerFocusSpikeFixture::initialFocus));
 		ASSERT_TRUE(focus.selectAttackDirection(BattleHex::EDir::RIGHT));
 
 		const auto previewsBeforeReply = actions.previewedHexes.size();
-		focus.refreshAfterBattleReply();
+		focus.onActionReply(reply);
 
 		EXPECT_FALSE(focus.attackDirection().has_value());
 		EXPECT_EQ(actions.previewedHexes.size(), previewsBeforeReply + 1);

@@ -47,8 +47,11 @@ bool BattleControllerFocusHarness::selectAttackDirection(BattleHex::EDir directi
 	return true;
 }
 
-void BattleControllerFocusHarness::refreshAfterBattleReply()
+void BattleControllerFocusHarness::onActionReply(const BattleAction & action)
 {
+	if(action.actionType != EActionType::WAIT && action.actionType != EActionType::DEFEND && action.actionType != EActionType::HERO_SPELL)
+		return;
+
 	direction.reset();
 
 	if(focused.isValid())
