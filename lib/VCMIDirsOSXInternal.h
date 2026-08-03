@@ -26,6 +26,8 @@ enum class UserRootInvalidReason
 	Empty,
 	NotAbsolute,
 	PathSyntax,
+	UnsafeRoot,
+	EscapesRoot,
 };
 
 struct UserRootLayout
@@ -62,7 +64,7 @@ inline std::string joinUserRootPath(const std::string & root, const std::string_
 	return root + "/" + std::string(component);
 }
 
-inline std::string lexicallyNormalizeAbsoluteUserRoot(const std::string_view rawValue)
+inline std::variant<std::string, UserRootInvalidReason> lexicallyNormalizeAbsoluteUserRoot(const std::string_view rawValue)
 {
 	std::vector<std::string_view> components;
 	for(size_t begin = 1; begin <= rawValue.size();)
@@ -73,8 +75,9 @@ inline std::string lexicallyNormalizeAbsoluteUserRoot(const std::string_view raw
 		{
 			if(component == "..")
 			{
-				if(!components.empty())
-					components.pop_back();
+				if(components.empty())
+					return UserRootInvalidReason::EscapesRoot;
+				components.pop_back();
 			}
 			else
 			{
@@ -85,6 +88,8 @@ inline std::string lexicallyNormalizeAbsoluteUserRoot(const std::string_view raw
 			break;
 		begin = end + 1;
 	}
+	if(components.empty())
+		return UserRootInvalidReason::UnsafeRoot;
 
 	std::string result = "/";
 	for(const auto component : components)
@@ -106,9 +111,12 @@ inline UserRootResolution resolveUserRoot(const std::optional<std::string_view> 
 		return Invalid{UserRootInvalidReason::PathSyntax};
 	if(rawValue->front() != '/')
 		return Invalid{UserRootInvalidReason::NotAbsolute};
+	const auto normalizedRoot = lexicallyNormalizeAbsoluteUserRoot(*rawValue);
+	if(std::holds_alternative<UserRootInvalidReason>(normalizedRoot))
+		return Invalid{std::get<UserRootInvalidReason>(normalizedRoot)};
 
 	UserRootLayout layout;
-	layout.root = lexicallyNormalizeAbsoluteUserRoot(*rawValue);
+	layout.root = std::get<std::string>(normalizedRoot);
 	layout.data = joinUserRootPath(layout.root, "data");
 	layout.config = joinUserRootPath(layout.root, "config");
 	layout.cache = joinUserRootPath(layout.root, "cache");

@@ -15,6 +15,28 @@ namespace
 {
 using namespace VCMIDirs::detail;
 
+void expectExactLayout(const std::string_view rawValue, const std::string_view expectedRoot)
+{
+	const auto result = resolveUserRoot(rawValue);
+	ASSERT_TRUE(std::holds_alternative<UseOverride>(result));
+	const auto & layout = std::get<UseOverride>(result).layout;
+	const std::string normalizedRoot(expectedRoot);
+	EXPECT_EQ(layout.root, expectedRoot);
+	EXPECT_EQ(layout.data, normalizedRoot + "/data");
+	EXPECT_EQ(layout.config, normalizedRoot + "/config");
+	EXPECT_EQ(layout.cache, normalizedRoot + "/cache");
+	EXPECT_EQ(layout.logs, normalizedRoot + "/logs");
+	EXPECT_EQ(layout.saves, normalizedRoot + "/data/Saves");
+	EXPECT_EQ(layout.extracted, normalizedRoot + "/cache/extracted");
+}
+
+void expectInvalidRoot(const std::string_view rawValue, const UserRootInvalidReason expectedReason)
+{
+	const auto result = resolveUserRoot(rawValue);
+	ASSERT_TRUE(std::holds_alternative<Invalid>(result));
+	EXPECT_EQ(std::get<Invalid>(result).reason, expectedReason);
+}
+
 TEST(UserRootResolverTest, absentValueUsesDefault)
 {
 	const auto result = resolveUserRoot(std::nullopt);
@@ -80,6 +102,25 @@ TEST(UserRootResolverTest, resultTagsAreMutuallyExclusive)
 	EXPECT_FALSE(std::holds_alternative<Invalid>(defaultResult));
 	EXPECT_TRUE(std::holds_alternative<UseOverride>(overrideResult));
 	EXPECT_TRUE(std::holds_alternative<Invalid>(invalidResult));
+}
+
+TEST(UserRootResolverTest, filesystemRootNormalizationsAreRejectedAsUnsafeRoot)
+{
+	for(const std::string_view rawValue : {"/", "///", "/./", "/state/.."})
+		expectInvalidRoot(rawValue, UserRootInvalidReason::UnsafeRoot);
+}
+
+TEST(UserRootResolverTest, upwardTraversalPastFilesystemRootIsRejectedAsEscapesRoot)
+{
+	for(const std::string_view rawValue : {"/../state", "/../../state", "/state/../../other"})
+		expectInvalidRoot(rawValue, UserRootInvalidReason::EscapesRoot);
+}
+
+TEST(UserRootResolverTest, safeAbsolutePathsNormalizeAndKeepExactSixPathLayout)
+{
+	expectExactLayout("/state//profile/./run//", "/state/profile/run");
+	expectExactLayout("/state/keep/../run/", "/state/run");
+	expectExactLayout("/state/./run///", "/state/run");
 }
 }
 
