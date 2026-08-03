@@ -9,8 +9,10 @@
  */
 #pragma once
 
-#include "../../lib/battle/BattleHex.h"
 #include "../../lib/battle/BattleAction.h"
+#include "../../lib/battle/BattleHex.h"
+
+#include "../../client/battle/BattleActionLifecycle.h"
 
 #include <optional>
 
@@ -21,21 +23,26 @@ class BattleActionsController;
 class BattleControllerFocusHarness
 {
 public:
+	struct Selection
+	{
+		BattleHex targetHex;
+		std::optional<BattleHex::EDir> attackDirection;
+	};
+
 	class Sink
 	{
 	public:
 		virtual ~Sink() = default;
 
-		virtual void preview(const BattleHex & hex) = 0;
-		virtual void submit(const BattleHex & hex) = 0;
+		virtual void preview(const Selection & selection) = 0;
+		virtual void submit(const Selection & selection) = 0;
 	};
 
-	explicit BattleControllerFocusHarness(Sink & sink);
+	BattleControllerFocusHarness(Sink & sink, BattleActionLifecycle & lifecycle);
 
 	bool setFocus(BattleHex hex);
 	bool move(BattleHex::EDir direction);
 	bool selectAttackDirection(BattleHex::EDir direction);
-	void onActionReply(const BattleAction & action);
 	bool confirm();
 
 	const BattleHex & focusedHex() const;
@@ -43,6 +50,8 @@ public:
 
 private:
 	static bool isHexDirection(BattleHex::EDir direction);
+	Selection selection() const;
+	void onLifecycleEvent(BattleActionLifecycle::Stage stage, const BattleAction & action);
 
 	Sink & sink;
 	BattleHex focused = BattleHex::INVALID;
@@ -56,8 +65,8 @@ class BattleActionsControllerFocusSink final : public BattleControllerFocusHarne
 public:
 	explicit BattleActionsControllerFocusSink(BattleActionsController & actions);
 
-	void preview(const BattleHex & hex) override;
-	void submit(const BattleHex & hex) override;
+	void preview(const BattleControllerFocusHarness::Selection & selection) override;
+	void submit(const BattleControllerFocusHarness::Selection & selection) override;
 
 private:
 	BattleActionsController & actions;

@@ -14,6 +14,7 @@
 #include "BattleControllerFocusSpikeFixture.h"
 
 #include "../../client/battle/BattleActionsControllerMeleeTargeting.h"
+#include "../../lib/battle/Unit.h"
 
 #include <gtest/gtest.h>
 
@@ -22,25 +23,65 @@ namespace
 class RecordingBattleActionsSink final : public BattleControllerFocusHarness::Sink
 {
 public:
-	void preview(const BattleHex & hex) override
+	void preview(const BattleControllerFocusHarness::Selection & selection) override
 	{
-		previewedHexes.push_back(hex);
+		previewedSelections.push_back(selection);
 	}
 
-	void submit(const BattleHex & hex) override
+	void submit(const BattleControllerFocusHarness::Selection & selection) override
 	{
-		submittedHexes.push_back(hex);
+		submittedSelections.push_back(selection);
 	}
 
-	std::vector<BattleHex> previewedHexes;
-	std::vector<BattleHex> submittedHexes;
+	std::vector<BattleControllerFocusHarness::Selection> previewedSelections;
+	std::vector<BattleControllerFocusHarness::Selection> submittedSelections;
+};
+
+class MeleeTargetingFocusSink final : public BattleControllerFocusHarness::Sink
+{
+public:
+	struct Delivery
+	{
+		BattleControllerFocusHarness::Selection selection;
+		BattleHex approachHex;
+	};
+
+	MeleeTargetingFocusSink(const CBattleInfoCallback & battle, const BattleHexArray & availableHexes, const battle::Unit * attacker)
+		: battle(battle), availableHexes(availableHexes), attacker(attacker)
+	{
+	}
+
+	void preview(const BattleControllerFocusHarness::Selection & selection) override
+	{
+		previewed.push_back(deliver(selection));
+	}
+
+	void submit(const BattleControllerFocusHarness::Selection & selection) override
+	{
+		submitted.push_back(deliver(selection));
+	}
+
+	std::vector<Delivery> previewed;
+	std::vector<Delivery> submitted;
+
+private:
+	Delivery deliver(const BattleControllerFocusHarness::Selection & selection) const
+	{
+		const auto direction = selection.attackDirection.value_or(BattleHex::EDir::NONE);
+		return {selection, battle::controller::MeleeTargeting::resolve(battle, availableHexes, attacker, selection.targetHex, direction, false)};
+	}
+
+	const CBattleInfoCallback & battle;
+	const BattleHexArray & availableHexes;
+	const battle::Unit * attacker;
 };
 
 class BattleControllerFocusSpikeTest : public testing::Test
 {
 protected:
 	RecordingBattleActionsSink actions;
-	BattleControllerFocusHarness focus{actions};
+	BattleActionLifecycle lifecycle;
+	BattleControllerFocusHarness focus{actions, lifecycle};
 	BattleControllerFocusBattleFixture battleFixture;
 };
 }
@@ -58,7 +99,7 @@ TEST_F(BattleControllerFocusSpikeTest, MovesFocusThroughAllSixHexDirections)
 		EXPECT_EQ(focus.focusedHex(), expected);
 	}
 
-	EXPECT_EQ(actions.previewedHexes.size(), 13);
+	EXPECT_EQ(actions.previewedSelections.size(), 13);
 }
 
 TEST_F(BattleControllerFocusSpikeTest, KeepsTargetFocusWhileSelectingEitherLegalMeleeApproachDirection)
@@ -90,16 +131,28 @@ TEST_F(BattleControllerFocusSpikeTest, KeepsTargetFocusWhileSelectingEitherLegal
 		EXPECT_EQ(battleFixture.battle().battleCanAttackHex(availableApproaches, &attacker, target.getPosition(), candidateDirection), expectedLegal);
 	}
 
-	ASSERT_TRUE(focus.setFocus(target.getPosition()));
+	MeleeTargetingFocusSink meleeActions(battleFixture.battle(), availableApproaches, &attacker);
+	BattleControllerFocusHarness meleeFocus{meleeActions, lifecycle};
+
+	ASSERT_TRUE(meleeFocus.setFocus(target.getPosition()));
 	for(size_t index = 0; index < legalDirections.size(); ++index)
 	{
-		ASSERT_TRUE(focus.selectAttackDirection(legalDirections[index]));
-		EXPECT_EQ(focus.attackDirection(), legalDirections[index]);
-		EXPECT_EQ(focus.focusedHex(), target.getPosition());
-		EXPECT_EQ(battle::controller::MeleeTargeting::resolve(battleFixture.battle(), availableApproaches, &attacker, target.getPosition(), legalDirections[index], false), expectedApproaches[index]);
+		ASSERT_TRUE(meleeFocus.selectAttackDirection(legalDirections[index]));
+		EXPECT_EQ(meleeFocus.attackDirection(), legalDirections[index]);
+		EXPECT_EQ(meleeFocus.focusedHex(), target.getPosition());
+		ASSERT_FALSE(meleeActions.previewed.empty());
+		EXPECT_EQ(meleeActions.previewed.back().selection.attackDirection, legalDirections[index]);
+		EXPECT_EQ(meleeActions.previewed.back().approachHex, expectedApproaches[index]);
+
+		ASSERT_TRUE(meleeFocus.confirm());
+		ASSERT_FALSE(meleeActions.submitted.empty());
+		EXPECT_EQ(meleeActions.submitted.back().selection.attackDirection, legalDirections[index]);
+		EXPECT_EQ(meleeActions.submitted.back().approachHex, expectedApproaches[index]);
 	}
 
-	EXPECT_EQ(battle::controller::MeleeTargeting::resolve(battleFixture.battle(), availableApproaches, &attacker, target.getPosition(), BattleHex::EDir::TOP_RIGHT, false), expectedApproaches[0]);
+	ASSERT_TRUE(meleeFocus.selectAttackDirection(BattleHex::EDir::TOP_RIGHT));
+	EXPECT_EQ(meleeActions.previewed.back().selection.attackDirection, BattleHex::EDir::TOP_RIGHT);
+	EXPECT_EQ(meleeActions.previewed.back().approachHex, expectedApproaches[0]);
 }
 
 TEST_F(BattleControllerFocusSpikeTest, RejectsNonHexAttackDirectionsAndInvalidFocusMoves)
@@ -123,6 +176,11 @@ TEST_F(BattleControllerFocusSpikeTest, RefreshesAndRechecksFocusAfterWaitDefendA
 		BattleAction::makeDefend(&actor),
 		heroSpell,
 	};
+	std::vector<BattleActionLifecycle::Stage> observedStages;
+	lifecycle.subscribe([&observedStages](BattleActionLifecycle::Stage stage, const BattleAction &)
+	{
+		observedStages.push_back(stage);
+	});
 
 	for(const auto & reply : replies)
 	{
@@ -130,21 +188,30 @@ TEST_F(BattleControllerFocusSpikeTest, RefreshesAndRechecksFocusAfterWaitDefendA
 		ASSERT_TRUE(focus.setFocus(BattleControllerFocusSpikeFixture::initialFocus));
 		ASSERT_TRUE(focus.selectAttackDirection(BattleHex::EDir::RIGHT));
 
-		const auto previewsBeforeReply = actions.previewedHexes.size();
-		focus.onActionReply(reply);
+		const auto previewsBeforeReply = actions.previewedSelections.size();
+		const auto stagesBeforeReply = observedStages.size();
+		lifecycle.giveCommand(reply);
+		lifecycle.sendCommand(reply);
+		lifecycle.startAction(reply);
+		lifecycle.endAction(reply);
+		ASSERT_EQ(observedStages.size(), stagesBeforeReply + 4);
+		EXPECT_EQ(observedStages[stagesBeforeReply], BattleActionLifecycle::Stage::COMMAND_GIVEN);
+		EXPECT_EQ(observedStages[stagesBeforeReply + 1], BattleActionLifecycle::Stage::COMMAND_SENT);
+		EXPECT_EQ(observedStages[stagesBeforeReply + 2], BattleActionLifecycle::Stage::ACTION_STARTED);
+		EXPECT_EQ(observedStages[stagesBeforeReply + 3], BattleActionLifecycle::Stage::ACTION_ENDED);
 
 		EXPECT_FALSE(focus.attackDirection().has_value());
-		EXPECT_EQ(actions.previewedHexes.size(), previewsBeforeReply + 1);
-		EXPECT_EQ(actions.previewedHexes.back(), BattleControllerFocusSpikeFixture::initialFocus);
+		EXPECT_EQ(actions.previewedSelections.size(), previewsBeforeReply + 1);
+		EXPECT_EQ(actions.previewedSelections.back().targetHex, BattleControllerFocusSpikeFixture::initialFocus);
 
-		const auto submissionsBeforeConfirm = actions.submittedHexes.size();
+		const auto submissionsBeforeConfirm = actions.submittedSelections.size();
 		EXPECT_TRUE(focus.confirm());
-		EXPECT_EQ(actions.submittedHexes.back(), BattleControllerFocusSpikeFixture::initialFocus);
-		EXPECT_EQ(actions.submittedHexes.size(), submissionsBeforeConfirm + 1);
+		EXPECT_EQ(actions.submittedSelections.back().targetHex, BattleControllerFocusSpikeFixture::initialFocus);
+		EXPECT_EQ(actions.submittedSelections.size(), submissionsBeforeConfirm + 1);
 
 		EXPECT_FALSE(focus.setFocus(BattleHex::INVALID));
 		EXPECT_FALSE(focus.confirm());
-		EXPECT_EQ(actions.submittedHexes.size(), submissionsBeforeConfirm + 1);
+		EXPECT_EQ(actions.submittedSelections.size(), submissionsBeforeConfirm + 1);
 	}
 }
 

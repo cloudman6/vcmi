@@ -10,6 +10,7 @@
 #pragma once
 
 #include "BattleConstants.h"
+#include "BattleActionLifecycle.h"
 
 #include "../gui/CIntObject.h"
 
@@ -99,6 +100,7 @@ class BattleInterface
 
 	/// Conditional variables that are set depending on ongoing animations on the battlefield
 	ConditionalWait ongoingAnimationsState;
+	BattleActionLifecycle actionLifecycle;
 
 	/// List of events that are waiting to be triggered
 	std::vector<AwaitingAnimationEvents> awaitingEvents;

@@ -304,12 +304,14 @@ void BattleInterface::giveCommand(EActionType action, const std::vector<BattleHe
 		ba.aimToHex(tile);
 	ba.spell = spell;
 
+	actionLifecycle.giveCommand(ba);
 	sendCommand(ba, actor);
 }
 
 void BattleInterface::sendCommand(BattleAction command, const CStack * actor)
 {
 	command.stackNumber = actor ? actor->unitId() : ((command.side == BattleSide::ATTACKER) ? -1 : -2);
+	actionLifecycle.sendCommand(command);
 
 	if(!tacticsMode)
 	{
@@ -708,6 +710,8 @@ void BattleInterface::endAction(const BattleAction &action)
 	//we have activated next stack after sending request that has been just realized -> blockmap due to movement has changed
 	if(action.actionType == EActionType::HERO_SPELL)
 		fieldController->redrawBackgroundWithHexes();
+
+	actionLifecycle.endAction(action);
 }
 
 void BattleInterface::appendBattleLog(const std::string & newEntry)
@@ -717,6 +721,8 @@ void BattleInterface::appendBattleLog(const std::string & newEntry)
 
 void BattleInterface::startAction(const BattleAction & action)
 {
+	actionLifecycle.startAction(action);
+
 	if(action.actionType == EActionType::END_TACTIC_PHASE)
 	{
 		windowObject->tacticPhaseEnded();

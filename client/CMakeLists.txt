@@ -14,6 +14,7 @@ set(vcmiclientcommon_SRCS
 	adventureMap/TurnTimerWidget.cpp
 
 	battle/BattleActionsController.cpp
+	battle/BattleActionLifecycle.cpp
 	battle/BattleActionsControllerMeleeTargeting.cpp
 	battle/BattleAnimationClasses.cpp
 	battle/BattleConsole.cpp

@@ -13,9 +13,13 @@
 
 #include "../../client/battle/BattleActionsController.h"
 
-BattleControllerFocusHarness::BattleControllerFocusHarness(Sink & sink)
+BattleControllerFocusHarness::BattleControllerFocusHarness(Sink & sink, BattleActionLifecycle & lifecycle)
 	: sink(sink)
 {
+	lifecycle.subscribe([this](BattleActionLifecycle::Stage stage, const BattleAction & action)
+	{
+		onLifecycleEvent(stage, action);
+	});
 }
 
 bool BattleControllerFocusHarness::setFocus(BattleHex hex)
@@ -26,7 +30,7 @@ bool BattleControllerFocusHarness::setFocus(BattleHex hex)
 	if(!focused.isValid())
 		return false;
 
-	sink.preview(focused);
+	sink.preview(selection());
 	return true;
 }
 
@@ -44,18 +48,8 @@ bool BattleControllerFocusHarness::selectAttackDirection(BattleHex::EDir directi
 		return false;
 
 	this->direction = direction;
+	sink.preview(selection());
 	return true;
-}
-
-void BattleControllerFocusHarness::onActionReply(const BattleAction & action)
-{
-	if(action.actionType != EActionType::WAIT && action.actionType != EActionType::DEFEND && action.actionType != EActionType::HERO_SPELL)
-		return;
-
-	direction.reset();
-
-	if(focused.isValid())
-		sink.preview(focused);
 }
 
 bool BattleControllerFocusHarness::confirm()
@@ -63,7 +57,7 @@ bool BattleControllerFocusHarness::confirm()
 	if(!focused.isValid())
 		return false;
 
-	sink.submit(focused);
+	sink.submit(selection());
 	return true;
 }
 
@@ -77,6 +71,25 @@ const std::optional<BattleHex::EDir> & BattleControllerFocusHarness::attackDirec
 	return direction;
 }
 
+BattleControllerFocusHarness::Selection BattleControllerFocusHarness::selection() const
+{
+	return {focused, direction};
+}
+
+void BattleControllerFocusHarness::onLifecycleEvent(BattleActionLifecycle::Stage stage, const BattleAction & action)
+{
+	if(stage != BattleActionLifecycle::Stage::ACTION_ENDED)
+		return;
+
+	if(action.actionType != EActionType::WAIT && action.actionType != EActionType::DEFEND && action.actionType != EActionType::HERO_SPELL)
+		return;
+
+	direction.reset();
+
+	if(focused.isValid())
+		sink.preview(selection());
+}
+
 bool BattleControllerFocusHarness::isHexDirection(BattleHex::EDir direction)
 {
 	return direction >= BattleHex::EDir::TOP_LEFT && direction <= BattleHex::EDir::LEFT;
@@ -87,12 +100,12 @@ BattleActionsControllerFocusSink::BattleActionsControllerFocusSink(BattleActions
 {
 }
 
-void BattleActionsControllerFocusSink::preview(const BattleHex & hex)
+void BattleActionsControllerFocusSink::preview(const BattleControllerFocusHarness::Selection & selection)
 {
-	actions.onHexHovered(hex);
+	actions.onHexHovered(selection.targetHex);
 }
 
-void BattleActionsControllerFocusSink::submit(const BattleHex & hex)
+void BattleActionsControllerFocusSink::submit(const BattleControllerFocusHarness::Selection & selection)
 {
-	actions.onHexLeftClicked(hex);
+	actions.onHexLeftClicked(selection.targetHex);
 }
