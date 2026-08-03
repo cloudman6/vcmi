@@ -28,6 +28,11 @@ BattleHex resolveForDirection(const CBattleInfoCallback & battle, const BattleHe
 }
 }
 
+bool MeleeActionDecision::isLegal() const
+{
+	return approachHex.isValid();
+}
+
 BattleHex MeleeTargeting::resolve(const CBattleInfoCallback & battle, const Unit * attacker, const BattleHex & targetHex, BattleHex::EDir preferredDirection, bool allowLongWeapon)
 {
 	if(!attacker || !targetHex.isValid())

@@ -13,21 +13,16 @@
 #include "../../lib/battle/BattleHex.h"
 
 #include "../../client/battle/BattleActionLifecycle.h"
+#include "../../client/battle/BattleActionsControllerMeleeTargeting.h"
 
 #include <optional>
 
-class BattleActionsController;
-
 /// Topic-local spike harness for focus routing. It deliberately owns no battle
-/// legality: previews and confirmation remain delegated to the action controller.
+/// legality: the production melee action seam owns preview and confirmation.
 class BattleControllerFocusHarness
 {
 public:
-	struct Selection
-	{
-		BattleHex targetHex;
-		std::optional<BattleHex::EDir> attackDirection;
-	};
+	using Selection = battle::controller::MeleeTargetSelection;
 
 	class Sink
 	{
@@ -56,18 +51,4 @@ private:
 	Sink & sink;
 	BattleHex focused = BattleHex::INVALID;
 	std::optional<BattleHex::EDir> direction;
-};
-
-/// Adapter intentionally dispatches through BattleActionsController. This is a
-/// test-only bridge, not a new runtime input or navigation API.
-class BattleActionsControllerFocusSink final : public BattleControllerFocusHarness::Sink
-{
-public:
-	explicit BattleActionsControllerFocusSink(BattleActionsController & actions);
-
-	void preview(const BattleControllerFocusHarness::Selection & selection) override;
-	void submit(const BattleControllerFocusHarness::Selection & selection) override;
-
-private:
-	BattleActionsController & actions;
 };

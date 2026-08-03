@@ -11,8 +11,6 @@
 
 #include "BattleControllerFocusHarness.h"
 
-#include "../../client/battle/BattleActionsController.h"
-
 BattleControllerFocusHarness::BattleControllerFocusHarness(Sink & sink, BattleActionLifecycle & lifecycle)
 	: sink(sink)
 {
@@ -93,19 +91,4 @@ void BattleControllerFocusHarness::onLifecycleEvent(BattleActionLifecycle::Stage
 bool BattleControllerFocusHarness::isHexDirection(BattleHex::EDir direction)
 {
 	return direction >= BattleHex::EDir::TOP_LEFT && direction <= BattleHex::EDir::LEFT;
-}
-
-BattleActionsControllerFocusSink::BattleActionsControllerFocusSink(BattleActionsController & actions)
-	: actions(actions)
-{
-}
-
-void BattleActionsControllerFocusSink::preview(const BattleControllerFocusHarness::Selection & selection)
-{
-	actions.onHexHovered(selection.targetHex);
-}
-
-void BattleActionsControllerFocusSink::submit(const BattleControllerFocusHarness::Selection & selection)
-{
-	actions.onHexLeftClicked(selection.targetHex);
 }

@@ -182,7 +182,45 @@ static std::string prepareSpellEffectText(int gnrlTextID, const spells::effects:
 
 static BattleHex findAttackFromHex(const BattleInterface & owner, const CStack * attacker, const BattleHex & targetHex, bool allowLongWeapon)
 {
-	return battle::controller::MeleeTargeting::resolve(*owner.getBattle(), attacker, targetHex, owner.fieldController->selectAttackDirection(targetHex), allowLongWeapon);
+	const battle::controller::MeleeTargetSelection selection{targetHex, owner.fieldController->selectAttackDirection(targetHex)};
+	return battle::controller::MeleeTargeting::resolve(*owner.getBattle(), attacker, selection.targetHex, selection.attackDirection.value_or(BattleHex::EDir::NONE), allowLongWeapon);
+}
+
+battle::controller::MeleeActionDecision BattleActionsController::actionIsLegal(const CBattleInfoCallback & battle, const battle::Unit * attacker, const battle::Unit * target, const battle::controller::MeleeTargetSelection & selection, bool allowLongWeapon)
+{
+	if(!attacker)
+		return {};
+
+	return actionIsLegal(battle, battle.battleGetAvailableHexes(attacker, false), attacker, target, selection, allowLongWeapon);
+}
+
+battle::controller::MeleeActionDecision BattleActionsController::actionIsLegal(const CBattleInfoCallback & battle, const BattleHexArray & availableHexes, const battle::Unit * attacker, const battle::Unit * target, const battle::controller::MeleeTargetSelection & selection, bool allowLongWeapon)
+{
+	if(!attacker || !target || !selection.targetHex.isValid())
+		return {};
+
+	if(!battle.battleCanAttackUnit(attacker, target))
+		return {};
+
+	return {battle::controller::MeleeTargeting::resolve(battle, availableHexes, attacker, selection.targetHex, selection.attackDirection.value_or(BattleHex::EDir::NONE), allowLongWeapon)};
+}
+
+bool BattleActionsController::actionRealize(const CBattleInfoCallback & battle, const battle::Unit * attacker, const battle::Unit * target, const battle::controller::MeleeTargetSelection & selection, bool allowLongWeapon, const std::function<void(const BattleHex &)> & submit)
+{
+	if(!attacker)
+		return false;
+
+	return actionRealize(battle, battle.battleGetAvailableHexes(attacker, false), attacker, target, selection, allowLongWeapon, submit);
+}
+
+bool BattleActionsController::actionRealize(const CBattleInfoCallback & battle, const BattleHexArray & availableHexes, const battle::Unit * attacker, const battle::Unit * target, const battle::controller::MeleeTargetSelection & selection, bool allowLongWeapon, const std::function<void(const BattleHex &)> & submit)
+{
+	const auto decision = actionIsLegal(battle, availableHexes, attacker, target, selection, allowLongWeapon);
+	if(!decision.isLegal())
+		return false;
+
+	submit(decision.approachHex);
+	return true;
 }
 
 BattleActionsController::BattleActionsController(BattleInterface & owner):
@@ -817,10 +855,8 @@ bool BattleActionsController::actionIsLegal(PossiblePlayerBattleAction action, c
 			{
 				const CStack * currentStack = owner.stacksController->getActiveStack();
 				bool allowLongWeapon = action.get() == PossiblePlayerBattleAction::LONG_WEAPON_ATTACK;
-				return currentStack &&
-					owner.getBattle()->battleCanAttackUnit(currentStack, targetStack) &&
-					owner.getBattle()->battleCanAttackHex(currentStack, targetHex) &&
-					findAttackFromHex(owner, currentStack, targetHex, allowLongWeapon).isValid();
+				const battle::controller::MeleeTargetSelection selection{targetHex, owner.fieldController->selectAttackDirection(targetHex)};
+				return actionIsLegal(*owner.getBattle(), currentStack, targetStack, selection, allowLongWeapon).isLegal();
 			}
 		case PossiblePlayerBattleAction::WALK_AND_SPELLCAST:
 			{
@@ -929,12 +965,12 @@ void BattleActionsController::actionRealize(PossiblePlayerBattleAction action, c
 			bool returnAfterAttack = action.get() == PossiblePlayerBattleAction::ATTACK_AND_RETURN;
 			bool allowLongWeapon = action.get() == PossiblePlayerBattleAction::LONG_WEAPON_ATTACK;
 			auto attacker = owner.stacksController->getActiveStack();
-			BattleHex attackFromHex = findAttackFromHex(owner, attacker, targetHex, allowLongWeapon);
-			assert(attackFromHex.isValid());
-			if(!attackFromHex.isValid())
-				return;
-			BattleAction command = BattleAction::makeMeleeAttack(attacker, targetHex, attackFromHex, returnAfterAttack);
-			owner.sendCommand(command, attacker);
+			const battle::controller::MeleeTargetSelection selection{targetHex, owner.fieldController->selectAttackDirection(targetHex)};
+			actionRealize(*owner.getBattle(), attacker, targetStack, selection, allowLongWeapon, [this, attacker, targetHex, returnAfterAttack](const BattleHex & attackFromHex)
+			{
+				BattleAction command = BattleAction::makeMeleeAttack(attacker, targetHex, attackFromHex, returnAfterAttack);
+				owner.sendCommand(command, attacker);
+			});
 			return;
 		}
 

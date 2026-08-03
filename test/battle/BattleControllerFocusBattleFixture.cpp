@@ -13,14 +13,16 @@
 
 using namespace testing;
 
-BattleControllerFocusBattleUnit::BattleControllerFocusBattleUnit(BattleHex position, BattleSide side, bool doubleWide)
+BattleControllerFocusBattleUnit::BattleControllerFocusBattleUnit(BattleHex position, BattleSide side, bool doubleWide, uint32_t id)
 {
 	EXPECT_CALL(*this, getPosition()).Times(AnyNumber()).WillRepeatedly(Return(position));
 	EXPECT_CALL(*this, unitSide()).Times(AnyNumber()).WillRepeatedly(Return(side));
-	EXPECT_CALL(*this, unitId()).Times(AnyNumber()).WillRepeatedly(Return(1));
+	EXPECT_CALL(*this, unitId()).Times(AnyNumber()).WillRepeatedly(Return(id));
 	EXPECT_CALL(*this, doubleWide()).Times(AnyNumber()).WillRepeatedly(Return(doubleWide));
 	EXPECT_CALL(*this, alive()).Times(AnyNumber()).WillRepeatedly(Return(true));
 	EXPECT_CALL(*this, isGhost()).Times(AnyNumber()).WillRepeatedly(Return(false));
+	EXPECT_CALL(*this, isInvincible()).Times(AnyNumber()).WillRepeatedly(Return(false));
+	EXPECT_CALL(*this, isHypnotized()).Times(AnyNumber()).WillRepeatedly(Return(false));
 	EXPECT_CALL(*this, isValidTarget(_)).Times(AnyNumber()).WillRepeatedly(Return(true));
 	EXPECT_CALL(*this, getAllBonuses(_, _)).Times(AnyNumber()).WillRepeatedly(Invoke(&bonuses, &BonusBearerMock::getAllBonuses));
 	EXPECT_CALL(*this, getTreeVersion()).Times(AnyNumber()).WillRepeatedly(Invoke(&bonuses, &BonusBearerMock::getTreeVersion));
@@ -40,12 +42,15 @@ BattleControllerFocusBattleFixture::BattleControllerFocusBattleFixture()
 {
 	subject.battle = &battleState;
 	ON_CALL(battleState, getAllObstacles()).WillByDefault(Return(IBattleInfo::ObstacleCList()));
+	ON_CALL(battleState, getTacticDist()).WillByDefault(Return(0));
+	ON_CALL(battleState, getSidePlayer(BattleSide::ATTACKER)).WillByDefault(Return(PlayerColor(0)));
+	ON_CALL(battleState, getSidePlayer(BattleSide::DEFENDER)).WillByDefault(Return(PlayerColor(1)));
 	ON_CALL(battleState, getUnitsIf(_)).WillByDefault(Invoke(this, &BattleControllerFocusBattleFixture::getUnitsIf));
 }
 
 BattleControllerFocusBattleUnit & BattleControllerFocusBattleFixture::addUnit(BattleHex position, BattleSide side, bool doubleWide)
 {
-	units.push_back(std::make_unique<BattleControllerFocusBattleUnit>(position, side, doubleWide));
+	units.push_back(std::make_unique<BattleControllerFocusBattleUnit>(position, side, doubleWide, nextUnitId++));
 	return *units.back();
 }
 

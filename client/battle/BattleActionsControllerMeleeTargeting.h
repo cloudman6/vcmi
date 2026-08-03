@@ -11,6 +11,8 @@
 
 #include "../../lib/battle/BattleHexArray.h"
 
+#include <optional>
+
 class CBattleInfoCallback;
 
 namespace battle
@@ -19,6 +21,21 @@ class Unit;
 
 namespace controller
 {
+/// Direction-bearing target selection shared by focus dispatch and the action
+/// controller. It is internal to the battle client, not a public input contract.
+struct MeleeTargetSelection
+{
+	BattleHex targetHex;
+	std::optional<BattleHex::EDir> attackDirection;
+};
+
+struct MeleeActionDecision
+{
+	BattleHex approachHex = BattleHex::INVALID;
+
+	bool isLegal() const;
+};
+
 /// Internal BattleActionsController seam. It only orders candidate directions;
 /// CBattleInfoCallback remains the authority for reachability and attack rules.
 class MeleeTargeting

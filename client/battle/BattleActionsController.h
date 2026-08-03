@@ -11,6 +11,10 @@
 
 #include "../../lib/battle/CBattleInfoCallback.h"
 
+#include "BattleActionsControllerMeleeTargeting.h"
+
+#include <functional>
+
 class BattleAction;
 namespace spells {
 class Caster;
@@ -18,6 +22,7 @@ enum class Mode;
 }
 
 class BattleInterface;
+class BattleActionsControllerFocusTestAccess;
 
 /// Class that controls actions that can be performed by player, e.g. moving stacks, attacking, etc
 /// As well as all relevant feedback for these actions in user interface
@@ -51,6 +56,10 @@ class BattleActionsController
 	void reorderPossibleActionsPriority(const CStack * stack, const CStack * targetStack);
 
 	bool actionIsLegal(PossiblePlayerBattleAction action, const BattleHex & hoveredHex);
+	static battle::controller::MeleeActionDecision actionIsLegal(const CBattleInfoCallback & battle, const battle::Unit * attacker, const battle::Unit * target, const battle::controller::MeleeTargetSelection & selection, bool allowLongWeapon);
+	static battle::controller::MeleeActionDecision actionIsLegal(const CBattleInfoCallback & battle, const BattleHexArray & availableHexes, const battle::Unit * attacker, const battle::Unit * target, const battle::controller::MeleeTargetSelection & selection, bool allowLongWeapon);
+	static bool actionRealize(const CBattleInfoCallback & battle, const battle::Unit * attacker, const battle::Unit * target, const battle::controller::MeleeTargetSelection & selection, bool allowLongWeapon, const std::function<void(const BattleHex &)> & submit);
+	static bool actionRealize(const CBattleInfoCallback & battle, const BattleHexArray & availableHexes, const battle::Unit * attacker, const battle::Unit * target, const battle::controller::MeleeTargetSelection & selection, bool allowLongWeapon, const std::function<void(const BattleHex &)> & submit);
 
 	void actionSetCursor(PossiblePlayerBattleAction action, const BattleHex & hoveredHex);
 	void actionSetCursorBlocked(PossiblePlayerBattleAction action, const BattleHex & hoveredHex);
@@ -76,6 +85,8 @@ class BattleActionsController
 
 	/// returns true if current stack is a spellcaster
 	bool isActiveStackSpellcaster() const;
+
+	friend class BattleActionsControllerFocusTestAccess;
 
 public:
 	BattleActionsController(BattleInterface & owner);

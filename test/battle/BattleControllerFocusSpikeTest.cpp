@@ -13,14 +13,30 @@
 #include "BattleControllerFocusHarness.h"
 #include "BattleControllerFocusSpikeFixture.h"
 
-#include "../../client/battle/BattleActionsControllerMeleeTargeting.h"
+#include "../../client/battle/BattleActionsController.h"
 #include "../../lib/battle/Unit.h"
 
 #include <gtest/gtest.h>
 
+class BattleActionsControllerFocusTestAccess
+{
+public:
+	static battle::controller::MeleeActionDecision actionIsLegal(const CBattleInfoCallback & battle, const BattleHexArray & availableHexes, const battle::Unit * attacker, const battle::Unit * target, const BattleControllerFocusHarness::Selection & selection)
+	{
+		return BattleActionsController::actionIsLegal(battle, availableHexes, attacker, target, selection, false);
+	}
+
+	static bool actionRealize(const CBattleInfoCallback & battle, const BattleHexArray & availableHexes, const battle::Unit * attacker, const battle::Unit * target, const BattleControllerFocusHarness::Selection & selection, const std::function<void(const BattleHex &)> & submit)
+	{
+		return BattleActionsController::actionRealize(battle, availableHexes, attacker, target, selection, false, submit);
+	}
+};
+
 namespace
 {
-class RecordingBattleActionsSink final : public BattleControllerFocusHarness::Sink
+/// Focus transport probe only. The melee legality and realization oracles below
+/// invoke BattleActionsController's real private action seam.
+class SelectionCaptureSink final : public BattleControllerFocusHarness::Sink
 {
 public:
 	void preview(const BattleControllerFocusHarness::Selection & selection) override
@@ -37,49 +53,10 @@ public:
 	std::vector<BattleControllerFocusHarness::Selection> submittedSelections;
 };
 
-class MeleeTargetingFocusSink final : public BattleControllerFocusHarness::Sink
-{
-public:
-	struct Delivery
-	{
-		BattleControllerFocusHarness::Selection selection;
-		BattleHex approachHex;
-	};
-
-	MeleeTargetingFocusSink(const CBattleInfoCallback & battle, const BattleHexArray & availableHexes, const battle::Unit * attacker)
-		: battle(battle), availableHexes(availableHexes), attacker(attacker)
-	{
-	}
-
-	void preview(const BattleControllerFocusHarness::Selection & selection) override
-	{
-		previewed.push_back(deliver(selection));
-	}
-
-	void submit(const BattleControllerFocusHarness::Selection & selection) override
-	{
-		submitted.push_back(deliver(selection));
-	}
-
-	std::vector<Delivery> previewed;
-	std::vector<Delivery> submitted;
-
-private:
-	Delivery deliver(const BattleControllerFocusHarness::Selection & selection) const
-	{
-		const auto direction = selection.attackDirection.value_or(BattleHex::EDir::NONE);
-		return {selection, battle::controller::MeleeTargeting::resolve(battle, availableHexes, attacker, selection.targetHex, direction, false)};
-	}
-
-	const CBattleInfoCallback & battle;
-	const BattleHexArray & availableHexes;
-	const battle::Unit * attacker;
-};
-
 class BattleControllerFocusSpikeTest : public testing::Test
 {
 protected:
-	RecordingBattleActionsSink actions;
+	SelectionCaptureSink actions;
 	BattleActionLifecycle lifecycle;
 	BattleControllerFocusHarness focus{actions, lifecycle};
 	BattleControllerFocusBattleFixture battleFixture;
@@ -131,28 +108,33 @@ TEST_F(BattleControllerFocusSpikeTest, KeepsTargetFocusWhileSelectingEitherLegal
 		EXPECT_EQ(battleFixture.battle().battleCanAttackHex(availableApproaches, &attacker, target.getPosition(), candidateDirection), expectedLegal);
 	}
 
-	MeleeTargetingFocusSink meleeActions(battleFixture.battle(), availableApproaches, &attacker);
-	BattleControllerFocusHarness meleeFocus{meleeActions, lifecycle};
-
-	ASSERT_TRUE(meleeFocus.setFocus(target.getPosition()));
+	ASSERT_TRUE(focus.setFocus(target.getPosition()));
 	for(size_t index = 0; index < legalDirections.size(); ++index)
 	{
-		ASSERT_TRUE(meleeFocus.selectAttackDirection(legalDirections[index]));
-		EXPECT_EQ(meleeFocus.attackDirection(), legalDirections[index]);
-		EXPECT_EQ(meleeFocus.focusedHex(), target.getPosition());
-		ASSERT_FALSE(meleeActions.previewed.empty());
-		EXPECT_EQ(meleeActions.previewed.back().selection.attackDirection, legalDirections[index]);
-		EXPECT_EQ(meleeActions.previewed.back().approachHex, expectedApproaches[index]);
+		ASSERT_TRUE(focus.selectAttackDirection(legalDirections[index]));
+		EXPECT_EQ(focus.attackDirection(), legalDirections[index]);
+		EXPECT_EQ(focus.focusedHex(), target.getPosition());
+		const auto & previewSelection = actions.previewedSelections.back();
+		EXPECT_EQ(previewSelection.attackDirection, legalDirections[index]);
+		const auto previewDecision = BattleActionsControllerFocusTestAccess::actionIsLegal(battleFixture.battle(), availableApproaches, &attacker, &target, previewSelection);
+		EXPECT_TRUE(previewDecision.isLegal());
+		EXPECT_EQ(previewDecision.approachHex, expectedApproaches[index]);
 
-		ASSERT_TRUE(meleeFocus.confirm());
-		ASSERT_FALSE(meleeActions.submitted.empty());
-		EXPECT_EQ(meleeActions.submitted.back().selection.attackDirection, legalDirections[index]);
-		EXPECT_EQ(meleeActions.submitted.back().approachHex, expectedApproaches[index]);
+		ASSERT_TRUE(focus.confirm());
+		const auto & confirmSelection = actions.submittedSelections.back();
+		EXPECT_EQ(confirmSelection.attackDirection, legalDirections[index]);
+		BattleHex confirmedApproach = BattleHex::INVALID;
+		EXPECT_TRUE(BattleActionsControllerFocusTestAccess::actionRealize(battleFixture.battle(), availableApproaches, &attacker, &target, confirmSelection, [&confirmedApproach](const BattleHex & approachHex)
+		{
+			confirmedApproach = approachHex;
+		}));
+		EXPECT_EQ(confirmedApproach, expectedApproaches[index]);
 	}
 
-	ASSERT_TRUE(meleeFocus.selectAttackDirection(BattleHex::EDir::TOP_RIGHT));
-	EXPECT_EQ(meleeActions.previewed.back().selection.attackDirection, BattleHex::EDir::TOP_RIGHT);
-	EXPECT_EQ(meleeActions.previewed.back().approachHex, expectedApproaches[0]);
+	ASSERT_TRUE(focus.selectAttackDirection(BattleHex::EDir::TOP_RIGHT));
+	const auto invalidSelection = actions.previewedSelections.back();
+	EXPECT_EQ(invalidSelection.attackDirection, BattleHex::EDir::TOP_RIGHT);
+	EXPECT_EQ(BattleActionsControllerFocusTestAccess::actionIsLegal(battleFixture.battle(), availableApproaches, &attacker, &target, invalidSelection).approachHex, expectedApproaches[0]);
 }
 
 TEST_F(BattleControllerFocusSpikeTest, RejectsNonHexAttackDirectionsAndInvalidFocusMoves)

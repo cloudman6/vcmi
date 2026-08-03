@@ -18,7 +18,7 @@
 class BattleControllerFocusBattleUnit final : public UnitMock
 {
 public:
-	BattleControllerFocusBattleUnit(BattleHex position, BattleSide side, bool doubleWide);
+	BattleControllerFocusBattleUnit(BattleHex position, BattleSide side, bool doubleWide, uint32_t id);
 
 private:
 	BonusBearerMock bonuses;
@@ -47,4 +47,5 @@ private:
 	Subject subject;
 	testing::NiceMock<BattleStateMock> battleState;
 	std::vector<std::unique_ptr<BattleControllerFocusBattleUnit>> units;
+	uint32_t nextUnitId = 1;
 };
