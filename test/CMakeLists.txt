@@ -285,6 +285,19 @@ if(APPLE AND NOT IOS)
 			LABELS "macos;controller;settings;fresh-process;contract"
 			WORKING_DIRECTORY "${CMAKE_BINARY_DIR}/bin/"
 	)
+
+	if(ENABLE_CLIENT)
+		# Throwaway M1 spike: private focus behavior remains outside vcmitest and
+		# does not initialize the game engine or UI resource stack.
+		add_executable(
+			vcmi_modal_focus_scope_spike
+			ModalFocusScopeSpikeTest.cpp
+		)
+		target_link_libraries(vcmi_modal_focus_scope_spike PRIVATE gtest)
+		add_dependencies(vcmi_modal_focus_scope_spike vcmiclientcommon)
+		add_test(NAME MODAL-FOCUS-SCOPE-SPIKE COMMAND vcmi_modal_focus_scope_spike)
+		set_tests_properties(MODAL-FOCUS-SCOPE-SPIKE PROPERTIES LABELS "macos;controller;modal;focus;spike")
+	endif()
 endif()
 
 file (GLOB_RECURSE testdata "testdata/*.*")

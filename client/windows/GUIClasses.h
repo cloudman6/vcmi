@@ -45,6 +45,7 @@ class VideoWidgetOnce;
 class GraphicalPrimitiveCanvas;
 class TransparentFilledRectangle;
 class CSecSkillPlace;
+class ModalFocusScopeSpike;
 
 enum class EUserEvent;
 
@@ -211,12 +212,19 @@ class CObjectListWindow : public CWindowObject
 
 	std::vector< std::pair<int, std::string> > items; //all items present in list
 	std::vector< std::pair<int, std::string> > itemsVisible; //visible items present in list
+	std::shared_ptr<ModalFocusScopeSpike> modalFocusScope;
 
 	void init(std::shared_ptr<CIntObject> titleWidget_, std::string _title, std::string _descr, bool searchBoxEnabled, bool blue);
 	void trimTextIfTooWide(std::string & text, bool preserveCountSuffix) const; // trim item's text to fit within window's width
 	void itemsSearchCallback(const std::string & text);
+	void updateModalFocusScope();
+	void selectFromMouse(size_t which);
 	void exitPressed();
+
 public:
+	void activate() override;
+	void deactivate() override;
+
 	size_t selected;//index of currently selected item
 
 	std::function<void()> onExit;//optional exit callback

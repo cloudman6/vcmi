@@ -439,6 +439,7 @@ set(vcmiclientcommon_HEADERS
 	windows/CWindowObject.h
 	windows/CreaturePurchaseCard.h
 	windows/GUIClasses.h
+	windows/ModalFocusScopeSpike.h
 	windows/InfoWindows.h
 	windows/QuickRecruitmentWindow.h
 	windows/CHeroBackpackWindow.h

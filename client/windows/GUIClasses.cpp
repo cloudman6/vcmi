@@ -14,6 +14,7 @@
 #include "CCreatureWindow.h"
 #include "CHeroWindow.h"
 #include "InfoWindows.h"
+#include "ModalFocusScopeSpike.h"
 
 #include "../CServerHandler.h"
 #include "../Client.h"
@@ -1751,7 +1752,7 @@ void CObjectListWindow::CItem::select(bool on)
 
 void CObjectListWindow::CItem::clickPressed(const Point & cursorPosition)
 {
-	parent->changeSelection(index);
+	parent->selectFromMouse(index);
 
 	if(parent->onClicked)
 		parent->onClicked(index);
@@ -1845,6 +1846,7 @@ void CObjectListWindow::init(std::shared_ptr<CIntObject> titleWidget_, std::stri
 
 	ok = std::make_shared<CButton>(Point(15, 402), AnimationPath::builtin(blue ? "MuBchck" : "IOKAY.DEF"), CButton::tooltip(), std::bind(&CObjectListWindow::elementSelected, this), EShortcut::GLOBAL_ACCEPT);
 	ok->block(!list->size());
+	updateModalFocusScope();
 
 	if(!searchBoxEnabled)
 		return;
@@ -1937,6 +1939,7 @@ void CObjectListWindow::itemsSearchCallback(const std::string & text)
 	list->resize(itemsVisible.size());
 	list->scrollTo(0);
 	ok->block(!itemsVisible.size());
+	updateModalFocusScope();
 
 	redraw();
 }
@@ -1985,8 +1988,57 @@ void CObjectListWindow::changeSelection(size_t which)
 	selected = which;
 }
 
+void CObjectListWindow::selectFromMouse(size_t which)
+{
+	if(modalFocusScope)
+		modalFocusScope->focusFromMouse(std::to_string(itemsVisible[which].first));
+	changeSelection(which);
+}
+
+void CObjectListWindow::updateModalFocusScope()
+{
+	std::vector<ModalFocusScopeSpike::Entry> entries;
+	entries.reserve(itemsVisible.size());
+	for(const auto & item : itemsVisible)
+		entries.push_back({std::to_string(item.first), true, ""});
+
+	if(entries.empty())
+		entries.push_back({"confirm", false, "No selectable item is available"});
+
+	const std::string initialFocus = itemsVisible.empty()
+		? "confirm"
+		: std::to_string(itemsVisible[std::min(selected, itemsVisible.size() - 1)].first);
+	modalFocusScope = std::make_shared<ModalFocusScopeSpike>(std::move(entries), initialFocus);
+}
+
+void CObjectListWindow::activate()
+{
+	CWindowObject::activate();
+	if(modalFocusScope)
+		modalFocusScope->resume();
+}
+
+void CObjectListWindow::deactivate()
+{
+	if(modalFocusScope)
+		modalFocusScope->suspend();
+	CWindowObject::deactivate();
+}
+
 void CObjectListWindow::keyPressed(EShortcut key)
 {
+	if(modalFocusScope)
+	{
+		if(modalFocusScope->handleShortcut(key) == EModalFocusScopeSpikeResult::FOCUS_CHANGED)
+		{
+			const auto focusedIndex = modalFocusScope->focusedIndex();
+			assert(focusedIndex);
+			list->scrollTo(*focusedIndex);
+			changeSelection(*focusedIndex);
+			return;
+		}
+	}
+
 	int sel = static_cast<int>(selected);
 
 	switch(key)
