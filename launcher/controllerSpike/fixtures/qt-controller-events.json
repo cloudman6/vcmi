@@ -1,0 +1,17 @@
+{
+  "fixtureVersion": 1,
+  "qtVariants": [
+    {
+      "qtMajor": 5,
+      "controllerInstance": 1,
+      "navigationAction": "navigate-next",
+      "startAction": "start"
+    },
+    {
+      "qtMajor": 6,
+      "controllerInstance": 1,
+      "navigationAction": "navigate-next",
+      "startAction": "start"
+    }
+  ]
+}

@@ -259,6 +259,10 @@ target_include_directories(vcmilauncher
 vcmi_set_output_dir(vcmilauncher "")
 enable_pch(vcmilauncher)
 
+if(ENABLE_TEST)
+	add_subdirectory(controllerSpike)
+endif()
+
 if(ENABLE_INNOEXTRACT)
 	target_compile_definitions(vcmilauncher PRIVATE ENABLE_INNOEXTRACT)
 	target_link_libraries(vcmilauncher innoextract)
