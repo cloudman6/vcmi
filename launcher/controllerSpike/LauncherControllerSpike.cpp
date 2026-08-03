@@ -74,12 +74,18 @@ int LauncherControllerSpike::ignoredStarts() const
 	return ignoredStartCount;
 }
 
+std::optional<std::uint32_t> LauncherControllerSpike::lastControllerInstance() const
+{
+	return lastControllerInstanceValue;
+}
+
 bool LauncherControllerSpike::event(QEvent * event)
 {
 	if(event->type() != controllerEventType)
 		return QWidget::event(event);
 
 	const auto & controllerEvent = static_cast<const LauncherControllerQtEvent &>(*event);
+	lastControllerInstanceValue = controllerEvent.input.controllerInstance;
 	switch(controllerEvent.input.action)
 	{
 	case LauncherControllerAction::NavigateNext:

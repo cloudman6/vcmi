@@ -12,6 +12,7 @@
 #include <QWidget>
 
 #include <cstdint>
+#include <optional>
 
 class QPushButton;
 class QEvent;
@@ -42,6 +43,7 @@ public:
 
 	int acceptedLaunches() const;
 	int ignoredStarts() const;
+	std::optional<std::uint32_t> lastControllerInstance() const;
 
 protected:
 	bool event(QEvent * event) override;
@@ -51,4 +53,5 @@ private:
 	QPushButton * start;
 	int acceptedLaunchCount = 0;
 	int ignoredStartCount = 0;
+	std::optional<std::uint32_t> lastControllerInstanceValue;
 };
