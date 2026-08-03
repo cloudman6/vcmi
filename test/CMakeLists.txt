@@ -246,6 +246,25 @@ vcmi_set_output_dir(vcmitest "")
 
 enable_pch(vcmitest)
 
+# This isolated executable intentionally does not link client globals. It proves
+# CExchangeWindow presentation state without duplicating game-rule callbacks.
+add_executable(vcmi_exchange_panel_navigation_spike_test
+	client/CExchangePanelNavigationSpikeTest.cpp
+	../client/widgets/CExchangePanelNavigationSpike.cpp
+	../client/widgets/CExchangePanelNavigationSpike.h
+)
+target_compile_features(vcmi_exchange_panel_navigation_spike_test PRIVATE cxx_std_20)
+target_include_directories(vcmi_exchange_panel_navigation_spike_test PRIVATE ${CMAKE_SOURCE_DIR})
+add_test(
+	NAME EXCHANGE-PANEL-NAVIGATION-SPIKE
+	COMMAND vcmi_exchange_panel_navigation_spike_test
+)
+set_tests_properties(
+	EXCHANGE-PANEL-NAVIGATION-SPIKE
+	PROPERTIES
+		LABELS "controller;complex-ui;exchange;navigation;pure-spike"
+)
+
 # This target remains outside vcmitest because it must prove a pure startup
 # resolver without constructing GameLibrary or VCMIDirs.
 if(APPLE AND NOT IOS)
