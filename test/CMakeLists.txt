@@ -252,6 +252,8 @@ add_executable(vcmi_exchange_panel_navigation_spike_test
 	client/CExchangePanelNavigationSpikeTest.cpp
 	../client/widgets/CExchangePanelNavigationSpike.cpp
 	../client/widgets/CExchangePanelNavigationSpike.h
+	../client/windows/CExchangeWindowPanelRequestAdapter.cpp
+	../client/windows/CExchangeWindowPanelRequestAdapter.h
 )
 target_compile_features(vcmi_exchange_panel_navigation_spike_test PRIVATE cxx_std_20)
 target_include_directories(vcmi_exchange_panel_navigation_spike_test PRIVATE ${CMAKE_SOURCE_DIR})

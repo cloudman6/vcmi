@@ -9,8 +9,9 @@
  */
 #pragma once
 
+#include "../windows/CExchangeWindowPanelRequestAdapter.h"
+
 #include <cstddef>
-#include <functional>
 #include <optional>
 #include <string>
 #include <vector>
@@ -26,11 +27,31 @@ enum class EExchangePanelCategory
 	RIGHT_ARMY
 };
 
+enum class EExchangePanelSide
+{
+	LEFT,
+	RIGHT
+};
+
+enum class EExchangePanelRouteKind
+{
+	ARTIFACT,
+	ARMY
+};
+
+struct ExchangePanelSlotRoute
+{
+	EExchangePanelSide side;
+	EExchangePanelRouteKind kind;
+	int slot;
+};
+
 struct ExchangePanelSlot
 {
 	std::string stableId;
 	std::string instanceId;
 	EExchangePanelCategory category;
+	ExchangePanelSlotRoute route;
 	bool acceptsArtifact = false;
 	bool acceptsQuantity = false;
 	std::string unavailableReason;
@@ -50,18 +71,16 @@ struct ExchangePanelRequest
 	std::string sourceSlotId;
 	std::string targetSlotId;
 	int quantity = 0;
+	ExchangePanelSlotRoute sourceRoute;
+	ExchangePanelSlotRoute targetRoute;
 };
 
 /// Exercises only presentation state; existing exchange callbacks remain rule owners.
 class CExchangePanelNavigationSpike
 {
 public:
-	/// Bound privately by CExchangeWindow to its existing artifact/garrison request owner.
-	/// The spike emits presentation semantics only; the receiving callback keeps all game rules.
-	using CExchangeWindowRequestDelivery = std::function<void(const ExchangePanelRequest & request)>;
-
-	explicit CExchangePanelNavigationSpike(std::vector<ExchangePanelSlot> slots, size_t pageSize = 4,
-		CExchangeWindowRequestDelivery requestDelivery = {});
+	explicit CExchangePanelNavigationSpike(std::vector<ExchangePanelSlot> slots,
+		CExchangeWindowPrivate::PanelRequestAdapter & requestAdapter, size_t pageSize = 4);
 
 	bool selectCategory(EExchangePanelCategory category);
 	bool focusSlot(const std::string & stableId);
@@ -82,12 +101,12 @@ public:
 private:
 	const ExchangePanelSlot * focusedSlot() const;
 	const ExchangePanelSlot * findSlot(const std::string & stableId) const;
-	void emitRequest(ExchangePanelRequest request);
+	bool emitRequest(ExchangePanelRequest request);
 	void updateScrollOffset();
 
 	std::vector<ExchangePanelSlot> slots;
 	std::vector<ExchangePanelRequest> emittedRequests;
-	CExchangeWindowRequestDelivery requestDelivery;
+	CExchangeWindowPrivate::PanelRequestAdapter & requestAdapter;
 	std::optional<EExchangePanelCategory> activeCategory;
 	std::optional<std::string> focusedStableId;
 	std::optional<std::string> pickedArtifactSlotId;

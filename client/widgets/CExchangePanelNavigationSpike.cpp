@@ -17,10 +17,10 @@ namespace
 const std::string EMPTY_STRING;
 }
 
-CExchangePanelNavigationSpike::CExchangePanelNavigationSpike(std::vector<ExchangePanelSlot> slots, size_t pageSize,
-	CExchangeWindowRequestDelivery requestDelivery)
+CExchangePanelNavigationSpike::CExchangePanelNavigationSpike(std::vector<ExchangePanelSlot> slots,
+	CExchangeWindowPrivate::PanelRequestAdapter & requestAdapter, size_t pageSize)
 	: slots(std::move(slots))
-	, requestDelivery(std::move(requestDelivery))
+	, requestAdapter(requestAdapter)
 	, visiblePageSize(std::max<size_t>(1, pageSize))
 {
 }
@@ -51,7 +51,7 @@ bool CExchangePanelNavigationSpike::focusSlot(const std::string & stableId)
 bool CExchangePanelNavigationSpike::pickArtifact()
 {
 	const auto * slot = focusedSlot();
-	if(!slot || !slot->unavailableReason.empty() || slot->instanceId.empty())
+	if(!slot || slot->route.kind != EExchangePanelRouteKind::ARTIFACT || !slot->unavailableReason.empty() || slot->instanceId.empty())
 		return false;
 
 	pickedArtifactSlotId = slot->stableId;
@@ -61,10 +61,13 @@ bool CExchangePanelNavigationSpike::pickArtifact()
 bool CExchangePanelNavigationSpike::dropPickedArtifact()
 {
 	const auto * slot = focusedSlot();
-	if(!slot || !pickedArtifactSlotId || !slot->unavailableReason.empty() || !slot->acceptsArtifact)
+	const auto * source = pickedArtifactSlotId ? findSlot(*pickedArtifactSlotId) : nullptr;
+	if(!slot || !source || source->route.kind != EExchangePanelRouteKind::ARTIFACT || slot->route.kind != EExchangePanelRouteKind::ARTIFACT
+		|| !slot->unavailableReason.empty() || !slot->acceptsArtifact)
 		return false;
 
-	emitRequest({EExchangePanelRequestType::DROP_ARTIFACT, *pickedArtifactSlotId, slot->stableId, 0});
+	if(!emitRequest({EExchangePanelRequestType::DROP_ARTIFACT, *pickedArtifactSlotId, slot->stableId, 0, source->route, slot->route}))
+		return false;
 	pickedArtifactSlotId.reset();
 	return true;
 }
@@ -73,7 +76,8 @@ bool CExchangePanelNavigationSpike::beginQuantity(const std::string & targetSlot
 {
 	const auto * source = focusedSlot();
 	const auto * target = findSlot(targetSlotId);
-	if(!source || !target || !source->unavailableReason.empty() || !target->unavailableReason.empty()
+	if(!source || !target || source->route.kind != EExchangePanelRouteKind::ARMY || target->route.kind != EExchangePanelRouteKind::ARMY
+		|| !source->unavailableReason.empty() || !target->unavailableReason.empty()
 		|| !source->minimumQuantity || !source->maximumQuantity || !target->acceptsQuantity)
 		return false;
 
@@ -103,8 +107,14 @@ bool CExchangePanelNavigationSpike::confirmQuantity()
 {
 	if(!quantitySourceSlotId || !quantityTargetSlotId || !selectedQuantity)
 		return false;
+	const auto * source = findSlot(*quantitySourceSlotId);
+	const auto * target = findSlot(*quantityTargetSlotId);
+	if(!source || !target)
+		return false;
 
-	emitRequest({EExchangePanelRequestType::SPLIT_STACK, *quantitySourceSlotId, *quantityTargetSlotId, *selectedQuantity});
+	if(!emitRequest({EExchangePanelRequestType::SPLIT_STACK, *quantitySourceSlotId, *quantityTargetSlotId, *selectedQuantity,
+		source->route, target->route}))
+		return false;
 	quantitySourceSlotId.reset();
 	quantityTargetSlotId.reset();
 	selectedQuantity.reset();
@@ -197,11 +207,12 @@ const ExchangePanelSlot * CExchangePanelNavigationSpike::findSlot(const std::str
 	return found == slots.end() ? nullptr : &*found;
 }
 
-void CExchangePanelNavigationSpike::emitRequest(ExchangePanelRequest request)
+bool CExchangePanelNavigationSpike::emitRequest(ExchangePanelRequest request)
 {
+	if(!requestAdapter.deliver(request))
+		return false;
 	emittedRequests.push_back(std::move(request));
-	if(requestDelivery)
-		requestDelivery(emittedRequests.back());
+	return true;
 }
 
 void CExchangePanelNavigationSpike::updateScrollOffset()

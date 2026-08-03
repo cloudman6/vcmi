@@ -21,6 +21,7 @@
 #include "../gui/WindowHandler.h"
 
 #include "../widgets/CGarrisonInt.h"
+#include "../widgets/CExchangePanelNavigationSpike.h"
 #include "../widgets/Images.h"
 #include "../widgets/Buttons.h"
 #include "../widgets/TextControls.h"
@@ -45,7 +46,8 @@ static bool isQuickExchangeLayoutAvailable()
 
 CExchangeWindow::CExchangeWindow(ObjectInstanceID hero1, ObjectInstanceID hero2, QueryID queryID)
 	: CWindowObject(PLAYER_COLORED | BORDERED, ImagePath::builtin(isQuickExchangeLayoutAvailable() ? QUICK_EXCHANGE_BG : (ENGINE->isRoeData() ? "TRADE" : "TRADE2"))),
-	controller(hero1, hero2)
+	controller(hero1, hero2),
+	navigationRequestAdapter(*this)
 {
 	const bool qeLayout = isQuickExchangeLayoutAvailable();
 
@@ -264,6 +266,32 @@ CExchangeWindow::CExchangeWindow(ObjectInstanceID hero1, ObjectInstanceID hero2,
 	CExchangeWindow::updateArtifacts();
 }
 
+bool CExchangeWindow::deliverExchangePanelRequest(const ExchangePanelRequest & request)
+{
+	const auto sourceIndex = request.sourceRoute.side == EExchangePanelSide::LEFT ? 0 : 1;
+	const auto targetIndex = request.targetRoute.side == EExchangePanelSide::LEFT ? 0 : 1;
+
+	if(!heroInst[sourceIndex] || !heroInst[targetIndex])
+		return false;
+
+	switch(request.type)
+	{
+		case EExchangePanelRequestType::DROP_ARTIFACT:
+			if(request.sourceRoute.kind != EExchangePanelRouteKind::ARTIFACT || request.targetRoute.kind != EExchangePanelRouteKind::ARTIFACT)
+				return false;
+			clickPressedOnArtPlace(heroInst[sourceIndex], ArtifactPosition(request.sourceRoute.slot), true, false, false, Point());
+			clickPressedOnArtPlace(heroInst[targetIndex], ArtifactPosition(request.targetRoute.slot), true, false, false, Point());
+			return true;
+		case EExchangePanelRequestType::SPLIT_STACK:
+			if(request.sourceRoute.kind != EExchangePanelRouteKind::ARMY || request.targetRoute.kind != EExchangePanelRouteKind::ARMY)
+				return false;
+			GAME->interface()->cb->splitStack(heroInst[sourceIndex], heroInst[targetIndex], SlotID(request.sourceRoute.slot), SlotID(request.targetRoute.slot), request.quantity);
+			return true;
+	}
+
+	return false;
+}
+
 void CExchangeWindow::creatureArrowButtonCallback(bool leftToRight, SlotID slotId)
 {
 	if (ENGINE->isKeyboardAltDown())
@@ -427,4 +455,3 @@ void CExchangeWindow::updateArtifacts()
 		luck[leftRight]->set(hero);
 	}
 }
-

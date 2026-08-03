@@ -10,13 +10,14 @@
 #pragma once
 
 #include "CWindowWithArtifacts.h"
+#include "CExchangeWindowPanelRequestAdapter.h"
 #include "../widgets/CExchangeController.h"
 
 class CGarrisonSlot;
 class CMultiLineLabel;
 class LRClickableAreaWText;
 
-class CExchangeWindow : public CStatusbarWindow, public IGarrisonHolder, public CWindowWithArtifacts
+class CExchangeWindow : public CStatusbarWindow, public IGarrisonHolder, public CWindowWithArtifacts, private CExchangeWindowPrivate::RequestOwner
 {
 	std::array<std::shared_ptr<CLabel>, 2> titles;
 	std::vector<std::shared_ptr<CAnimImage>> primSkillImages;//shared for both heroes
@@ -57,6 +58,7 @@ class CExchangeWindow : public CStatusbarWindow, public IGarrisonHolder, public 
 	std::shared_ptr<CButton> backpackButtonLeft;
 	std::shared_ptr<CButton> backpackButtonRight;
 	CExchangeController controller;
+	CExchangeWindowPrivate::PanelRequestAdapter navigationRequestAdapter;
 
 	void creatureArrowButtonCallback(bool leftToRight, SlotID slotID);
 	void moveArtifactsCallback(bool leftToRight);
@@ -64,6 +66,7 @@ class CExchangeWindow : public CStatusbarWindow, public IGarrisonHolder, public 
 	void moveUnitsShortcut(bool leftToRight);
 	void backpackShortcut(bool leftHero);
 	void questLogShortcut();
+	bool deliverExchangePanelRequest(const ExchangePanelRequest & request) override;
 
 	std::array<const CGHeroInstance *, 2> heroInst;
 	std::array<std::shared_ptr<CArtifactsOfHeroMain>, 2> artifs;

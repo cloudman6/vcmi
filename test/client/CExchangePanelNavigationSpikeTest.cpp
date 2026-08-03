@@ -12,6 +12,7 @@
 #include <algorithm>
 #include <functional>
 #include <iostream>
+#include <optional>
 #include <stdexcept>
 #include <string>
 #include <utility>
@@ -19,13 +20,26 @@
 
 namespace
 {
+class CExchangeWindowRuleOwnerDouble final : public CExchangeWindowPrivate::RequestOwner
+{
+public:
+	bool acceptRequests = true;
+	std::optional<ExchangePanelRequest> receivedRequest;
+
+	bool deliverExchangePanelRequest(const ExchangePanelRequest & request) override
+	{
+		receivedRequest = request;
+		return acceptRequests;
+	}
+};
+
 /// Supplies a synthetic CExchangeWindow snapshot without game data or rules.
 class CExchangePanelFixture
 {
 public:
-	CExchangePanelNavigationSpike makePanel(CExchangePanelNavigationSpike::CExchangeWindowRequestDelivery requestDelivery = {}) const
+	CExchangePanelNavigationSpike makePanel(CExchangeWindowPrivate::PanelRequestAdapter & requestAdapter) const
 	{
-		return CExchangePanelNavigationSpike(makeSlots(), 4, std::move(requestDelivery));
+		return CExchangePanelNavigationSpike(makeSlots(), requestAdapter);
 	}
 
 	std::vector<ExchangePanelSlot> slotsWithout(const std::string & stableId) const
@@ -42,11 +56,11 @@ private:
 	std::vector<ExchangePanelSlot> makeSlots() const
 	{
 		std::vector<ExchangePanelSlot> slots = {
-			{"left-equipment-helm", "artifact-instance-helm", EExchangePanelCategory::LEFT_EQUIPMENT, false, false, "", {}, {}},
-			{"right-backpack-0", "", EExchangePanelCategory::RIGHT_BACKPACK, true, false, "", {}, {}},
-			{"left-army-pikemen", "creature-stack-pikemen", EExchangePanelCategory::LEFT_ARMY, false, false, "", 1, 9},
-			{"right-army-empty", "", EExchangePanelCategory::RIGHT_ARMY, false, true, "", {}, {}},
-			{"left-army-locked", "creature-stack-ally", EExchangePanelCategory::LEFT_ARMY, false, false, "Ally army cannot be moved", 1, 9}
+			{"left-equipment-helm", "artifact-instance-helm", EExchangePanelCategory::LEFT_EQUIPMENT, {EExchangePanelSide::LEFT, EExchangePanelRouteKind::ARTIFACT, 0}, false, false, "", {}, {}},
+			{"right-backpack-0", "", EExchangePanelCategory::RIGHT_BACKPACK, {EExchangePanelSide::RIGHT, EExchangePanelRouteKind::ARTIFACT, 19}, true, false, "", {}, {}},
+			{"left-army-pikemen", "creature-stack-pikemen", EExchangePanelCategory::LEFT_ARMY, {EExchangePanelSide::LEFT, EExchangePanelRouteKind::ARMY, 0}, false, false, "", 1, 9},
+			{"right-army-empty", "", EExchangePanelCategory::RIGHT_ARMY, {EExchangePanelSide::RIGHT, EExchangePanelRouteKind::ARMY, 1}, false, true, "", {}, {}},
+			{"left-army-locked", "creature-stack-ally", EExchangePanelCategory::LEFT_ARMY, {EExchangePanelSide::LEFT, EExchangePanelRouteKind::ARMY, 2}, false, false, "Ally army cannot be moved", 1, 9}
 		};
 
 		for(int index = 0; index < 20; ++index)
@@ -55,6 +69,7 @@ private:
 				"left-backpack-" + std::to_string(index),
 				"artifact-instance-backpack-" + std::to_string(index),
 				EExchangePanelCategory::LEFT_BACKPACK,
+				{EExchangePanelSide::LEFT, EExchangePanelRouteKind::ARTIFACT, 19 + index},
 				false,
 				false,
 				"",
@@ -76,7 +91,9 @@ void require(bool condition, const std::string & message)
 void testCategoriesAndScrolling()
 {
 	CExchangePanelFixture fixture;
-	auto panel = fixture.makePanel();
+	CExchangeWindowRuleOwnerDouble owner;
+	CExchangeWindowPrivate::PanelRequestAdapter requestAdapter(owner);
+	auto panel = fixture.makePanel(requestAdapter);
 
 	require(panel.selectCategory(EExchangePanelCategory::LEFT_BACKPACK), "left backpack category must be selectable");
 	require(panel.currentCategory() == EExchangePanelCategory::LEFT_BACKPACK, "selected category must be retained");
@@ -88,7 +105,9 @@ void testCategoriesAndScrolling()
 void testArtifactPickAndDropUsesExistingInstance()
 {
 	CExchangePanelFixture fixture;
-	auto panel = fixture.makePanel();
+	CExchangeWindowRuleOwnerDouble owner;
+	CExchangeWindowPrivate::PanelRequestAdapter requestAdapter(owner);
+	auto panel = fixture.makePanel(requestAdapter);
 
 	require(panel.focusSlot("left-equipment-helm"), "equipped artifact must be focusable");
 	require(panel.pickArtifact(), "focused artifact must enter presentation pickup state");
@@ -103,7 +122,9 @@ void testArtifactPickAndDropUsesExistingInstance()
 void testQuantityAndUnavailableReason()
 {
 	CExchangePanelFixture fixture;
-	auto panel = fixture.makePanel();
+	CExchangeWindowRuleOwnerDouble owner;
+	CExchangeWindowPrivate::PanelRequestAdapter requestAdapter(owner);
+	auto panel = fixture.makePanel(requestAdapter);
 
 	require(panel.focusSlot("left-army-pikemen"), "source stack must be focusable");
 	require(panel.beginQuantity("right-army-empty"), "snapshot-declared target must enter quantity mode");
@@ -114,14 +135,14 @@ void testQuantityAndUnavailableReason()
 	require(panel.requests().front().type == EExchangePanelRequestType::SPLIT_STACK, "quantity request must preserve split semantics");
 	require(panel.requests().front().quantity == 1, "quantity request must retain the supplied minimum count");
 
-	auto maximumPanel = fixture.makePanel();
+	auto maximumPanel = fixture.makePanel(requestAdapter);
 	require(maximumPanel.focusSlot("left-army-pikemen"), "maximum-bound source stack must be focusable");
 	require(maximumPanel.beginQuantity("right-army-empty"), "maximum-bound target must enter quantity mode");
 	require(maximumPanel.setQuantity(9), "supplied maximum quantity must be accepted");
 	require(maximumPanel.confirmQuantity(), "maximum quantity must emit one split request");
 	require(maximumPanel.requests().front().quantity == 9, "quantity request must retain the supplied maximum count");
 
-	auto exceedingPanel = fixture.makePanel();
+	auto exceedingPanel = fixture.makePanel(requestAdapter);
 	require(exceedingPanel.focusSlot("left-army-pikemen"), "above-maximum source stack must be focusable");
 	require(exceedingPanel.beginQuantity("right-army-empty"), "above-maximum target must enter quantity mode");
 	require(!exceedingPanel.setQuantity(10), "quantity above the supplied range must not be accepted");
@@ -133,41 +154,59 @@ void testQuantityAndUnavailableReason()
 	require(panel.requests().size() == 1, "disabled action must not duplicate an existing request");
 }
 
-void testCExchangeWindowDeliverySeam()
+void testCExchangeWindowOwnerDelivery()
 {
 	CExchangePanelFixture fixture;
-	std::vector<ExchangePanelRequest> callbackRequests;
-	auto panel = fixture.makePanel([&callbackRequests](const ExchangePanelRequest & request)
-	{
-		callbackRequests.push_back(request);
-	});
+	CExchangeWindowRuleOwnerDouble artifactOwner;
+	CExchangeWindowPrivate::PanelRequestAdapter artifactRequestAdapter(artifactOwner);
+	auto panel = fixture.makePanel(artifactRequestAdapter);
 
 	require(panel.focusSlot("left-equipment-helm"), "delivery source must be focusable");
 	require(panel.pickArtifact(), "delivery source must be pickable");
 	require(panel.focusSlot("right-backpack-0"), "delivery target must be focusable");
 	require(panel.dropPickedArtifact(), "drop must deliver a semantic artifact request");
-	require(callbackRequests.size() == 1, "CExchangeWindow callback path must receive one request");
-	require(callbackRequests.front().type == EExchangePanelRequestType::DROP_ARTIFACT, "delivery seam must retain artifact semantics");
-	require(callbackRequests.front().sourceSlotId == "left-equipment-helm", "delivery seam must retain artifact source identity");
-	require(callbackRequests.front().targetSlotId == "right-backpack-0", "delivery seam must retain artifact target identity");
+	require(artifactOwner.receivedRequest.has_value(), "CExchangeWindow artifact owner must receive a request");
+	require(artifactOwner.receivedRequest->type == EExchangePanelRequestType::DROP_ARTIFACT, "owner must receive unmodified artifact semantics");
+	require(artifactOwner.receivedRequest->sourceSlotId == "left-equipment-helm", "owner must receive the artifact source identity");
+	require(artifactOwner.receivedRequest->targetSlotId == "right-backpack-0", "owner must receive the artifact target identity");
+	require(artifactOwner.receivedRequest->quantity == 0, "owner must receive the artifact quantity unchanged");
 
-	auto quantityPanel = fixture.makePanel([&callbackRequests](const ExchangePanelRequest & request)
-	{
-		callbackRequests.push_back(request);
-	});
+	CExchangeWindowRuleOwnerDouble splitOwner;
+	CExchangeWindowPrivate::PanelRequestAdapter splitRequestAdapter(splitOwner);
+	auto quantityPanel = fixture.makePanel(splitRequestAdapter);
 	require(quantityPanel.focusSlot("left-army-pikemen"), "quantity delivery source must be focusable");
 	require(quantityPanel.beginQuantity("right-army-empty"), "quantity delivery target must enter quantity mode");
 	require(quantityPanel.setQuantity(1), "quantity delivery must accept the supplied lower bound");
 	require(quantityPanel.confirmQuantity(), "quantity confirmation must deliver a semantic split request");
-	require(callbackRequests.size() == 2, "CExchangeWindow callback path must receive a quantity request");
-	require(callbackRequests.back().type == EExchangePanelRequestType::SPLIT_STACK, "delivery seam must retain split semantics");
-	require(callbackRequests.back().quantity == 1, "delivery seam must retain the chosen split count");
+	require(splitOwner.receivedRequest.has_value(), "CExchangeWindow stack owner must receive a request");
+	require(splitOwner.receivedRequest->type == EExchangePanelRequestType::SPLIT_STACK, "owner must receive unmodified split semantics");
+	require(splitOwner.receivedRequest->sourceSlotId == "left-army-pikemen", "owner must receive the split source identity");
+	require(splitOwner.receivedRequest->targetSlotId == "right-army-empty", "owner must receive the split target identity");
+	require(splitOwner.receivedRequest->quantity == 1, "owner must receive the chosen split count unchanged");
+}
+
+void testOwnerRejectionPreventsReportedSuccess()
+{
+	CExchangePanelFixture fixture;
+	CExchangeWindowRuleOwnerDouble owner;
+	owner.acceptRequests = false;
+	CExchangeWindowPrivate::PanelRequestAdapter requestAdapter(owner);
+	auto panel = fixture.makePanel(requestAdapter);
+
+	require(panel.focusSlot("left-equipment-helm"), "rejected delivery source must be focusable");
+	require(panel.pickArtifact(), "rejected delivery source must still be pickable");
+	require(panel.focusSlot("right-backpack-0"), "rejected delivery target must be focusable");
+	require(!panel.dropPickedArtifact(), "owner rejection must prevent a reported artifact success");
+	require(owner.receivedRequest.has_value(), "owner must receive the rejected artifact request");
+	require(panel.requests().empty(), "owner rejection must not record a completed request");
 }
 
 void testModalRestoreUsesStableFocusThenDeterministicFallback()
 {
 	CExchangePanelFixture fixture;
-	auto panel = fixture.makePanel();
+	CExchangeWindowRuleOwnerDouble owner;
+	CExchangeWindowPrivate::PanelRequestAdapter requestAdapter(owner);
+	auto panel = fixture.makePanel(requestAdapter);
 
 	require(panel.focusSlot("left-backpack-14"), "focus must enter the large list before modal suspension");
 	panel.suspendForModal();
@@ -183,7 +222,8 @@ int main()
 		{"categories-and-scrolling", testCategoriesAndScrolling},
 		{"artifact-pick-and-drop", testArtifactPickAndDropUsesExistingInstance},
 		{"quantity-and-unavailable-reason", testQuantityAndUnavailableReason},
-		{"cexchangewindow-delivery-seam", testCExchangeWindowDeliverySeam},
+		{"cexchangewindow-owner-delivery", testCExchangeWindowOwnerDelivery},
+		{"owner-rejection-prevents-success", testOwnerRejectionPreventsReportedSuccess},
 		{"modal-focus-restore", testModalRestoreUsesStableFocusThenDeterministicFallback}
 	};
 
