@@ -23,11 +23,17 @@ void WindowHandler::popWindow(std::shared_ptr<IShowActivatable> top)
 	if (windowsStack.back() != top)
 		throw std::runtime_error("Attempt to pop non-top window from stack!");
 
+	if(auto * scope = top->getFocusScope())
+		scope->suspendFocus();
 	top->deactivate();
 	disposed.push_back(top);
 	windowsStack.pop_back();
 	if(!windowsStack.empty())
+	{
 		windowsStack.back()->activate();
+		if(auto * scope = windowsStack.back()->getFocusScope())
+			scope->restoreFocus();
+	}
 
 	totalRedraw();
 }
@@ -41,10 +47,17 @@ void WindowHandler::pushWindow(std::shared_ptr<IShowActivatable> newInt)
 		throw std::runtime_error("Attempt to add already existing window to stack!");
 
 	if(!windowsStack.empty())
+	{
+		if(auto * scope = windowsStack.back()->getFocusScope())
+			scope->suspendFocus();
 		windowsStack.back()->deactivate();
+	}
 	windowsStack.push_back(newInt);
-	ENGINE->cursor().set(Cursor::Map::POINTER);
+	if(!ENGINE->isHeadlessForTests())
+		ENGINE->cursor().set(Cursor::Map::POINTER);
 	newInt->activate();
+	if(auto * scope = newInt->getFocusScope())
+		scope->restoreFocus();
 	totalRedraw();
 }
 
@@ -62,6 +75,8 @@ void WindowHandler::popWindows(int howMany)
 		return; //senseless but who knows...
 
 	assert(windowsStack.size() >= howMany);
+	if(auto * scope = windowsStack.back()->getFocusScope())
+		scope->suspendFocus();
 	windowsStack.back()->deactivate();
 	for(int i = 0; i < howMany; i++)
 	{
@@ -72,9 +87,12 @@ void WindowHandler::popWindows(int howMany)
 	if(!windowsStack.empty())
 	{
 		windowsStack.back()->activate();
+		if(auto * scope = windowsStack.back()->getFocusScope())
+			scope->restoreFocus();
 		totalRedraw();
 	}
-	ENGINE->fakeMouseMove();
+	if(!ENGINE->isHeadlessForTests())
+		ENGINE->fakeMouseMove();
 }
 
 std::shared_ptr<IShowActivatable> WindowHandler::topWindowImpl() const
@@ -151,7 +169,11 @@ size_t WindowHandler::count() const
 void WindowHandler::clear()
 {
 	if(!windowsStack.empty())
+	{
+		if(auto * scope = windowsStack.back()->getFocusScope())
+			scope->suspendFocus();
 		windowsStack.back()->deactivate();
+	}
 
 	windowsStack.clear();
 	disposed.clear();

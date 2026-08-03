@@ -18,6 +18,7 @@ class ShortcutHandler;
 class FramerateManager;
 class IStatusBar;
 class CIntObject;
+class CWindowObject;
 class IGameEngineUser;
 class IRenderHandler;
 class IScreenHandler;
@@ -29,10 +30,21 @@ class IMusicPlayer;
 class CursorHandler;
 class IVideoPlayer;
 class Discord;
+class CObjectListWindowControllerTest;
 
 class GameEngine
 {
 private:
+	struct HeadlessTestTag
+	{
+	};
+
+	friend class CIntObject;
+	friend class CWindowObject;
+	friend class WindowHandler;
+	friend class CObjectListWindow;
+	friend class CObjectListWindowControllerTest;
+
 	/// Fake no-op version status bar, for use in windows that have no status bar
 	std::shared_ptr<IStatusBar> fakeStatusBar;
 
@@ -59,10 +71,13 @@ private:
 	IGameEngineUser *engineUser = nullptr;
 
 	int maxPerformanceOverlayTextWidth = 0;
+	bool headlessForTests = false;
 
 	void updateFrame();
 	void handleEvents(); //takes events from queue and calls interested objects
 	void drawPerformanceOverlay(); // draws box with additional infos (e.g. fps)
+	GameEngine(HeadlessTestTag);
+	bool isHeadlessForTests() const;
 
 public:
 	std::mutex interfaceMutex;

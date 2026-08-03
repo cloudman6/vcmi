@@ -213,6 +213,19 @@ if(MOVE_ASSIGN)
 endif()
 add_subdirectory_with_folder("3rdparty" googletest EXCLUDE_FROM_ALL)
 
+if(ENABLE_CLIENT)
+	add_executable(vcmi_cobject_list_window_controller_test
+		CObjectListWindowControllerTest.cpp
+	)
+	target_link_libraries(vcmi_cobject_list_window_controller_test PRIVATE gtest_main vcmiclientcommon)
+	target_include_directories(vcmi_cobject_list_window_controller_test
+		PRIVATE ${GTestSrc}
+		PRIVATE ${GTestSrc}/include
+	)
+	gtest_discover_tests(vcmi_cobject_list_window_controller_test)
+	vcmi_set_output_dir(vcmi_cobject_list_window_controller_test "")
+endif()
+
 add_executable(vcmitest ${test_SRCS} ${test_HEADERS} ${mock_HEADERS})
 if(ENABLE_NULLKILLER2_AI)
 	# Nullkiller tests use internal AI symbols, so embed AI objects in vcmitest

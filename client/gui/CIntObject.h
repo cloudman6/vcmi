@@ -21,6 +21,14 @@ class Canvas;
 
 class CArmedInstance;
 
+class IFocusScope
+{
+public:
+	virtual void suspendFocus() = 0;
+	virtual void restoreFocus() = 0;
+	virtual ~IFocusScope() = default;
+};
+
 class IShowActivatable
 {
 public:
@@ -33,6 +41,7 @@ public:
 
 	virtual bool isPopupWindow() const = 0;
 	virtual void onScreenResize() = 0;
+	virtual IFocusScope * getFocusScope() { return nullptr; }
 	virtual ~IShowActivatable() = default;
 };
 

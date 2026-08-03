@@ -93,6 +93,24 @@ GameEngine::GameEngine()
 	asyncTasks = std::make_unique<AsyncRunner>();
 }
 
+GameEngine::GameEngine(HeadlessTestTag)
+	: captureChildren(false)
+	, fakeStatusBar(std::make_shared<EmptyStatusBar>())
+	, headlessForTests(true)
+{
+	inGuiThread = true;
+
+	eventDispatcherInstance = std::make_unique<EventDispatcher>();
+	windowHandlerInstance = std::make_unique<WindowHandler>();
+	shortcutsHandlerInstance = std::make_unique<ShortcutHandler>();
+	inputHandlerInstance = std::unique_ptr<InputHandler>(new InputHandler(InputHandler::HeadlessTestTag()));
+}
+
+bool GameEngine::isHeadlessForTests() const
+{
+	return headlessForTests;
+}
+
 void GameEngine::handleEvents()
 {
 	events().dispatchTimer(framerate().getElapsedMilliseconds());

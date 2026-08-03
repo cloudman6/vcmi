@@ -23,6 +23,10 @@ class CWindowObject : public WindowBase
 	int options;
 
 protected:
+	struct HeadlessTestTag
+	{
+	};
+
 	std::shared_ptr<CPicture> background;
 
 	//Used only if RCLICK_POPUP was set
@@ -32,6 +36,7 @@ protected:
 	void setBackground(const ImagePath & filename);
 	std::shared_ptr<CPicture> createBg(const ImagePath & imageName, int windowOptions);
 	std::shared_ptr<CPicture> createPlayerColoredBorderedStatusbar(const std::shared_ptr<CPicture> & image, PlayerColor playerColor);
+	CWindowObject(HeadlessTestTag);
 public:
 	enum EOptions
 	{

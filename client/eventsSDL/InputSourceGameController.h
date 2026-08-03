@@ -16,14 +16,29 @@
 #include "../../lib/Point.h"
 #include "../gui/Shortcut.h"
 
+enum class ControllerPresentation
+{
+	UNKNOWN,
+	DUALSENSE
+};
+
 /// Class that handles game controller input from SDL events
 class InputSourceGameController
 {
+	struct HeadlessTestTag
+	{
+	};
+
+	friend class CObjectListWindowControllerTest;
+
 	static void gameControllerDeleter(SDL_GameController * gameController);
 	using GameControllerPtr = std::unique_ptr<SDL_GameController, decltype(&gameControllerDeleter)>;
 
 	std::map<int, GameControllerPtr> gameControllerMap;
+	std::map<int, ControllerPresentation> controllerPresentations;
 	std::set<SDL_GameControllerAxis> pressedAxes;
+	int activeController = -1;
+	ControllerPresentation activePresentation = ControllerPresentation::UNKNOWN;
 
 	std::chrono::steady_clock::time_point lastCheckTime;
 	double cursorAxisValueX;
@@ -46,6 +61,9 @@ class InputSourceGameController
 	const double configAxisScale;
 
 	void openGameController(int index);
+	void setActiveController(int instanceID);
+	void invalidateControllerPresentation(int instanceID);
+	InputSourceGameController(HeadlessTestTag);
 	int getJoystickIndex(SDL_GameController * controller);
 	double getRealAxisValue(int value) const;
 	void dispatchAxisShortcuts(const std::vector<EShortcut> & shortcutsVector, SDL_GameControllerAxis axisID, int axisValue, std::string axisName);
@@ -66,4 +84,7 @@ public:
 	void handleEventButtonDown(const SDL_ControllerButtonEvent & button);
 	void handleEventButtonUp(const SDL_ControllerButtonEvent & button);
 	void handleUpdate();
+	ControllerPresentation getActivePresentation() const;
+	static std::optional<std::string> getGlyphToken(
+		ControllerPresentation presentation, const std::vector<std::string> & bindings);
 };

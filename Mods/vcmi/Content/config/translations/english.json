@@ -834,6 +834,7 @@
 	"vcmi.lobby.battleOnlyModeSelectUnit": "Unit\n%d",
 	"vcmi.lobby.battleOnlyModeSubTitle": "Select heroes, army, skills, artifact and battleground for simple battle without adventure map",
 	"vcmi.lobby.battleOnlySpellAdd": "Add spell",
+	"vcmi.lobby.battleOnlySpellAlreadySelected": "Already selected",
 	"vcmi.lobby.battleOnlySpellRemove": "Remove spell",
 	"vcmi.lobby.battleOnlySpellSelect": "Add spells to spellbook",
 	"vcmi.lobby.battleOnlySpellSelectCurrent": "Add or remove spells from spellbook\n\nCurrent spells:",

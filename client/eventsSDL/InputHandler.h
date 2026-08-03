@@ -24,6 +24,8 @@ class InputSourceKeyboard;
 class InputSourceTouch;
 class InputSourceText;
 class InputSourceGameController;
+enum class ControllerPresentation;
+class CObjectListWindowControllerTest;
 
 enum class InputMode
 {
@@ -47,6 +49,13 @@ struct PowerState {
 
 class InputHandler
 {
+	struct HeadlessTestTag
+	{
+	};
+
+	friend class GameEngine;
+	friend class CObjectListWindowControllerTest;
+
 	std::vector<SDL_Event> eventsQueue;
 	tbb::concurrent_queue<std::unique_ptr<std::function<void()>>> dispatchedTasks;
 	std::mutex eventsMutex;
@@ -59,6 +68,7 @@ class InputHandler
 
 	InputMode currentInputMode;
 	void setCurrentInputMode(InputMode modi);
+	InputHandler(HeadlessTestTag);
 
 	std::vector<SDL_Event> acquireEvents();
 
@@ -129,6 +139,8 @@ public:
 	bool isKeyboardShiftDown() const;
 
 	InputMode getCurrentInputMode();
+	ControllerPresentation getControllerPresentation() const;
+	std::optional<std::string> getControllerGlyphToken(const std::vector<std::string> & bindings) const;
 
 	void copyToClipBoard(const std::string & text);
 	PowerState getPowerState();

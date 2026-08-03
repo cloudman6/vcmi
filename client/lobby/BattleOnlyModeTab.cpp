@@ -407,23 +407,25 @@ void BattleOnlyModeHeroSelector::manageSpells()
 		return TextOperations::compareLocalizedStrings(A->getNameTranslated(), B->getNameTranslated());
 	});
 
-	std::vector<SpellID> toAdd;
 	std::vector<SpellID> toRemove;
-	for (const auto& spell : allSpells)
+	for(const auto & spell : allSpells)
 	{
 		bool inCurrent = std::find(parent.startInfo->spells[id].begin(), parent.startInfo->spells[id].end(), spell) != parent.startInfo->spells[id].end();
-		if (inCurrent)
+		if(inCurrent)
 			toRemove.push_back(spell);
-		else
-			toAdd.push_back(spell);
 	}
 
 	auto openList = [this](std::vector<SpellID> list, bool add){
-		std::vector<std::string> texts;
+		std::vector<CObjectListWindow::ListItem> items;
 		std::vector<std::shared_ptr<IImage>> images;
-		for (const auto & s : list)
+		for(const auto & s : list)
 		{
-			texts.push_back(s.toSpell()->getNameTranslated());
+			const bool alreadySelected = add && vstd::contains(parent.startInfo->spells[id], s);
+			items.push_back({
+				s.toSpell()->getNameTranslated(),
+				!alreadySelected,
+				alreadySelected ? LIBRARY->generaltexth->translate("vcmi.lobby.battleOnlySpellAlreadySelected") : ""
+			});
 
 			auto image = ENGINE->renderHandler().loadImage(AnimationPath::builtin("SpellInt"), s.toSpell()->getIconIndex() + 1, 0, EImageBlitMode::OPAQUE);
 			image->scaleTo(Point(35, 23), EScalingAlgorithm::NEAREST);
@@ -431,10 +433,14 @@ void BattleOnlyModeHeroSelector::manageSpells()
 		}
 
 		std::string title = LIBRARY->generaltexth->translate(add ? "vcmi.lobby.battleOnlySpellAdd" : "vcmi.lobby.battleOnlySpellRemove");
-		auto window = std::make_shared<CObjectListWindow>(texts, nullptr, title, title, [this, list, add](int index){
+		auto window = std::make_shared<CObjectListWindow>(items, nullptr, title, title, [this, list, add](int index){
 			auto & v = parent.startInfo->spells[id];
-			if(add)	
+			if(add)
+			{
+				if(vstd::contains(v, list[index]))
+					return;
 				v.push_back(list[index]);
+			}
 			else
 				v.erase(std::remove(v.begin(), v.end(), list[index]), v.end());
 
@@ -450,7 +456,7 @@ void BattleOnlyModeHeroSelector::manageSpells()
 
 	auto temp = std::make_shared<CInfoWindow>(LIBRARY->generaltexth->translate(parent.startInfo->spells[id].size() ? "vcmi.lobby.battleOnlySpellSelectCurrent" : "vcmi.lobby.battleOnlySpellSelect"), PlayerColor(0), resComps, pom);
 	temp->buttons[0]->setOverlay(std::make_shared<CPicture>(ImagePath::builtin("lobby/addChannel")));
-	temp->buttons[0]->addCallback([openList, toAdd](){ openList(toAdd, true); });
+	temp->buttons[0]->addCallback([openList, allSpells](){ openList(allSpells, true); });
 	temp->buttons[0]->addPopupCallback([](){ CRClickPopup::createAndPush(LIBRARY->generaltexth->translate("vcmi.lobby.battleOnlySpellAdd")); });
 	temp->buttons[1]->setOverlay(std::make_shared<CPicture>(ImagePath::builtin("lobby/removeChannel")));
 	temp->buttons[1]->addCallback([openList, toRemove](){ openList(toRemove, false); });
