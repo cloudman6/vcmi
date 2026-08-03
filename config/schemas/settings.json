@@ -352,7 +352,7 @@
 				"enableMouse",
 				"enableTouch",
 				"enableController",
-				"controllerTriggerTreshold",
+				"controllerTriggerThreshold",
 				"controllerAxisDeadZone",
 				"controllerAxisFullZone",
 				"controllerAxisSpeed",
@@ -388,9 +388,11 @@
 					"type" : "boolean",
 					"default" : true
 				},
-				"controllerTriggerTreshold" : {
+				"controllerTriggerThreshold" : {
 					"type" : "number",
-					"default" : 0.3
+					"default" : 0.3,
+					"minimum" : 0,
+					"maximum" : 1
 				},
 				"controllerAxisDeadZone" : {
 					"type" : "number",

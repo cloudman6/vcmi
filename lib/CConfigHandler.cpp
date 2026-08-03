@@ -15,9 +15,61 @@
 #include "VCMIDirs.h"
 #include "json/JsonUtils.h"
 
+#include <cmath>
+
 SettingsStorage settings;
 SettingsStorage persistentStorage;
 SettingsStorage keyBindingsConfig;
+
+namespace
+{
+constexpr double CONTROLLER_TRIGGER_THRESHOLD_DEFAULT = 0.3;
+constexpr auto CONTROLLER_TRIGGER_THRESHOLD = "controllerTriggerThreshold";
+constexpr auto CONTROLLER_TRIGGER_TRESHOLD = "controllerTriggerTreshold";
+
+bool isValidControllerTriggerThreshold(const JsonNode & value)
+{
+	if(!value.isNumber())
+		return false;
+
+	const double threshold = value.Float();
+	return std::isfinite(threshold) && threshold >= 0.0 && threshold <= 1.0;
+}
+
+void normalizeControllerTriggerThreshold(JsonNode & config)
+{
+	if(!config.isStruct())
+		return;
+
+	JsonNode & input = config["input"];
+	if(!input.isStruct())
+		return;
+
+	JsonNode & canonical = input[CONTROLLER_TRIGGER_THRESHOLD];
+	JsonNode & legacy = input[CONTROLLER_TRIGGER_TRESHOLD];
+
+	if(!canonical.isNull())
+	{
+		if(!isValidControllerTriggerThreshold(canonical))
+		{
+			canonical.Float() = CONTROLLER_TRIGGER_THRESHOLD_DEFAULT;
+			logGlobal->warn("controller-trigger-threshold.invalid-canonical");
+		}
+	}
+	else if(!legacy.isNull())
+	{
+		if(isValidControllerTriggerThreshold(legacy))
+			canonical = legacy;
+		else
+		{
+			canonical.Float() = CONTROLLER_TRIGGER_THRESHOLD_DEFAULT;
+			logGlobal->warn("controller-trigger-threshold.invalid-legacy-defaulted");
+		}
+	}
+
+	input.Struct().erase(CONTROLLER_TRIGGER_TRESHOLD);
+}
+}
 
 template<typename Accessor>
 SettingsStorage::NodeAccessor<Accessor>::NodeAccessor(SettingsStorage & _parent, std::vector<std::string> _path):
@@ -80,6 +132,9 @@ void SettingsStorage::init(const std::string & dataFilename, const std::string &
 
 	if(!schema.empty())
 	{
+		if(schema == "vcmi:settings")
+			normalizeControllerTriggerThreshold(config);
+
 		JsonUtils::maximize(config, schema);
 		JsonUtils::validate(config, schema, "settings");
 	}

@@ -108,16 +108,44 @@ bool containsRequiredKey(const JsonNode & schema, const std::string_view key)
 	return false;
 }
 
-bool hasCanonicalInputSchema()
+struct SchemaContractStatus
+{
+	bool canonicalProperty;
+	bool canonicalDefault;
+	bool canonicalRequired;
+	bool legacyRequiredAbsent;
+	bool legacyPropertyAbsent;
+	bool resourceIsolated;
+
+	bool isValid() const
+	{
+		return canonicalProperty
+			&& canonicalDefault
+			&& canonicalRequired
+			&& legacyRequiredAbsent
+			&& legacyPropertyAbsent
+			&& resourceIsolated;
+	}
+};
+
+SchemaContractStatus hasCanonicalInputSchema(const IVCMIDirs & directories)
 {
 	const JsonNode & inputSchema = JsonUtils::getSchema("vcmi:settings")["properties"]["input"];
 	const JsonNode & properties = inputSchema["properties"];
 	const JsonNode & canonicalSchema = properties[std::string(canonicalKey)];
-	return !canonicalSchema.isNull()
-		&& canonicalSchema["default"].Float() == 0.3
-		&& containsRequiredKey(inputSchema, canonicalKey)
-		&& !containsRequiredKey(inputSchema, legacyKey)
-		&& properties[std::string(legacyKey)].isNull();
+	const auto resource = CResourceHandler::get()->getResourceName(JsonPath::builtin("config/schemas/settings.json"));
+	const boost::filesystem::path expectedResource = directories.userDataPath() / "config" / "schemas" / "settings.json";
+	return {
+		!canonicalSchema.isNull()
+			&& canonicalSchema["type"].String() == "number"
+			&& canonicalSchema["minimum"].Float() == 0.0
+			&& canonicalSchema["maximum"].Float() == 1.0,
+		std::abs(canonicalSchema["default"].Float() - 0.3) < 0.000001,
+		containsRequiredKey(inputSchema, canonicalKey),
+		!containsRequiredKey(inputSchema, legacyKey),
+		properties[std::string(legacyKey)].isNull(),
+		resource && *resource == expectedResource
+	};
 }
 
 bool hasExpectedLayout(const IVCMIDirs & directories, const std::string & root)
@@ -140,6 +168,36 @@ bool writeFixture(const IVCMIDirs & directories, const std::string_view scenario
 	return static_cast<bool>(file);
 }
 
+bool copyFixtureFile(const boost::filesystem::path & source, const boost::filesystem::path & destination)
+{
+	boost::system::error_code error;
+	boost::filesystem::create_directories(destination.parent_path(), error);
+	if(error)
+		return false;
+
+	std::ifstream sourceFile(source.string(), std::ifstream::in | std::ifstream::binary);
+	std::ofstream destinationFile(
+		destination.string(),
+		std::ofstream::out | std::ofstream::trunc | std::ofstream::binary);
+	if(!sourceFile || !destinationFile)
+		return false;
+
+	destinationFile << sourceFile.rdbuf();
+	return !sourceFile.bad() && static_cast<bool>(destinationFile);
+}
+
+bool copyConfigurationFixture(const IVCMIDirs & directories)
+{
+	const boost::filesystem::path sourceRoot = boost::filesystem::path(__FILE__).parent_path().parent_path();
+	const boost::filesystem::path destinationRoot = directories.userDataPath();
+	return copyFixtureFile(
+		sourceRoot / "config" / "filesystem.json",
+		destinationRoot / "config" / "filesystem.json")
+		&& copyFixtureFile(
+			sourceRoot / "config" / "schemas" / "settings.json",
+			destinationRoot / "config" / "schemas" / "settings.json");
+}
+
 bool hasCanonicalPersistedSettings(const IVCMIDirs & directories)
 {
 	std::ifstream file((directories.userConfigPath() / "settings.json").string());
@@ -155,7 +213,6 @@ bool hasCanonicalPersistedSettings(const IVCMIDirs & directories)
 
 void printResult(
 	const bool layout,
-	const bool schema,
 	const bool loader,
 	const bool value,
 	const bool canonical,
@@ -166,12 +223,13 @@ void printResult(
 	const bool invalidLegacyDiagnostic,
 	const bool validationWarning,
 	const bool writeback,
-	const bool reload)
+	const bool reload,
+	const SchemaContractStatus & schema)
 {
 	std::cout
 		<< "threshold-contract:"
 		<< " layout=" << layout
-		<< " schema=" << schema
+		<< " schema=" << schema.isValid()
 		<< " loader=" << loader
 		<< " value=" << value
 		<< " canonical=" << canonical
@@ -183,6 +241,12 @@ void printResult(
 		<< " validation-warning=" << validationWarning
 		<< " writeback=" << writeback
 		<< " reload=" << reload
+		<< " schema-canonical-property=" << schema.canonicalProperty
+		<< " schema-canonical-default=" << schema.canonicalDefault
+		<< " schema-canonical-required=" << schema.canonicalRequired
+		<< " schema-legacy-required-absent=" << schema.legacyRequiredAbsent
+		<< " schema-legacy-property-absent=" << schema.legacyPropertyAbsent
+		<< " schema-resource-isolated=" << schema.resourceIsolated
 		<< std::endl;
 }
 }
@@ -203,6 +267,8 @@ int main(int argc, char * argv[])
 	try
 	{
 		const IVCMIDirs & directories = VCMIDirs::get();
+		if(!copyConfigurationFixture(directories))
+			return 2;
 		if(scenario != "reload" && !writeFixture(directories, scenario))
 			return 2;
 
@@ -211,6 +277,7 @@ int main(int argc, char * argv[])
 		CLogger::getGlobalLogger()->addTarget(std::move(recordingTarget));
 
 		CResourceHandler::initialize();
+		CResourceHandler::load("config/filesystem.json");
 		settings.init("config/settings.json", "vcmi:settings");
 
 		bool writeback = false;
@@ -234,14 +301,13 @@ int main(int argc, char * argv[])
 		const bool invalidLegacyDefault = !invalidLegacyScenario || (canonicalValue.isNumber() && std::abs(canonicalValue.Float() - 0.3) < 0.000001);
 		const bool invalidLegacyDiagnostic = !invalidLegacyScenario || recording->invalidLegacyWarning;
 		const bool reload = scenario != "reload" || value;
-		const bool schema = hasCanonicalInputSchema();
+		const SchemaContractStatus schema = hasCanonicalInputSchema(directories);
 		const bool layout = hasExpectedLayout(directories, root);
 		const bool loader = true;
 		const bool validationWarning = recording->settingsValidationWarning;
 
 		printResult(
 			layout,
-			schema,
 			loader,
 			value,
 			canonical,
@@ -252,9 +318,10 @@ int main(int argc, char * argv[])
 			invalidLegacyDiagnostic,
 			validationWarning,
 			writeback,
-			reload);
+			reload,
+			schema);
 
-		return layout && schema && loader && value && canonical && !legacy && conflict && invalidDiagnostic && invalidLegacyDefault && invalidLegacyDiagnostic && !validationWarning && writeback == (scenario == "writeback") && reload == (scenario == "reload") ? 0 : 1;
+		return layout && schema.isValid() && loader && value && canonical && !legacy && conflict && invalidDiagnostic && invalidLegacyDefault && invalidLegacyDiagnostic && !validationWarning && writeback == (scenario == "writeback") && reload ? 0 : 1;
 	}
 	catch(const std::exception &)
 	{
