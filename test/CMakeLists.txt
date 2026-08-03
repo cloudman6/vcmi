@@ -246,6 +246,26 @@ vcmi_set_output_dir(vcmitest "")
 
 enable_pch(vcmitest)
 
+# Topic-local throwaway spike. It exercises controller focus dispatch against the
+# existing BattleActionsController entry points without extending runtime input
+# bindings or the public navigation contract.
+add_executable(vcmi_battle_controller_focus_spike
+
+		battle/BattleControllerFocusSpikeSupport.cpp
+		battle/BattleControllerFocusHarness.cpp
+		battle/BattleControllerFocusSpikeTest.cpp
+)
+target_link_libraries(vcmi_battle_controller_focus_spike PRIVATE gtest gmock vcmiclientcommon)
+target_include_directories(vcmi_battle_controller_focus_spike
+		PRIVATE	${CMAKE_CURRENT_SOURCE_DIR}
+		PRIVATE	${GTestSrc}
+		PRIVATE	${GTestSrc}/include
+		PRIVATE	${GMockSrc}
+		PRIVATE	${GMockSrc}/include
+)
+add_test(NAME BATTLE-CONTROLLER-FOCUS-SPIKE COMMAND vcmi_battle_controller_focus_spike)
+set_tests_properties(BATTLE-CONTROLLER-FOCUS-SPIKE PROPERTIES LABELS "battle;controller;spike")
+
 # This target remains outside vcmitest because it must prove a pure startup
 # resolver without constructing GameLibrary or VCMIDirs.
 if(APPLE AND NOT IOS)
