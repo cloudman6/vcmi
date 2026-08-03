@@ -246,6 +246,15 @@ vcmi_set_output_dir(vcmitest "")
 
 enable_pch(vcmitest)
 
+# This target remains outside vcmitest because it must prove a pure startup
+# resolver without constructing GameLibrary or VCMIDirs.
+if(APPLE AND NOT IOS)
+	add_executable(vcmi_userroot_resolver_test UserRootResolverTest.cpp)
+	target_link_libraries(vcmi_userroot_resolver_test PRIVATE gtest)
+	add_test(NAME USERROOT-RESOLVER-UNIT COMMAND vcmi_userroot_resolver_test)
+	set_tests_properties(USERROOT-RESOLVER-UNIT PROPERTIES LABELS "macos;userroot;pure-resolver")
+endif()
+
 file (GLOB_RECURSE testdata "testdata/*.*")
 foreach(resource ${testdata})
 	get_filename_component(filename ${resource} NAME)
