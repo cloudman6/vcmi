@@ -293,8 +293,7 @@ if(APPLE AND NOT IOS)
 			vcmi_modal_focus_scope_spike
 			ModalFocusScopeSpikeTest.cpp
 		)
-		target_link_libraries(vcmi_modal_focus_scope_spike PRIVATE gtest)
-		add_dependencies(vcmi_modal_focus_scope_spike vcmiclientcommon)
+		target_link_libraries(vcmi_modal_focus_scope_spike PRIVATE gtest vcmiclientcommon)
 		add_test(NAME MODAL-FOCUS-SCOPE-SPIKE COMMAND vcmi_modal_focus_scope_spike)
 		set_tests_properties(MODAL-FOCUS-SCOPE-SPIKE PROPERTIES LABELS "macos;controller;modal;focus;spike")
 	endif()

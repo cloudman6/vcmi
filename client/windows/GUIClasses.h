@@ -46,6 +46,7 @@ class GraphicalPrimitiveCanvas;
 class TransparentFilledRectangle;
 class CSecSkillPlace;
 class ModalFocusScopeSpike;
+class ModalFocusScopeSpikeHarness;
 
 enum class EUserEvent;
 
@@ -180,6 +181,10 @@ private:
 /// Town portal, castle gate window
 class CObjectListWindow : public CWindowObject
 {
+	struct ModalFocusScopeSpikeTestTag
+	{
+	};
+
 	class CItem : public CIntObject
 	{
 		CObjectListWindow * parent;
@@ -189,6 +194,7 @@ class CObjectListWindow : public CWindowObject
 	public:
 		const size_t index;
 		CItem(CObjectListWindow * parent, size_t id, std::string text);
+		CItem(CObjectListWindow * parent, size_t id, ModalFocusScopeSpikeTestTag);
 
 		void select(bool on);
 		void clickPressed(const Point & cursorPosition) override;
@@ -213,6 +219,9 @@ class CObjectListWindow : public CWindowObject
 	std::vector< std::pair<int, std::string> > items; //all items present in list
 	std::vector< std::pair<int, std::string> > itemsVisible; //visible items present in list
 	std::shared_ptr<ModalFocusScopeSpike> modalFocusScope;
+
+	friend class ModalFocusScopeSpikeHarness;
+	CObjectListWindow(ModalFocusScopeSpikeTestTag, std::vector<std::string> testItems);
 
 	void init(std::shared_ptr<CIntObject> titleWidget_, std::string _title, std::string _descr, bool searchBoxEnabled, bool blue);
 	void trimTextIfTooWide(std::string & text, bool preserveCountSuffix) const; // trim item's text to fit within window's width

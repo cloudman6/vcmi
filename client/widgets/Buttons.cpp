@@ -53,7 +53,7 @@ void ButtonBase::update()
 			image->setFrame(stateToIndex[vstd::to_underlying(state)]);
 	}
 
-	if (isActive())
+	if (isActive() && !suppressRedraw)
 		redraw();
 }
 
@@ -248,6 +248,12 @@ void CButton::block(bool on)
 
 void CButton::onButtonClicked()
 {
+	if(headlessShortcut)
+	{
+		callback();
+		return;
+	}
+
 	// debug logging to figure out pressed button (and as result - player actions) in case of crash
 	logAnim->trace("Button clicked at %dx%d", pos.x, pos.y);
 	CIntObject * parent = this->parent;
@@ -314,6 +320,36 @@ void CButton::showPopupWindow(const Point & cursorPosition)
 		CRClickPopup::createAndPush(helpBox);
 }
 
+void CButton::keyPressed(EShortcut key)
+{
+	if(!headlessShortcut)
+	{
+		CKeyShortcut::keyPressed(key);
+		return;
+	}
+
+	if(assignedKey == key && assignedKey != EShortcut::NONE && !shortcutPressed)
+	{
+		shortcutPressed = true;
+		clickPressed(Point());
+	}
+}
+
+void CButton::keyReleased(EShortcut key)
+{
+	if(!headlessShortcut)
+	{
+		CKeyShortcut::keyReleased(key);
+		return;
+	}
+
+	if(assignedKey == key && assignedKey != EShortcut::NONE && shortcutPressed)
+	{
+		shortcutPressed = false;
+		clickReleased(Point());
+	}
+}
+
 void CButton::onTouchPress(bool on)
 {
 	if(isBlocked())
@@ -372,6 +408,14 @@ ButtonBase::ButtonBase(Point position, const AnimationPath & defName, EShortcut 
 	}
 }
 
+ButtonBase::ButtonBase(EShortcut key, bool suppressRedraw_)
+	: CKeyShortcut(key)
+	, stateToIndex({0, 1, 2, 3})
+	, state(EButtonState::NORMAL)
+	, suppressRedraw(suppressRedraw_)
+{
+}
+
 ButtonBase::~ButtonBase() = default;
 
 CButton::CButton(Point position, const AnimationPath &defName, const std::pair<std::string, std::string> &help, CFunctionList<void()> Callback, EShortcut key, bool playerColoredButton):
@@ -383,6 +427,16 @@ CButton::CButton(Point position, const AnimationPath &defName, const std::pair<s
 {
 	addUsedEvents(LCLICK | SHOW_POPUP | HOVER | KEYBOARD);
 	hoverTexts[0] = help.first;
+}
+
+CButton::CButton(ModalFocusScopeSpikeTestTag, CFunctionList<void()> Callback, EShortcut key)
+	: ButtonBase(key, true)
+	, callback(Callback)
+	, hoverable(false)
+	, soundDisabled(true)
+	, headlessShortcut(true)
+{
+	addUsedEvents(LCLICK | SHOW_POPUP | HOVER | KEYBOARD);
 }
 
 void ButtonBase::setPlayerColor(PlayerColor player)

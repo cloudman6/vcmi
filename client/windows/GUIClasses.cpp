@@ -1740,6 +1740,13 @@ CObjectListWindow::CItem::CItem(CObjectListWindow * _parent, size_t _id, std::st
 	select(index == parent->selected);
 }
 
+CObjectListWindow::CItem::CItem(CObjectListWindow * _parent, size_t _id, ModalFocusScopeSpikeTestTag)
+	: CIntObject(LCLICK),
+	parent(_parent),
+	index(_id)
+{
+}
+
 void CObjectListWindow::CItem::select(bool on)
 {
 	ui8 mask = UPDATE | SHOWALL;
@@ -1822,6 +1829,39 @@ CObjectListWindow::CObjectListWindow(const std::vector<std::string> & _items, st
 
 	init(titleWidget_, _title, _descr, searchBoxEnabled, blue);
 	list->scrollTo(std::min(static_cast<int>(initialSelection + 4), static_cast<int>(items.size() - 1))); // 4 is for centering (list have 9 elements)
+}
+
+CObjectListWindow::CObjectListWindow(ModalFocusScopeSpikeTestTag, std::vector<std::string> testItems)
+	: CWindowObject(SHADOW_DISABLED, ImagePath{}, Point())
+	, selected(0)
+{
+	addUsedEvents(KEYBOARD);
+
+	items.reserve(testItems.size());
+	for(size_t index = 0; index < testItems.size(); ++index)
+		items.emplace_back(static_cast<int>(index), std::move(testItems[index]));
+	itemsVisible = items;
+
+	list = std::make_shared<CListBox>(
+		[](size_t)
+		{
+			return std::make_shared<CIntObject>();
+		},
+		Point(), Point(0, 1), 1, itemsVisible.size());
+	list->recActions &= ~CIntObject::ACTIVATE;
+	addChild(list.get());
+	ok = std::shared_ptr<CButton>(new CButton(
+		CButton::ModalFocusScopeSpikeTestTag{},
+		std::bind(&CObjectListWindow::elementSelected, this),
+		EShortcut::GLOBAL_ACCEPT));
+	exit = std::shared_ptr<CButton>(new CButton(
+		CButton::ModalFocusScopeSpikeTestTag{},
+		std::bind(&CObjectListWindow::exitPressed, this),
+		EShortcut::GLOBAL_CANCEL));
+	addChild(ok.get());
+	addChild(exit.get());
+	ok->block(!list->size());
+	updateModalFocusScope();
 }
 
 void CObjectListWindow::init(std::shared_ptr<CIntObject> titleWidget_, std::string _title, std::string _descr, bool searchBoxEnabled, bool blue)
@@ -1969,7 +2009,8 @@ void CObjectListWindow::exitPressed()
 
 void CObjectListWindow::changeSelection(size_t which)
 {
-	ok->block(false);
+	if(ok)
+		ok->block(false);
 	if(selected == which)
 		return;
 
@@ -2029,6 +2070,9 @@ void CObjectListWindow::keyPressed(EShortcut key)
 {
 	if(modalFocusScope)
 	{
+		if(modalFocusScope->isSuspended())
+			return;
+
 		if(modalFocusScope->handleShortcut(key) == EModalFocusScopeSpikeResult::FOCUS_CHANGED)
 		{
 			const auto focusedIndex = modalFocusScope->focusedIndex();

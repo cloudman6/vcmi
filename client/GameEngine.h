@@ -29,6 +29,7 @@ class IMusicPlayer;
 class CursorHandler;
 class IVideoPlayer;
 class Discord;
+class ModalFocusScopeSpikeHarness;
 
 class GameEngine
 {
@@ -63,6 +64,11 @@ private:
 	void updateFrame();
 	void handleEvents(); //takes events from queue and calls interested objects
 	void drawPerformanceOverlay(); // draws box with additional infos (e.g. fps)
+
+	struct ModalFocusScopeSpikeTestTag {};
+	explicit GameEngine(ModalFocusScopeSpikeTestTag);
+
+	friend class ModalFocusScopeSpikeHarness;
 
 public:
 	std::mutex interfaceMutex;

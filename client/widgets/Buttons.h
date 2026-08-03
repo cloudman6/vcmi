@@ -18,6 +18,7 @@ class Rect;
 
 class CAnimImage;
 class InterfaceObjectConfigurable;
+class CObjectListWindow;
 
 enum class EButtonState
 {
@@ -37,6 +38,7 @@ class ButtonBase : public CKeyShortcut
 	std::array<int, 4> stateToIndex; // mapping of button state to index of frame in animation
 
 	EButtonState state;//current state of button from enum
+	bool suppressRedraw = false;
 
 	void update();//to refresh button after image or text change
 
@@ -44,6 +46,7 @@ class ButtonBase : public CKeyShortcut
 
 protected:
 	ButtonBase(Point position, const AnimationPath & defName, EShortcut key, bool playerColoredButton);
+	ButtonBase(EShortcut key, bool suppressRedraw);
 	~ButtonBase();
 
 	std::shared_ptr<CIntObject> getOverlay();
@@ -76,9 +79,18 @@ class CButton : public ButtonBase
 
 	bool hoverable; //if true, button will be highlighted when hovered (e.g. main menu)
 	bool soundDisabled;
+	bool headlessShortcut = false;
+
+	struct ModalFocusScopeSpikeTestTag
+	{
+	};
+	CButton(ModalFocusScopeSpikeTestTag, CFunctionList<void()> Callback, EShortcut key);
+	friend class CObjectListWindow;
 
 protected:
 	void onButtonClicked(); // calls callback
+	void keyPressed(EShortcut key) override;
+	void keyReleased(EShortcut key) override;
 
 	// internal method to change state. Public change can be done only via block()
 	void setState(EButtonState newState);

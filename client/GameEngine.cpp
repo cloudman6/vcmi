@@ -93,6 +93,14 @@ GameEngine::GameEngine()
 	asyncTasks = std::make_unique<AsyncRunner>();
 }
 
+GameEngine::GameEngine(ModalFocusScopeSpikeTestTag)
+	: captureChildren(false)
+{
+	inGuiThread = true;
+	eventDispatcherInstance = std::make_unique<EventDispatcher>();
+	windowHandlerInstance = std::make_unique<WindowHandler>();
+}
+
 void GameEngine::handleEvents()
 {
 	events().dispatchTimer(framerate().getElapsedMilliseconds());
