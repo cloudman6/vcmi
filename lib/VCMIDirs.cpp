@@ -12,6 +12,14 @@
 #include "VCMIDirs.h"
 #include "json/JsonNode.h"
 
+#ifdef VCMI_MAC
+#include "VCMIDirsOSXInternal.h"
+
+#include <cerrno>
+#include <iterator>
+#include <unistd.h>
+#endif
+
 #ifdef VCMI_IOS
 #include "iOS_utils.h"
 #elif defined(VCMI_ANDROID)
@@ -263,22 +271,233 @@ std::vector<bfs::path> VCMIDirsIOS::dataPaths() const
 
 bfs::path VCMIDirsIOS::binaryPath() const { return {iOS_utils::bundlePath()}; }
 #elif defined(VCMI_MAC)
+namespace
+{
+enum class UserRootRuntimeFailure
+{
+	InvalidValue,
+	StorageUnavailable,
+	StorageNotWritable,
+};
+
+[[noreturn]] void failUserRoot(const UserRootRuntimeFailure failure)
+{
+	switch(failure)
+	{
+	case UserRootRuntimeFailure::InvalidValue:
+		throw std::runtime_error("VCMI_USER_ROOT: invalid value");
+	case UserRootRuntimeFailure::StorageUnavailable:
+		throw std::runtime_error("VCMI_USER_ROOT: storage unavailable");
+	case UserRootRuntimeFailure::StorageNotWritable:
+		throw std::runtime_error("VCMI_USER_ROOT: storage not writable");
+	}
+
+	throw std::runtime_error("VCMI_USER_ROOT: storage unavailable");
+}
+
+VCMIDirs::detail::UserRootResolution readUserRootResolution()
+{
+	const char * rawValue = std::getenv("VCMI_USER_ROOT");
+	if(rawValue == nullptr)
+		return VCMIDirs::detail::resolveUserRoot(std::nullopt);
+
+	const std::string copiedValue(rawValue);
+	return VCMIDirs::detail::resolveUserRoot(std::string_view(copiedValue));
+}
+
+UserRootRuntimeFailure classifyFilesystemError(const boost::system::error_code & error)
+{
+	const boost::system::error_condition condition = error.default_error_condition();
+	if(condition == boost::system::errc::make_error_condition(boost::system::errc::permission_denied)
+		|| condition == boost::system::errc::make_error_condition(boost::system::errc::operation_not_permitted)
+		|| condition == boost::system::errc::make_error_condition(boost::system::errc::read_only_file_system))
+		return UserRootRuntimeFailure::StorageNotWritable;
+	return UserRootRuntimeFailure::StorageUnavailable;
+}
+
+UserRootRuntimeFailure classifyErrno(const int error)
+{
+	if(error == EACCES || error == EPERM || error == EROFS)
+		return UserRootRuntimeFailure::StorageNotWritable;
+	return UserRootRuntimeFailure::StorageUnavailable;
+}
+
+bfs::file_status inspectPath(const bfs::path & path)
+{
+	boost::system::error_code error;
+	const bfs::file_status status = bfs::symlink_status(path, error);
+	if(error.default_error_condition() == boost::system::errc::make_error_condition(boost::system::errc::no_such_file_or_directory))
+		return bfs::file_status(bfs::file_not_found);
+	if(error)
+		failUserRoot(classifyFilesystemError(error));
+	return status;
+}
+
+bool isMissing(const bfs::file_status & status)
+{
+	return status.type() == bfs::file_not_found;
+}
+
+void requireDirectory(const bfs::path & path)
+{
+	const bfs::file_status status = inspectPath(path);
+	if(isMissing(status) || bfs::is_symlink(status) || !bfs::is_directory(status))
+		failUserRoot(UserRootRuntimeFailure::StorageUnavailable);
+}
+
+void createDirectoryIfMissing(const bfs::path & path)
+{
+	if(isMissing(inspectPath(path)))
+	{
+		boost::system::error_code error;
+		bfs::create_directory(path, error);
+		if(error)
+			failUserRoot(classifyFilesystemError(error));
+	}
+	requireDirectory(path);
+}
+
+bfs::path canonicalPath(const bfs::path & path)
+{
+	boost::system::error_code error;
+	const bfs::path result = bfs::canonical(path, error);
+	if(error)
+		failUserRoot(classifyFilesystemError(error));
+	return result;
+}
+
+bool isContainedIn(const bfs::path & child, const bfs::path & parent)
+{
+	auto childIterator = child.begin();
+	for(auto parentIterator = parent.begin(); parentIterator != parent.end(); ++parentIterator)
+	{
+		if(childIterator == child.end() || *childIterator != *parentIterator)
+			return false;
+		++childIterator;
+	}
+	return true;
+}
+
+void verifyDirectoryContainment(const bfs::path & path, const bfs::path & canonicalRoot)
+{
+	if(!isContainedIn(canonicalPath(path), canonicalRoot))
+		failUserRoot(UserRootRuntimeFailure::StorageUnavailable);
+}
+
+void verifyDirectoryWritable(const bfs::path & directory)
+{
+	std::string pattern = (directory / ".vcmi-userroot-write.XXXXXX").string();
+	std::vector<char> patternBuffer(pattern.begin(), pattern.end());
+	patternBuffer.push_back('\0');
+
+	const int descriptor = mkstemp(patternBuffer.data());
+	if(descriptor < 0)
+		failUserRoot(classifyErrno(errno));
+
+	int writeError = 0;
+	const char marker = 'x';
+	errno = 0;
+	if(write(descriptor, &marker, 1) != 1)
+		writeError = errno == 0 ? EIO : errno;
+	errno = 0;
+	if(close(descriptor) != 0 && writeError == 0)
+		writeError = errno == 0 ? EIO : errno;
+
+	boost::system::error_code removeError;
+	bfs::remove(bfs::path(patternBuffer.data()), removeError);
+	if(removeError)
+		failUserRoot(UserRootRuntimeFailure::StorageUnavailable);
+	if(writeError != 0)
+		failUserRoot(classifyErrno(writeError));
+}
+
+void initializeOverrideStorage(const VCMIDirs::detail::UserRootLayout & layout)
+{
+	const bfs::path root(layout.root);
+	const bfs::path parent(root.parent_path());
+	requireDirectory(parent);
+	const bfs::path canonicalParent = canonicalPath(parent);
+
+	createDirectoryIfMissing(root);
+	const bfs::path canonicalRoot = canonicalPath(root);
+	if(canonicalRoot == bfs::path("/") || canonicalRoot.parent_path() != canonicalParent)
+		failUserRoot(UserRootRuntimeFailure::StorageUnavailable);
+
+	const std::vector<bfs::path> directories = {
+		root,
+		bfs::path(layout.data),
+		bfs::path(layout.config),
+		bfs::path(layout.cache),
+		bfs::path(layout.logs),
+		bfs::path(layout.saves),
+		bfs::path(layout.extracted),
+	};
+
+	for(const bfs::path & directory : directories)
+	{
+		const bfs::file_status status = inspectPath(directory);
+		if(!isMissing(status) && (bfs::is_symlink(status) || !bfs::is_directory(status)))
+			failUserRoot(UserRootRuntimeFailure::StorageUnavailable);
+	}
+
+	for(auto iterator = std::next(directories.begin()); iterator != directories.end(); ++iterator)
+		createDirectoryIfMissing(*iterator);
+
+	for(const bfs::path & directory : directories)
+		verifyDirectoryContainment(directory, canonicalRoot);
+	for(const bfs::path & directory : directories)
+		verifyDirectoryWritable(directory);
+}
+}
+
 class VCMIDirsOSX final : public VCMIDirsApple
 {
 public:
+	VCMIDirsOSX();
+
 	bfs::path userDataPath() const override;
 	bfs::path userCachePath() const override;
+	bfs::path userConfigPath() const override;
 	bfs::path userLogsPath() const override;
+	bfs::path userSavePath() const override;
+	bfs::path userExtractedPath() const override;
 
 	std::vector<bfs::path> dataPaths() const override;
 
 	bfs::path binaryPath() const override;
 
 	void init() override;
+
+private:
+	const VCMIDirs::detail::UserRootResolution userRootResolution;
+
+	const VCMIDirs::detail::UserRootLayout * overrideLayout() const;
 };
+
+VCMIDirsOSX::VCMIDirsOSX()
+	: userRootResolution(readUserRootResolution())
+{
+}
+
+const VCMIDirs::detail::UserRootLayout * VCMIDirsOSX::overrideLayout() const
+{
+	if(const auto * overrideResolution = std::get_if<VCMIDirs::detail::UseOverride>(&userRootResolution))
+		return &overrideResolution->layout;
+	if(std::holds_alternative<VCMIDirs::detail::Invalid>(userRootResolution))
+		failUserRoot(UserRootRuntimeFailure::InvalidValue);
+	return nullptr;
+}
 
 void VCMIDirsOSX::init()
 {
+	if(std::holds_alternative<VCMIDirs::detail::Invalid>(userRootResolution))
+		failUserRoot(UserRootRuntimeFailure::InvalidValue);
+	if(const auto * layout = overrideLayout())
+	{
+		initializeOverrideStorage(*layout);
+		return;
+	}
+
 	// Call base (init dirs)
 	IVCMIDirsUNIX::init();
 
@@ -321,6 +540,9 @@ void VCMIDirsOSX::init()
 
 bfs::path VCMIDirsOSX::userDataPath() const
 {
+	if(const auto * layout = overrideLayout())
+		return layout->data;
+
 	// This is Cocoa code that should be normally used to get path to Application Support folder but can't use it here for now...
 	// NSArray* urls = [[NSFileManager defaultManager] URLsForDirectory:NSApplicationSupportDirectory inDomains:NSUserDomainMask];
 	// UserPath = path([urls[0] path] + "/vcmi").string();
@@ -332,14 +554,43 @@ bfs::path VCMIDirsOSX::userDataPath() const
 		homeDir = ".";
 	return bfs::path(homeDir) / "Library" / "Application Support" / "vcmi";
 }
-bfs::path VCMIDirsOSX::userCachePath() const { return userDataPath(); }
+bfs::path VCMIDirsOSX::userCachePath() const
+{
+	if(const auto * layout = overrideLayout())
+		return layout->cache;
+	return userDataPath();
+}
+
+bfs::path VCMIDirsOSX::userConfigPath() const
+{
+	if(const auto * layout = overrideLayout())
+		return layout->config;
+	return VCMIDirsApple::userConfigPath();
+}
 
 bfs::path VCMIDirsOSX::userLogsPath() const
 {
+	if(const auto * layout = overrideLayout())
+		return layout->logs;
+
 	// TODO: use proper objc code from Foundation framework
 	if(const auto homeDir = std::getenv("HOME"))
 		return bfs::path{homeDir} / "Library" / "Logs" / "vcmi";
 	return IVCMIDirsUNIX::userLogsPath();
+}
+
+bfs::path VCMIDirsOSX::userSavePath() const
+{
+	if(const auto * layout = overrideLayout())
+		return layout->saves;
+	return IVCMIDirs::userSavePath();
+}
+
+bfs::path VCMIDirsOSX::userExtractedPath() const
+{
+	if(const auto * layout = overrideLayout())
+		return layout->extracted;
+	return IVCMIDirs::userExtractedPath();
 }
 
 std::vector<bfs::path> VCMIDirsOSX::dataPaths() const

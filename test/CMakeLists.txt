@@ -253,6 +253,18 @@ if(APPLE AND NOT IOS)
 	target_link_libraries(vcmi_userroot_resolver_test PRIVATE gtest)
 	add_test(NAME USERROOT-RESOLVER-UNIT COMMAND vcmi_userroot_resolver_test)
 	set_tests_properties(USERROOT-RESOLVER-UNIT PROPERTIES LABELS "macos;userroot;pure-resolver")
+
+	add_executable(vcmi_userroot_runtime_probe UserRootRuntimeProbe.cpp)
+	target_link_libraries(vcmi_userroot_runtime_probe PRIVATE vcmi)
+
+	add_executable(vcmi_userroot_runtime_test UserRootRuntimeTest.cpp)
+	target_link_libraries(vcmi_userroot_runtime_test PRIVATE gtest)
+	add_dependencies(vcmi_userroot_runtime_test vcmi_userroot_runtime_probe)
+	add_test(
+		NAME USERROOT-RUNTIME-OVERRIDE
+		COMMAND vcmi_userroot_runtime_test $<TARGET_FILE:vcmi_userroot_runtime_probe>
+	)
+	set_tests_properties(USERROOT-RUNTIME-OVERRIDE PROPERTIES LABELS "macos;userroot;fresh-process;runtime")
 endif()
 
 file (GLOB_RECURSE testdata "testdata/*.*")
