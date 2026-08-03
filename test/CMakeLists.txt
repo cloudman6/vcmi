@@ -213,6 +213,20 @@ if(MOVE_ASSIGN)
 endif()
 add_subdirectory_with_folder("3rdparty" googletest EXCLUDE_FROM_ALL)
 
+add_executable(vcmi_adventure_map_navigation_spike_test
+	adventureMap/AdventureMapNavigationSpike.cpp
+	adventureMap/AdventureMapNavigationSpikeTest.cpp
+)
+target_link_libraries(vcmi_adventure_map_navigation_spike_test PRIVATE gtest Boost::headers)
+target_include_directories(vcmi_adventure_map_navigation_spike_test
+	PRIVATE	${CMAKE_SOURCE_DIR}
+	PRIVATE	${CMAKE_SOURCE_DIR}/include
+	PRIVATE	${GTestSrc}
+	PRIVATE	${GTestSrc}/include
+)
+add_test(NAME ADVENTURE-MAP-NAVIGATION-SPIKE COMMAND vcmi_adventure_map_navigation_spike_test)
+set_tests_properties(ADVENTURE-MAP-NAVIGATION-SPIKE PROPERTIES LABELS "adventure-map;controller;spike;pure")
+
 add_executable(vcmitest ${test_SRCS} ${test_HEADERS} ${mock_HEADERS})
 if(ENABLE_NULLKILLER2_AI)
 	# Nullkiller tests use internal AI symbols, so embed AI objects in vcmitest
