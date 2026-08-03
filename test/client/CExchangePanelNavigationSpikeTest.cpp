@@ -23,9 +23,9 @@ namespace
 class CExchangePanelFixture
 {
 public:
-	CExchangePanelNavigationSpike makePanel() const
+	CExchangePanelNavigationSpike makePanel(CExchangePanelNavigationSpike::CExchangeWindowRequestDelivery requestDelivery = {}) const
 	{
-		return CExchangePanelNavigationSpike(makeSlots());
+		return CExchangePanelNavigationSpike(makeSlots(), 4, std::move(requestDelivery));
 	}
 
 	std::vector<ExchangePanelSlot> slotsWithout(const std::string & stableId) const
@@ -108,16 +108,60 @@ void testQuantityAndUnavailableReason()
 	require(panel.focusSlot("left-army-pikemen"), "source stack must be focusable");
 	require(panel.beginQuantity("right-army-empty"), "snapshot-declared target must enter quantity mode");
 	require(!panel.setQuantity(0), "quantity below the supplied range must not be accepted");
-	require(panel.setQuantity(5), "quantity inside the supplied range must be accepted");
+	require(panel.setQuantity(1), "supplied minimum quantity must be accepted");
 	require(panel.confirmQuantity(), "valid quantity must emit one split request");
 	require(panel.requests().size() == 1, "quantity confirmation must emit exactly one request");
 	require(panel.requests().front().type == EExchangePanelRequestType::SPLIT_STACK, "quantity request must preserve split semantics");
-	require(panel.requests().front().quantity == 5, "quantity request must retain the chosen count");
+	require(panel.requests().front().quantity == 1, "quantity request must retain the supplied minimum count");
+
+	auto maximumPanel = fixture.makePanel();
+	require(maximumPanel.focusSlot("left-army-pikemen"), "maximum-bound source stack must be focusable");
+	require(maximumPanel.beginQuantity("right-army-empty"), "maximum-bound target must enter quantity mode");
+	require(maximumPanel.setQuantity(9), "supplied maximum quantity must be accepted");
+	require(maximumPanel.confirmQuantity(), "maximum quantity must emit one split request");
+	require(maximumPanel.requests().front().quantity == 9, "quantity request must retain the supplied maximum count");
+
+	auto exceedingPanel = fixture.makePanel();
+	require(exceedingPanel.focusSlot("left-army-pikemen"), "above-maximum source stack must be focusable");
+	require(exceedingPanel.beginQuantity("right-army-empty"), "above-maximum target must enter quantity mode");
+	require(!exceedingPanel.setQuantity(10), "quantity above the supplied range must not be accepted");
+	require(exceedingPanel.requests().empty(), "rejected above-maximum quantity must not emit a request");
 
 	require(panel.focusSlot("left-army-locked"), "disabled slot remains focusable for explanation");
 	require(panel.unavailableReason() == "Ally army cannot be moved", "disabled reason must remain observable");
 	require(!panel.beginQuantity("right-army-empty"), "disabled source must not emit a quantity request");
 	require(panel.requests().size() == 1, "disabled action must not duplicate an existing request");
+}
+
+void testCExchangeWindowDeliverySeam()
+{
+	CExchangePanelFixture fixture;
+	std::vector<ExchangePanelRequest> callbackRequests;
+	auto panel = fixture.makePanel([&callbackRequests](const ExchangePanelRequest & request)
+	{
+		callbackRequests.push_back(request);
+	});
+
+	require(panel.focusSlot("left-equipment-helm"), "delivery source must be focusable");
+	require(panel.pickArtifact(), "delivery source must be pickable");
+	require(panel.focusSlot("right-backpack-0"), "delivery target must be focusable");
+	require(panel.dropPickedArtifact(), "drop must deliver a semantic artifact request");
+	require(callbackRequests.size() == 1, "CExchangeWindow callback path must receive one request");
+	require(callbackRequests.front().type == EExchangePanelRequestType::DROP_ARTIFACT, "delivery seam must retain artifact semantics");
+	require(callbackRequests.front().sourceSlotId == "left-equipment-helm", "delivery seam must retain artifact source identity");
+	require(callbackRequests.front().targetSlotId == "right-backpack-0", "delivery seam must retain artifact target identity");
+
+	auto quantityPanel = fixture.makePanel([&callbackRequests](const ExchangePanelRequest & request)
+	{
+		callbackRequests.push_back(request);
+	});
+	require(quantityPanel.focusSlot("left-army-pikemen"), "quantity delivery source must be focusable");
+	require(quantityPanel.beginQuantity("right-army-empty"), "quantity delivery target must enter quantity mode");
+	require(quantityPanel.setQuantity(1), "quantity delivery must accept the supplied lower bound");
+	require(quantityPanel.confirmQuantity(), "quantity confirmation must deliver a semantic split request");
+	require(callbackRequests.size() == 2, "CExchangeWindow callback path must receive a quantity request");
+	require(callbackRequests.back().type == EExchangePanelRequestType::SPLIT_STACK, "delivery seam must retain split semantics");
+	require(callbackRequests.back().quantity == 1, "delivery seam must retain the chosen split count");
 }
 
 void testModalRestoreUsesStableFocusThenDeterministicFallback()
@@ -139,6 +183,7 @@ int main()
 		{"categories-and-scrolling", testCategoriesAndScrolling},
 		{"artifact-pick-and-drop", testArtifactPickAndDropUsesExistingInstance},
 		{"quantity-and-unavailable-reason", testQuantityAndUnavailableReason},
+		{"cexchangewindow-delivery-seam", testCExchangeWindowDeliverySeam},
 		{"modal-focus-restore", testModalRestoreUsesStableFocusThenDeterministicFallback}
 	};
 

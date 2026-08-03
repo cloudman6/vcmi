@@ -10,6 +10,7 @@
 #pragma once
 
 #include <cstddef>
+#include <functional>
 #include <optional>
 #include <string>
 #include <vector>
@@ -55,7 +56,12 @@ struct ExchangePanelRequest
 class CExchangePanelNavigationSpike
 {
 public:
-	explicit CExchangePanelNavigationSpike(std::vector<ExchangePanelSlot> slots, size_t pageSize = 4);
+	/// Bound privately by CExchangeWindow to its existing artifact/garrison request owner.
+	/// The spike emits presentation semantics only; the receiving callback keeps all game rules.
+	using CExchangeWindowRequestDelivery = std::function<void(const ExchangePanelRequest & request)>;
+
+	explicit CExchangePanelNavigationSpike(std::vector<ExchangePanelSlot> slots, size_t pageSize = 4,
+		CExchangeWindowRequestDelivery requestDelivery = {});
 
 	bool selectCategory(EExchangePanelCategory category);
 	bool focusSlot(const std::string & stableId);
@@ -76,10 +82,12 @@ public:
 private:
 	const ExchangePanelSlot * focusedSlot() const;
 	const ExchangePanelSlot * findSlot(const std::string & stableId) const;
+	void emitRequest(ExchangePanelRequest request);
 	void updateScrollOffset();
 
 	std::vector<ExchangePanelSlot> slots;
 	std::vector<ExchangePanelRequest> emittedRequests;
+	CExchangeWindowRequestDelivery requestDelivery;
 	std::optional<EExchangePanelCategory> activeCategory;
 	std::optional<std::string> focusedStableId;
 	std::optional<std::string> pickedArtifactSlotId;

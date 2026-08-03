@@ -17,8 +17,10 @@ namespace
 const std::string EMPTY_STRING;
 }
 
-CExchangePanelNavigationSpike::CExchangePanelNavigationSpike(std::vector<ExchangePanelSlot> slots, size_t pageSize)
+CExchangePanelNavigationSpike::CExchangePanelNavigationSpike(std::vector<ExchangePanelSlot> slots, size_t pageSize,
+	CExchangeWindowRequestDelivery requestDelivery)
 	: slots(std::move(slots))
+	, requestDelivery(std::move(requestDelivery))
 	, visiblePageSize(std::max<size_t>(1, pageSize))
 {
 }
@@ -62,7 +64,7 @@ bool CExchangePanelNavigationSpike::dropPickedArtifact()
 	if(!slot || !pickedArtifactSlotId || !slot->unavailableReason.empty() || !slot->acceptsArtifact)
 		return false;
 
-	emittedRequests.push_back({EExchangePanelRequestType::DROP_ARTIFACT, *pickedArtifactSlotId, slot->stableId, 0});
+	emitRequest({EExchangePanelRequestType::DROP_ARTIFACT, *pickedArtifactSlotId, slot->stableId, 0});
 	pickedArtifactSlotId.reset();
 	return true;
 }
@@ -102,7 +104,7 @@ bool CExchangePanelNavigationSpike::confirmQuantity()
 	if(!quantitySourceSlotId || !quantityTargetSlotId || !selectedQuantity)
 		return false;
 
-	emittedRequests.push_back({EExchangePanelRequestType::SPLIT_STACK, *quantitySourceSlotId, *quantityTargetSlotId, *selectedQuantity});
+	emitRequest({EExchangePanelRequestType::SPLIT_STACK, *quantitySourceSlotId, *quantityTargetSlotId, *selectedQuantity});
 	quantitySourceSlotId.reset();
 	quantityTargetSlotId.reset();
 	selectedQuantity.reset();
@@ -193,6 +195,13 @@ const ExchangePanelSlot * CExchangePanelNavigationSpike::findSlot(const std::str
 		return slot.stableId == stableId;
 	});
 	return found == slots.end() ? nullptr : &*found;
+}
+
+void CExchangePanelNavigationSpike::emitRequest(ExchangePanelRequest request)
+{
+	emittedRequests.push_back(std::move(request));
+	if(requestDelivery)
+		requestDelivery(emittedRequests.back());
 }
 
 void CExchangePanelNavigationSpike::updateScrollOffset()
