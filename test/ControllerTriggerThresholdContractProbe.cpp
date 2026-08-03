@@ -202,8 +202,7 @@ int main(int argc, char * argv[])
 
 	try
 	{
-		IVCMIDirs & directories = VCMIDirs::get();
-		directories.init();
+		const IVCMIDirs & directories = VCMIDirs::get();
 		if(scenario != "reload" && !writeFixture(directories, scenario))
 			return 2;
 
