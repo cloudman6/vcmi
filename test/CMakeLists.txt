@@ -265,6 +265,26 @@ if(APPLE AND NOT IOS)
 		COMMAND vcmi_userroot_runtime_test $<TARGET_FILE:vcmi_userroot_runtime_probe>
 	)
 	set_tests_properties(USERROOT-RUNTIME-OVERRIDE PROPERTIES LABELS "macos;userroot;fresh-process;runtime")
+
+	# This test needs a fresh process because SettingsStorage and VCMIDirs are
+	# singletons. The parent supplies a new VCMI_USER_ROOT for every probe and
+	# the probe initializes the production settings loader against the real schema.
+	add_executable(vcmi_controller_trigger_threshold_contract_probe ControllerTriggerThresholdContractProbe.cpp)
+	target_link_libraries(vcmi_controller_trigger_threshold_contract_probe PRIVATE vcmi)
+
+	add_executable(vcmi_controller_trigger_threshold_contract_test ControllerTriggerThresholdContractTest.cpp)
+	target_link_libraries(vcmi_controller_trigger_threshold_contract_test PRIVATE gtest)
+	add_dependencies(vcmi_controller_trigger_threshold_contract_test vcmi_controller_trigger_threshold_contract_probe)
+	add_test(
+		NAME CONTROLLER-TRIGGER-THRESHOLD-CONTRACT
+		COMMAND vcmi_controller_trigger_threshold_contract_test $<TARGET_FILE:vcmi_controller_trigger_threshold_contract_probe>
+	)
+	set_tests_properties(
+		CONTROLLER-TRIGGER-THRESHOLD-CONTRACT
+		PROPERTIES
+			LABELS "macos;controller;settings;fresh-process;contract"
+			WORKING_DIRECTORY "${CMAKE_BINARY_DIR}/bin/"
+	)
 endif()
 
 file (GLOB_RECURSE testdata "testdata/*.*")
