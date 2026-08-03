@@ -227,6 +227,22 @@ TEST(ControllerTriggerThresholdContractTest, invalidCanonicalNeverFallsBackToLeg
 	expectToken(result, "validation-warning=0");
 }
 
+TEST(ControllerTriggerThresholdContractTest, invalidLegacyValuesDefaultBeforeSchemaValidation)
+{
+	for(const std::string_view scenario : {"invalid-legacy-type", "invalid-legacy-range"})
+	{
+		ScopedTemporaryDirectory fixture;
+		const RunResult result = runProbe(fixture.path(scenario), scenario);
+		expectSuccess(result);
+		expectToken(result, "value=1");
+		expectToken(result, "canonical=1");
+		expectToken(result, "legacy=0");
+		expectToken(result, "invalid-legacy-default=1");
+		expectToken(result, "invalid-legacy-diagnostic=1");
+		expectToken(result, "validation-warning=0");
+	}
+}
+
 TEST(ControllerTriggerThresholdContractTest, missingKeyUsesCanonicalDefaultInFreshState)
 {
 	ScopedTemporaryDirectory fixture;

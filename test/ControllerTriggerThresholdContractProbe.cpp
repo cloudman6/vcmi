@@ -31,6 +31,7 @@ namespace
 constexpr std::string_view canonicalKey = "controllerTriggerThreshold";
 constexpr std::string_view legacyKey = "controllerTriggerTreshold";
 constexpr std::string_view invalidCanonicalDiagnostic = "controller-trigger-threshold.invalid-canonical";
+constexpr std::string_view invalidLegacyDiagnostic = "controller-trigger-threshold.invalid-legacy-defaulted";
 
 class RecordingLogTarget final : public ILogTarget
 {
@@ -41,10 +42,13 @@ public:
 			settingsValidationWarning = true;
 		if(record.message == invalidCanonicalDiagnostic)
 			invalidCanonicalWarning = true;
+		if(record.message == invalidLegacyDiagnostic)
+			invalidLegacyWarning = true;
 	}
 
 	bool settingsValidationWarning = false;
 	bool invalidCanonicalWarning = false;
+	bool invalidLegacyWarning = false;
 };
 
 bool isKnownScenario(const std::string_view scenario)
@@ -53,6 +57,8 @@ bool isKnownScenario(const std::string_view scenario)
 		|| scenario == "canonical"
 		|| scenario == "conflict"
 		|| scenario == "invalid-canonical"
+		|| scenario == "invalid-legacy-type"
+		|| scenario == "invalid-legacy-range"
 		|| scenario == "missing"
 		|| scenario == "writeback"
 		|| scenario == "reload";
@@ -68,6 +74,10 @@ std::string fixtureFor(const std::string_view scenario)
 		return R"({"input":{"controllerTriggerThreshold":0.8,"controllerTriggerTreshold":0.2}})";
 	if(scenario == "invalid-canonical")
 		return R"({"input":{"controllerTriggerThreshold":"invalid","controllerTriggerTreshold":0.9}})";
+	if(scenario == "invalid-legacy-type")
+		return R"({"input":{"controllerTriggerTreshold":"invalid"}})";
+	if(scenario == "invalid-legacy-range")
+		return R"({"input":{"controllerTriggerTreshold":1.1}})";
 	if(scenario == "missing")
 		return R"({"input":{}})";
 	if(scenario == "writeback")
@@ -152,6 +162,8 @@ void printResult(
 	const bool legacy,
 	const bool conflict,
 	const bool invalidDiagnostic,
+	const bool invalidLegacyDefault,
+	const bool invalidLegacyDiagnostic,
 	const bool validationWarning,
 	const bool writeback,
 	const bool reload)
@@ -166,6 +178,8 @@ void printResult(
 		<< " legacy=" << legacy
 		<< " conflict=" << conflict
 		<< " invalid-canonical-diagnostic=" << invalidDiagnostic
+		<< " invalid-legacy-default=" << invalidLegacyDefault
+		<< " invalid-legacy-diagnostic=" << invalidLegacyDiagnostic
 		<< " validation-warning=" << validationWarning
 		<< " writeback=" << writeback
 		<< " reload=" << reload
@@ -217,6 +231,9 @@ int main(int argc, char * argv[])
 		const bool value = canonicalValue.isNumber() && std::abs(canonicalValue.Float() - expectedThreshold(scenario)) < 0.000001;
 		const bool conflict = scenario != "conflict" || value;
 		const bool invalidDiagnostic = scenario != "invalid-canonical" || recording->invalidCanonicalWarning;
+		const bool invalidLegacyScenario = scenario == "invalid-legacy-type" || scenario == "invalid-legacy-range";
+		const bool invalidLegacyDefault = !invalidLegacyScenario || (canonicalValue.isNumber() && std::abs(canonicalValue.Float() - 0.3) < 0.000001);
+		const bool invalidLegacyDiagnostic = !invalidLegacyScenario || recording->invalidLegacyWarning;
 		const bool reload = scenario != "reload" || value;
 		const bool schema = hasCanonicalInputSchema();
 		const bool layout = hasExpectedLayout(directories, root);
@@ -232,11 +249,13 @@ int main(int argc, char * argv[])
 			legacy,
 			conflict,
 			invalidDiagnostic,
+			invalidLegacyDefault,
+			invalidLegacyDiagnostic,
 			validationWarning,
 			writeback,
 			reload);
 
-		return layout && schema && loader && value && canonical && !legacy && conflict && invalidDiagnostic && !validationWarning && writeback == (scenario == "writeback") && reload == (scenario == "reload") ? 0 : 1;
+		return layout && schema && loader && value && canonical && !legacy && conflict && invalidDiagnostic && invalidLegacyDefault && invalidLegacyDiagnostic && !validationWarning && writeback == (scenario == "writeback") && reload == (scenario == "reload") ? 0 : 1;
 	}
 	catch(const std::exception &)
 	{
