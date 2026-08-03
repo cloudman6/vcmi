@@ -10,26 +10,82 @@
 #include "../client/StdInc.h"
 
 #include "../client/GameEngine.h"
+#include "../client/GameInstance.h"
 #include "../client/eventsSDL/InputHandler.h"
 #include "../client/gui/EventDispatcher.h"
 #include "../client/gui/Shortcut.h"
 #include "../client/gui/ShortcutHandler.h"
 #include "../client/gui/WindowHandler.h"
+#include "../client/lobby/BattleOnlyModeTab.h"
+#include "../client/render/Canvas.h"
+#include "../client/render/EFont.h"
+#include "../client/renderSDL/FontChain.h"
+#include "../client/renderSDL/RenderHandler.h"
+#include "../client/renderSDL/SDLImage.h"
+#include "../client/renderSDL/ScalableImage.h"
+#include "../client/renderSDL/ScreenHandler.h"
+#include "../client/render/hdEdition/HdImageLoader.h"
 #include "../client/widgets/ObjectLists.h"
 #include "../client/windows/GUIClasses.h"
 #include "../client/eventsSDL/InputSourceGameController.h"
 #include "../lib/CConfigHandler.h"
+#include "../lib/GameLibrary.h"
+#include "../lib/filesystem/CFilesystemLoader.h"
+#include "../lib/filesystem/Filesystem.h"
+#include "../lib/modding/IdentifierStorage.h"
+#include "../lib/modding/ModScope.h"
+#include "../lib/spells/CSpellHandler.h"
+#include "../lib/spells/SpellSchoolHandler.h"
+#include "../lib/texts/CGeneralTextHandler.h"
 
 #include <gtest/gtest.h>
+
+#include <SDL_surface.h>
 
 [[noreturn]] void handleFatalError(const std::string & message, bool)
 {
 	throw std::runtime_error(message);
 }
 
+class GlyphRefreshProbeWindow final : public CObjectListWindow
+{
+public:
+	using CObjectListWindow::CObjectListWindow;
+
+	void redraw() override
+	{
+		if(redrawCanvas)
+			showAll(*redrawCanvas);
+	}
+
+	void showAll(Canvas & to) override
+	{
+		++showAllCount;
+		if(showAllCount == 1)
+			CObjectListWindow::showAll(to);
+	}
+
+	Canvas * redrawCanvas = nullptr;
+	size_t showAllCount = 0;
+};
+
 class CObjectListWindowControllerTest : public testing::Test
 {
 protected:
+	bool resourceHandlerInitialized = false;
+	std::vector<std::shared_ptr<ScalableImageShared>> productionImages;
+	std::unique_ptr<GameLibrary> localizationLibrary;
+
+	struct BattleOnlyAddPayloadObservation
+	{
+		std::shared_ptr<const std::vector<SpellID>> callbackValues;
+		std::vector<CObjectListWindow::ListItem> items;
+		std::vector<std::shared_ptr<IImage>> images;
+		bool searchBoxEnabled = false;
+		bool blue = false;
+		const std::vector<SpellID> * callbackCaptureIdentity = nullptr;
+	};
+
 	void SetUp() override
 	{
 		auto & testSettings = const_cast<JsonNode &>(settings.toJsonNode());
@@ -41,7 +97,166 @@ protected:
 	void TearDown() override
 	{
 		ENGINE->windows().clear();
+		GAME.reset();
 		ENGINE.reset();
+		localizationLibrary.reset();
+		LIBRARY = nullptr;
+		if(resourceHandlerInitialized)
+			CResourceHandler::destroy();
+	}
+
+	std::shared_ptr<IImage> addProductionImage(
+		RenderHandler & renderer, const std::string & name, EImageBlitMode mode, const Point & dimensions)
+	{
+		auto surface = SDL_CreateRGBSurfaceWithFormat(0, dimensions.x, dimensions.y, 32, SDL_PIXELFORMAT_ARGB8888);
+		if(!surface)
+			throw std::runtime_error(SDL_GetError());
+
+		SDL_FillRect(surface, nullptr, SDL_MapRGBA(surface->format, 100, 100, 100, 255));
+		auto baseImage = std::make_shared<SDLImageShared>(surface);
+		SDL_FreeSurface(surface);
+
+		ImageLocator locator(ImagePath::builtin(name), mode);
+		locator.scalingFactor = ENGINE->screenHandler().getScalingFactor();
+		auto image = std::make_shared<ScalableImageShared>(locator, baseImage);
+		productionImages.push_back(image);
+		renderer.storeCachedImage(locator, image);
+		return image->createImageReference();
+	}
+
+	void addProductionAnimation(RenderHandler & renderer, const std::string & name)
+	{
+		auto & frames = renderer.animationLayouts[AnimationPath::builtin("SPRITES/" + name)][0];
+		frames.assign(4, ImageLocator(ImagePath::builtin("controller-list-test-button"), EImageBlitMode::COLORKEY));
+	}
+
+	void addProductionSpellIcons(RenderHandler & renderer)
+	{
+		auto & frames = renderer.animationLayouts[AnimationPath::builtin("SpellInt")][0];
+		frames.assign(
+			GameConstants::SPELLS_QUANTITY + 1,
+			ImageLocator(ImagePath::builtin("controller-list-test-icon"), EImageBlitMode::OPAQUE));
+	}
+
+	void initializeProductionListConstruction()
+	{
+		CResourceHandler::initialize();
+		resourceHandlerInitialized = true;
+
+		const auto sourceRoot = boost::filesystem::path(__FILE__).parent_path().parent_path();
+		CResourceHandler::addFilesystem(
+			"data",
+			"controller-list-test-fonts",
+			std::make_unique<CFilesystemLoader>("Data/", sourceRoot / "Mods" / "vcmi" / "Content" / "Data", 0));
+		CResourceHandler::addFilesystem(
+			"data",
+			"controller-list-test-translations",
+			std::make_unique<CFilesystemLoader>("config/", sourceRoot / "Mods" / "vcmi" / "Content" / "config", 1));
+
+		localizationLibrary = std::make_unique<GameLibrary>();
+		LIBRARY = localizationLibrary.get();
+		localizationLibrary->generaltexth = std::unique_ptr<CGeneralTextHandler>(
+			new CGeneralTextHandler(CGeneralTextHandler::TestConstructionTag()));
+		const JsonNode englishTranslation(JsonPath::builtin("config/translations/english.json"));
+		localizationLibrary->generaltexth->loadTranslationOverrides("vcmi", "english", englishTranslation);
+
+		ENGINE->screenHandlerInstance = std::make_unique<ScreenHandler>();
+		ENGINE->renderHandlerInstance = std::make_unique<RenderHandler>();
+		auto & renderer = static_cast<RenderHandler &>(ENGINE->renderHandler());
+		renderer.hdImageLoader = std::make_shared<HdImageLoader>();
+
+		JsonNode fontConfig;
+		fontConfig["file"].String() = "NotoSerif-Medium.ttf";
+		fontConfig["size"].Integer() = 12;
+		auto font = std::make_shared<FontChain>();
+		font->addTrueTypeFont(fontConfig, true);
+		renderer.fonts[FONT_BIG] = font;
+		renderer.fonts[FONT_SMALL] = font;
+		renderer.fonts[FONT_TINY] = font;
+
+		addProductionImage(renderer, "TPGATE", EImageBlitMode::OPAQUE, Point(320, 460));
+		addProductionImage(renderer, "TPGATES", EImageBlitMode::COLORKEY, Point(256, 25));
+		addProductionImage(renderer, "TownPortalBackgroundBlue", EImageBlitMode::OPAQUE, Point(320, 460));
+		auto icon = addProductionImage(renderer, "controller-list-test-icon", EImageBlitMode::OPAQUE, Point(35, 23));
+		addProductionImage(renderer, "controller-list-test-button", EImageBlitMode::COLORKEY, Point(20, 20));
+		addProductionAnimation(renderer, "ICANCEL.DEF");
+		addProductionAnimation(renderer, "IOKAY.DEF");
+		addProductionAnimation(renderer, "MuBcanc");
+		addProductionAnimation(renderer, "MuBchck");
+		addProductionAnimation(renderer, "SCNRBUP.DEF");
+		addProductionAnimation(renderer, "SCNRBDN.DEF");
+		addProductionAnimation(renderer, "SCNRBSL.DEF");
+		addProductionSpellIcons(renderer);
+
+		GAME = std::make_unique<GameInstance>();
+		productionListIcon = std::move(icon);
+	}
+
+	void initializeProductionSpellData()
+	{
+		localizationLibrary->identifiersHandler = std::make_unique<CIdentifierStorage>();
+		localizationLibrary->spellh = std::make_unique<CSpellHandler>();
+		localizationLibrary->spellSchoolHandler = std::make_unique<SpellSchoolHandler>();
+
+		JsonNode school;
+		school["name"].String() = "Test school";
+		school.setModScope(ModScope::scopeBuiltin());
+		localizationLibrary->spellSchoolHandler->loadObject(ModScope::scopeBuiltin(), "testSchool", school);
+
+		for(size_t index = 0; index < GameConstants::SPELLS_QUANTITY; ++index)
+		{
+			JsonNode spell;
+			spell["type"].String() = "combat";
+			spell["name"].String() = "Combat spell " + std::to_string(index);
+			spell["level"].Integer() = static_cast<si32>(index / 14 + 1);
+			spell["power"].Integer() = 1;
+			spell["targetType"].String() = "NO_TARGET";
+			spell["flags"]["indifferent"].Bool() = true;
+			spell["school"]["testSchool"].Bool() = true;
+			spell.setModScope(ModScope::scopeBuiltin());
+			localizationLibrary->spellh->loadObject(
+				ModScope::scopeBuiltin(), "testCombatSpell" + std::to_string(index), spell);
+		}
+
+		localizationLibrary->identifiersHandler->finalize();
+	}
+
+	BattleOnlyAddPayloadObservation observeBattleOnlyAddPayload(
+		const std::vector<SpellID> & allSpells,
+		const std::vector<SpellID> & selectedSpells)
+	{
+		auto payload = BattleOnlyModeHeroSelector::prepareAddSpellList(allSpells, selectedSpells);
+		const auto * callbackCaptureIdentity = payload.values.get();
+		return {
+			std::move(payload.values),
+			std::move(payload.items),
+			std::move(payload.images),
+			payload.searchBoxEnabled,
+			payload.blue,
+			callbackCaptureIdentity
+		};
+	}
+
+	std::shared_ptr<IImage> productionListIcon;
+
+	bool hasProductionListWindowTree(const std::shared_ptr<CObjectListWindow> & window) const
+	{
+		return window->list && window->ok && window->exit;
+	}
+
+	size_t productionListItemCount(const std::shared_ptr<CObjectListWindow> & window) const
+	{
+		return window->list->size();
+	}
+
+	bool hasProductionListItem(const std::shared_ptr<CObjectListWindow> & window, size_t index) const
+	{
+		return window->list->getItem(index) != nullptr;
+	}
+
+	bool hasProductionSearchBox(const std::shared_ptr<CObjectListWindow> & window) const
+	{
+		return window->searchBox && window->searchBoxDescription && window->searchBoxRectangle;
 	}
 
 	std::shared_ptr<CObjectListWindow> createWindow(
@@ -161,6 +376,135 @@ TEST_F(CObjectListWindowControllerTest, DisabledFocusRetainsEnabledSelection)
 
 	EXPECT_EQ(focusedItem(window), 1);
 	EXPECT_EQ(window->selected(), 0);
+}
+
+TEST_F(CObjectListWindowControllerTest, ProductionBattleOnlyAddConstructorBuildsAndDestroysWindowTree)
+{
+	initializeProductionListConstruction();
+
+	constexpr size_t combatSpellCount = GameConstants::SPELLS_QUANTITY;
+	std::vector<CObjectListWindow::ListItem> items;
+	std::vector<std::shared_ptr<IImage>> images;
+	items.reserve(combatSpellCount);
+	images.reserve(combatSpellCount);
+	const auto disabledReason = localizationLibrary->generaltexth->translate(
+		"vcmi.lobby.battleOnlySpellAlreadySelected");
+	ASSERT_FALSE(disabledReason.empty());
+
+	for(size_t index = 0; index < combatSpellCount; ++index)
+	{
+		const bool enabled = index % 5 != 4;
+		items.push_back({"Combat spell " + std::to_string(index), enabled, enabled ? "" : disabledReason});
+		images.push_back(productionListIcon);
+	}
+
+	const auto disabledCount = std::count_if(items.begin(), items.end(), [](const auto & item)
+	{
+		return !item.enabled;
+	});
+
+	EXPECT_EQ(combatSpellCount, 70);
+	EXPECT_EQ(disabledCount, 14);
+	EXPECT_EQ(items.size() - disabledCount, 56);
+
+	{
+		auto window = std::make_shared<CObjectListWindow>(
+			items, nullptr, "Add spell", "Select a spell", [](int)
+			{
+			}, 0, images, true, true);
+
+		EXPECT_GT(window->pos.w, 0);
+		EXPECT_GT(window->pos.h, 0);
+		EXPECT_TRUE(hasProductionListWindowTree(window));
+		EXPECT_EQ(productionListItemCount(window), items.size());
+		EXPECT_TRUE(hasProductionListItem(window, 0));
+		EXPECT_FALSE(hasProductionListItem(window, items.size() - 1));
+		EXPECT_TRUE(hasProductionSearchBox(window));
+
+		ENGINE->windows().pushWindow(window);
+		EXPECT_TRUE(ENGINE->windows().isTopWindow(window));
+		for(size_t index = 0; index < items.size() - 1; ++index)
+			ENGINE->events().dispatchShortcutPressed({EShortcut::MOVE_DOWN});
+
+		EXPECT_EQ(focusedItem(window), items.size() - 1);
+		EXPECT_EQ(listPosition(window), items.size() - 9);
+		EXPECT_TRUE(hasProductionListItem(window, items.size() - 1));
+		EXPECT_EQ(this->disabledReason(window, items.size() - 1), disabledReason);
+		ENGINE->windows().popWindow(window);
+	}
+}
+
+TEST_F(CObjectListWindowControllerTest, ControllerGlyphRefreshDoesNotReenterShowAll)
+{
+	initializeProductionListConstruction();
+
+	std::vector<CObjectListWindow::ListItem> items{{"Spell", true, ""}};
+	std::vector<std::shared_ptr<IImage>> images{productionListIcon};
+	auto window = std::make_shared<GlyphRefreshProbeWindow>(
+		items, nullptr, "Add spell", "Select a spell", [](int)
+		{
+		}, 0, images, true, true);
+
+	ENGINE->windows().pushWindow(window);
+	auto surface = std::unique_ptr<SDL_Surface, decltype(&SDL_FreeSurface)>(
+		SDL_CreateRGBSurfaceWithFormat(0, 320, 460, 32, SDL_PIXELFORMAT_ARGB8888), SDL_FreeSurface);
+	ASSERT_NE(surface, nullptr);
+	Canvas canvas = Canvas::createFromSurface(surface.get(), CanvasScalingPolicy::AUTO);
+	window->redrawCanvas = &canvas;
+	window->showAll(canvas);
+
+	EXPECT_EQ(window->showAllCount, 1);
+	window->redrawCanvas = nullptr;
+	ENGINE->windows().popWindow(window);
+}
+
+TEST_F(CObjectListWindowControllerTest, ProductionBattleOnlyAddPayloadPreparesControlledSpells)
+{
+	initializeProductionListConstruction();
+	initializeProductionSpellData();
+
+	std::vector<SpellID> selectedSpells;
+	for(size_t index = 4; index < GameConstants::SPELLS_QUANTITY; index += 5)
+		selectedSpells.emplace_back(static_cast<si32>(index));
+
+	const auto allowedSpells = localizationLibrary->spellh->getDefaultAllowed();
+	const std::vector<SpellID> allSpells(allowedSpells.begin(), allowedSpells.end());
+	auto payload = observeBattleOnlyAddPayload(allSpells, selectedSpells);
+	const auto disabledReason = localizationLibrary->generaltexth->translate(
+		"vcmi.lobby.battleOnlySpellAlreadySelected");
+
+	ASSERT_FALSE(disabledReason.empty());
+	ASSERT_NE(payload.callbackValues, nullptr);
+	ASSERT_NE(payload.callbackCaptureIdentity, nullptr);
+	EXPECT_EQ(payload.callbackValues.get(), payload.callbackCaptureIdentity);
+	EXPECT_EQ(payload.callbackValues->size(), GameConstants::SPELLS_QUANTITY);
+	EXPECT_EQ(payload.items.size(), payload.callbackValues->size());
+	EXPECT_EQ(payload.images.size(), payload.callbackValues->size());
+	EXPECT_TRUE(payload.searchBoxEnabled);
+	EXPECT_TRUE(payload.blue);
+
+	const auto disabledCount = std::count_if(payload.items.begin(), payload.items.end(), [](const auto & item)
+	{
+		return !item.enabled;
+	});
+	EXPECT_EQ(disabledCount, selectedSpells.size());
+	EXPECT_EQ(payload.items.size() - disabledCount, 56);
+
+	for(size_t index = 0; index < payload.items.size(); ++index)
+	{
+		const auto spell = payload.callbackValues->at(index);
+		const bool selected = vstd::contains(selectedSpells, spell);
+		EXPECT_EQ(payload.items[index].text, spell.toSpell()->getNameTranslated());
+		EXPECT_EQ(payload.items[index].enabled, !selected);
+		EXPECT_EQ(payload.items[index].disabledReason, selected ? disabledReason : "");
+		EXPECT_NE(payload.images[index], nullptr);
+	}
+
+	auto callbackValues = payload.callbackValues;
+	const auto capturedSpell = callbackValues->at(4);
+	payload = {};
+	EXPECT_EQ(callbackValues->size(), GameConstants::SPELLS_QUANTITY);
+	EXPECT_EQ(callbackValues->at(4), capturedSpell);
 }
 
 TEST_F(CObjectListWindowControllerTest, DisabledItemDoesNotAccept)

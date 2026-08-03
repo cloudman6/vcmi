@@ -19,9 +19,12 @@ class SDLImageShared;
 class ScalableImageShared;
 class AssetGenerator;
 class HdImageLoader;
+class CObjectListWindowControllerTest;
 
 class RenderHandler final : public IRenderHandler
 {
+	friend class CObjectListWindowControllerTest;
+
 	using AnimationLayoutMap = std::map<size_t, std::vector<ImageLocator>>;
 
 	std::map<AnimationPath, std::map<int, std::map<int, std::pair<std::string, CDefFile::SSpriteDef>>>> animationSpriteDefs;

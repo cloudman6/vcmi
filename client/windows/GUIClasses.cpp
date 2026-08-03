@@ -2246,8 +2246,13 @@ void CObjectListWindow::updateControllerGlyphs()
 	if(headless || !acceptGlyph || !cancelGlyph)
 		return;
 
-	acceptGlyph->setText(controllerGlyphToken(EShortcut::GLOBAL_ACCEPT).value_or(""));
-	cancelGlyph->setText(controllerGlyphToken(EShortcut::GLOBAL_CANCEL).value_or(""));
+	const auto acceptToken = controllerGlyphToken(EShortcut::GLOBAL_ACCEPT).value_or("");
+	const auto cancelToken = controllerGlyphToken(EShortcut::GLOBAL_CANCEL).value_or("");
+
+	if(acceptGlyph->getText() != acceptToken)
+		acceptGlyph->setText(acceptToken);
+	if(cancelGlyph->getText() != cancelToken)
+		cancelGlyph->setText(cancelToken);
 }
 
 void CObjectListWindow::showAll(Canvas & to)

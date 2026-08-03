@@ -13,6 +13,7 @@
 #include "../json/JsonNode.h"
 
 class CGeneralTextHandler;
+class CObjectListWindowControllerTest;
 
 /// Small wrapper that provides text access API compatible with old code
 class DLL_LINKAGE LegacyTextContainer
@@ -39,7 +40,12 @@ public:
 /// Handles all text-related data in game
 class DLL_LINKAGE CGeneralTextHandler: public TextLocalizationContainer
 {
+	friend class CObjectListWindowControllerTest;
+
+	struct TestConstructionTag {};
+
 	void readToVector(const std::string & sourceID, const std::string & sourceName);
+	CGeneralTextHandler(TestConstructionTag);
 
 	JsonNode roeMapping;
 
