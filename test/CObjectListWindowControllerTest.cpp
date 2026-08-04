@@ -12,6 +12,7 @@
 #include "../client/GameEngine.h"
 #include "../client/GameInstance.h"
 #include "../client/eventsSDL/InputHandler.h"
+#include "../client/gui/CursorHandler.h"
 #include "../client/gui/EventDispatcher.h"
 #include "../client/gui/Shortcut.h"
 #include "../client/gui/ShortcutHandler.h"
@@ -26,6 +27,8 @@
 #include "../client/renderSDL/ScreenHandler.h"
 #include "../client/render/hdEdition/HdImageLoader.h"
 #include "../client/widgets/ObjectLists.h"
+#include "../client/widgets/Buttons.h"
+#include "../client/widgets/TextControls.h"
 #include "../client/windows/GUIClasses.h"
 #include "../client/eventsSDL/InputSourceGameController.h"
 #include "../lib/CConfigHandler.h"
@@ -67,6 +70,15 @@ public:
 
 	Canvas * redrawCanvas = nullptr;
 	size_t showAllCount = 0;
+};
+
+class CursorFallbackWindow final : public CWindowObject
+{
+public:
+	CursorFallbackWindow()
+		: CWindowObject(CWindowObject::HeadlessTestTag())
+	{
+	}
 };
 
 class CObjectListWindowControllerTest : public testing::Test
@@ -292,6 +304,24 @@ protected:
 		return window->controllerFocusVisible;
 	}
 
+	std::string acceptGlyphText(const std::shared_ptr<CObjectListWindow> & window) const
+	{
+		return window->acceptGlyph->getText();
+	}
+
+	std::string cancelGlyphText(const std::shared_ptr<CObjectListWindow> & window) const
+	{
+		return window->cancelGlyph->getText();
+	}
+
+	bool glyphsAreVisibleBesideActions(const std::shared_ptr<CObjectListWindow> & window) const
+	{
+		return window->acceptGlyph->parent == window.get()
+			&& window->cancelGlyph->parent == window.get()
+			&& window->acceptGlyph->pos.x > window->ok->pos.x + window->ok->pos.w
+			&& window->cancelGlyph->pos.x > window->exit->pos.x + window->exit->pos.w;
+	}
+
 	void clickItem(const std::shared_ptr<CObjectListWindow> & window, size_t visibleIndex)
 	{
 		window->genItem(visibleIndex)->clickPressed(Point());
@@ -320,6 +350,24 @@ protected:
 	void setInputMode(InputMode mode)
 	{
 		ENGINE->input().setCurrentInputMode(mode);
+	}
+
+	void setControllerPresentation(ControllerPresentation presentation)
+	{
+		ENGINE->input().gameControllerHandler = std::unique_ptr<InputSourceGameController>(
+			new InputSourceGameController(InputSourceGameController::HeadlessTestTag()));
+		ENGINE->input().gameControllerHandler->activePresentation = presentation;
+	}
+
+	void initializeCursorPresentation()
+	{
+		ENGINE->cursorHandlerInstance = std::make_unique<CursorHandler>();
+		ENGINE->cursor().show();
+	}
+
+	bool isCursorShown() const
+	{
+		return ENGINE->cursor().showing;
 	}
 
 	void setLifecycleTrace(
@@ -456,6 +504,91 @@ TEST_F(CObjectListWindowControllerTest, ControllerGlyphRefreshDoesNotReenterShow
 	EXPECT_EQ(window->showAllCount, 1);
 	window->redrawCanvas = nullptr;
 	ENGINE->windows().popWindow(window);
+}
+
+TEST_F(CObjectListWindowControllerTest, ControllerFocusHidesCursorUntilMouseTakeoverAndScopeRelease)
+{
+	initializeProductionListConstruction();
+	initializeCursorPresentation();
+
+	auto fallback = std::make_shared<CursorFallbackWindow>();
+	auto window = std::make_shared<CObjectListWindow>(
+		std::vector<CObjectListWindow::ListItem>{{"Enabled", true, ""}, {"Disabled", false, "Already selected"}},
+		nullptr,
+		"Add spell",
+		"Select a spell",
+		[](int)
+		{
+		},
+		0,
+		std::vector<std::shared_ptr<IImage>>{productionListIcon, productionListIcon},
+		true,
+		true);
+
+	ENGINE->windows().pushWindow(fallback);
+	ENGINE->windows().pushWindow(window);
+
+	EXPECT_TRUE(isControllerFocusVisible(window));
+	EXPECT_FALSE(isCursorShown());
+
+	setInputMode(InputMode::KEYBOARD_AND_MOUSE);
+	clickItem(window, 1);
+	EXPECT_FALSE(isControllerFocusVisible(window));
+	EXPECT_TRUE(isCursorShown());
+
+	setInputMode(InputMode::CONTROLLER);
+	ENGINE->events().dispatchShortcutPressed({EShortcut::MOVE_DOWN});
+	EXPECT_TRUE(isControllerFocusVisible(window));
+	EXPECT_FALSE(isCursorShown());
+
+	ENGINE->windows().popWindow(window);
+	EXPECT_TRUE(ENGINE->windows().isTopWindow(fallback));
+	EXPECT_TRUE(isCursorShown());
+}
+
+TEST_F(ShortcutGlyphQueryTest, DualSenseBindingsRefreshGlyphsAfterControllerActivation)
+{
+	initializeProductionListConstruction();
+	setJoystickBindings({
+		{"a", EShortcut::GLOBAL_ACCEPT},
+		{"b", EShortcut::GLOBAL_CANCEL}
+	});
+
+	const auto acceptBindings = ENGINE->shortcuts().getJoystickBindings(EShortcut::GLOBAL_ACCEPT);
+	const auto cancelBindings = ENGINE->shortcuts().getJoystickBindings(EShortcut::GLOBAL_CANCEL);
+	ASSERT_EQ(acceptBindings, std::vector<std::string>({"a"}));
+	ASSERT_EQ(cancelBindings, std::vector<std::string>({"b"}));
+
+	auto window = std::make_shared<CObjectListWindow>(
+		std::vector<CObjectListWindow::ListItem>{{"Spell", true, ""}},
+		nullptr,
+		"Add spell",
+		"Select a spell",
+		[](int)
+		{
+		},
+		0,
+		std::vector<std::shared_ptr<IImage>>{productionListIcon},
+		true,
+		true);
+
+	EXPECT_EQ(ENGINE->input().getControllerPresentation(), ControllerPresentation::UNKNOWN);
+	EXPECT_FALSE(ENGINE->input().getControllerGlyphToken(acceptBindings));
+	EXPECT_FALSE(ENGINE->input().getControllerGlyphToken(cancelBindings));
+	EXPECT_EQ(acceptGlyphText(window), "");
+	EXPECT_EQ(cancelGlyphText(window), "");
+
+	setControllerPresentation(ControllerPresentation::DUALSENSE);
+	EXPECT_EQ(ENGINE->input().getControllerPresentation(), ControllerPresentation::DUALSENSE);
+	EXPECT_EQ(ENGINE->input().getControllerGlyphToken(acceptBindings), "×");
+	EXPECT_EQ(ENGINE->input().getControllerGlyphToken(cancelBindings), "○");
+
+	ENGINE->windows().pushWindow(window);
+	ENGINE->events().dispatchShortcutPressed({EShortcut::MOVE_DOWN});
+
+	EXPECT_EQ(acceptGlyphText(window), "×");
+	EXPECT_EQ(cancelGlyphText(window), "○");
+	EXPECT_TRUE(glyphsAreVisibleBesideActions(window));
 }
 
 TEST_F(CObjectListWindowControllerTest, ProductionBattleOnlyAddPayloadPreparesControlledSpells)

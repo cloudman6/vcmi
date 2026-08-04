@@ -250,10 +250,12 @@ private:
 	void initializeSelection(size_t initialSelection);
 	void selectFromMouse(size_t which);
 	void refreshFocusPresentation();
+	void updateCursorPresentation();
 	void updateOkButton();
 	std::optional<std::string> controllerGlyphToken(EShortcut shortcut) const;
 	void updateControllerGlyphs();
 	void recordLifecycleEvent(const std::string & event);
+	void inputModeChanged(InputMode modi) override;
 	CObjectListWindow(
 		HeadlessTestTag,
 		std::vector<ListItem> items_,

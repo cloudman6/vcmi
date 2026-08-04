@@ -1818,7 +1818,7 @@ CObjectListWindow::CObjectListWindow(const std::vector<int> & _items, std::share
 {
 	OBJECT_CONSTRUCTION;
 
-	addUsedEvents(KEYBOARD);
+	addUsedEvents(KEYBOARD | INPUT_MODE_CHANGE);
 
 	items.reserve(_items.size());
 	itemValues.resize(_items.size());
@@ -1847,7 +1847,7 @@ CObjectListWindow::CObjectListWindow(const std::vector<std::string> & _items, st
 {
 	OBJECT_CONSTRUCTION;
 
-	addUsedEvents(KEYBOARD);
+	addUsedEvents(KEYBOARD | INPUT_MODE_CHANGE);
 
 	items.reserve(_items.size());
 	itemValues.resize(_items.size());
@@ -1886,7 +1886,7 @@ CObjectListWindow::CObjectListWindow(
 {
 	OBJECT_CONSTRUCTION;
 
-	addUsedEvents(KEYBOARD);
+	addUsedEvents(KEYBOARD | INPUT_MODE_CHANGE);
 	for(auto & item : items)
 		trimTextIfTooWide(item.text, true);
 	itemValues.resize(items.size());
@@ -1912,7 +1912,7 @@ CObjectListWindow::CObjectListWindow(
 	, itemValues(std::move(itemValues_))
 	, headless(true)
 {
-	addUsedEvents(KEYBOARD);
+	addUsedEvents(KEYBOARD | INPUT_MODE_CHANGE);
 	if(itemValues.empty())
 	{
 		itemValues.resize(items.size());
@@ -2078,6 +2078,7 @@ void CObjectListWindow::itemsSearchCallback(const std::string & text)
 		list->scrollTo(0);
 	}
 	updateOkButton();
+	updateCursorPresentation();
 
 	if(!headless)
 		redraw();
@@ -2122,6 +2123,7 @@ void CObjectListWindow::changeSelection(size_t which)
 	if(isItemEnabled(which))
 		selectedItem = which;
 	refreshFocusPresentation();
+	updateCursorPresentation();
 	updateOkButton();
 }
 
@@ -2218,6 +2220,7 @@ void CObjectListWindow::selectFromMouse(size_t which)
 	changeSelection(which);
 	controllerFocusVisible = false;
 	refreshFocusPresentation();
+	updateCursorPresentation();
 }
 
 void CObjectListWindow::refreshFocusPresentation()
@@ -2233,6 +2236,17 @@ void CObjectListWindow::refreshFocusPresentation()
 			item->setSelected(selectedItem && item->index == *selectedItem);
 		}
 	}
+}
+
+void CObjectListWindow::updateCursorPresentation()
+{
+	if(!ENGINE->cursorHandlerInstance)
+		return;
+
+	if(controllerFocusVisible)
+		ENGINE->cursor().hide();
+	else
+		ENGINE->cursor().show();
 }
 
 std::optional<std::string> CObjectListWindow::controllerGlyphToken(EShortcut shortcut) const
@@ -2284,6 +2298,7 @@ void CObjectListWindow::suspendFocus()
 	recordLifecycleEvent("suspend");
 	controllerFocusVisible = false;
 	refreshFocusPresentation();
+	updateCursorPresentation();
 }
 
 void CObjectListWindow::restoreFocus()
@@ -2292,9 +2307,20 @@ void CObjectListWindow::restoreFocus()
 	focusedItem = findRestoredFocus();
 	if(!selectedItem || !isItemVisible(*selectedItem) || !isItemEnabled(*selectedItem))
 		selectedItem = focusedItem ? findEnabledItem(*focusedItem) : std::nullopt;
-	controllerFocusVisible = focusedItem.has_value();
+	controllerFocusVisible = focusedItem.has_value() && ENGINE->input().getCurrentInputMode() == InputMode::CONTROLLER;
 	refreshFocusPresentation();
+	updateCursorPresentation();
 	updateOkButton();
+}
+
+void CObjectListWindow::inputModeChanged(InputMode modi)
+{
+	if(modi != InputMode::KEYBOARD_AND_MOUSE)
+		return;
+
+	controllerFocusVisible = false;
+	refreshFocusPresentation();
+	updateCursorPresentation();
 }
 
 void CObjectListWindow::updateOkButton()
@@ -2317,6 +2343,9 @@ bool CObjectListWindow::captureThisKey(EShortcut key)
 
 void CObjectListWindow::keyPressed(EShortcut key)
 {
+	if(ENGINE->input().getCurrentInputMode() == InputMode::CONTROLLER)
+		updateControllerGlyphs();
+
 	if(key == EShortcut::GLOBAL_ACCEPT)
 	{
 		elementSelected();

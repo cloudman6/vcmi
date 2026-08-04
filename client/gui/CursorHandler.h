@@ -15,6 +15,7 @@
 class ICursor;
 class IImage;
 class CAnimation;
+class CObjectListWindowControllerTest;
 
 namespace Cursor
 {
@@ -114,6 +115,8 @@ namespace Cursor
 /// handles mouse cursor
 class CursorHandler final
 {
+	friend class CObjectListWindowControllerTest;
+
 	struct CursorParameters
 	{
 		std::string cursorID;
