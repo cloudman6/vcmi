@@ -43,6 +43,11 @@
 
 #include <gtest/gtest.h>
 
+#include <fstream>
+
+#include <SDL.h>
+#include <SDL_gamecontroller.h>
+#include <SDL_joystick.h>
 #include <SDL_surface.h>
 
 [[noreturn]] void handleFatalError(const std::string & message, bool)
@@ -85,6 +90,8 @@ class CObjectListWindowControllerTest : public testing::Test
 {
 protected:
 	bool resourceHandlerInitialized = false;
+	Uint32 initializedSdlSubsystems = 0;
+	std::vector<int> virtualControllerDeviceIndices;
 	std::vector<std::shared_ptr<ScalableImageShared>> productionImages;
 	std::unique_ptr<GameLibrary> localizationLibrary;
 
@@ -110,7 +117,12 @@ protected:
 	{
 		ENGINE->windows().clear();
 		GAME.reset();
+		ENGINE->input().gameControllerHandler.reset();
+		for(const int deviceIndex : virtualControllerDeviceIndices)
+			EXPECT_EQ(SDL_JoystickDetachVirtual(deviceIndex), 0);
 		ENGINE.reset();
+		if(initializedSdlSubsystems)
+			SDL_QuitSubSystem(initializedSdlSubsystems);
 		localizationLibrary.reset();
 		LIBRARY = nullptr;
 		if(resourceHandlerInitialized)
@@ -164,6 +176,8 @@ protected:
 			"data",
 			"controller-list-test-translations",
 			std::make_unique<CFilesystemLoader>("config/", sourceRoot / "Mods" / "vcmi" / "Content" / "config", 1));
+		keyBindingsConfig.init("config/keyBindingsConfig.json", "");
+		ENGINE->shortcuts().reloadShortcuts();
 
 		localizationLibrary = std::make_unique<GameLibrary>();
 		LIBRARY = localizationLibrary.get();
@@ -177,20 +191,33 @@ protected:
 		auto & renderer = static_cast<RenderHandler &>(ENGINE->renderHandler());
 		renderer.hdImageLoader = std::make_shared<HdImageLoader>();
 
-		JsonNode fontConfig;
-		fontConfig["file"].String() = "NotoSerif-Medium.ttf";
-		fontConfig["size"].Integer() = 12;
-		auto font = std::make_shared<FontChain>();
-		font->addTrueTypeFont(fontConfig, true);
-		renderer.fonts[FONT_BIG] = font;
-		renderer.fonts[FONT_SMALL] = font;
-		renderer.fonts[FONT_TINY] = font;
+		JsonNode bigFontConfig;
+		bigFontConfig["file"].String() = "NotoSerif-Bold.ttf";
+		bigFontConfig["size"].Integer() = 18;
+		auto bigFont = std::make_shared<FontChain>();
+		bigFont->addTrueTypeFont(bigFontConfig, true);
+		renderer.fonts[FONT_BIG] = bigFont;
+
+		JsonNode smallFontConfig;
+		smallFontConfig["file"].String() = "NotoSerif-Medium.ttf";
+		smallFontConfig["size"].Integer() = 11;
+		auto smallFont = std::make_shared<FontChain>();
+		smallFont->addTrueTypeFont(smallFontConfig, true);
+		renderer.fonts[FONT_SMALL] = smallFont;
+
+		JsonNode tinyFontConfig;
+		tinyFontConfig["file"].String() = "NotoSans-Medium.ttf";
+		tinyFontConfig["size"].Integer() = 9;
+		tinyFontConfig["noShadow"].Bool() = true;
+		auto tinyFont = std::make_shared<FontChain>();
+		tinyFont->addTrueTypeFont(tinyFontConfig, true);
+		renderer.fonts[FONT_TINY] = tinyFont;
 
 		addProductionImage(renderer, "TPGATE", EImageBlitMode::OPAQUE, Point(320, 460));
 		addProductionImage(renderer, "TPGATES", EImageBlitMode::COLORKEY, Point(256, 25));
 		addProductionImage(renderer, "TownPortalBackgroundBlue", EImageBlitMode::OPAQUE, Point(320, 460));
 		auto icon = addProductionImage(renderer, "controller-list-test-icon", EImageBlitMode::OPAQUE, Point(35, 23));
-		addProductionImage(renderer, "controller-list-test-button", EImageBlitMode::COLORKEY, Point(20, 20));
+		addProductionImage(renderer, "controller-list-test-button", EImageBlitMode::COLORKEY, Point(54, 30));
 		addProductionAnimation(renderer, "ICANCEL.DEF");
 		addProductionAnimation(renderer, "IOKAY.DEF");
 		addProductionAnimation(renderer, "MuBcanc");
@@ -314,14 +341,6 @@ protected:
 		return window->cancelGlyph->getText();
 	}
 
-	bool glyphsAreVisibleBesideActions(const std::shared_ptr<CObjectListWindow> & window) const
-	{
-		return window->acceptGlyph->parent == window.get()
-			&& window->cancelGlyph->parent == window.get()
-			&& window->acceptGlyph->pos.x > window->ok->pos.x + window->ok->pos.w
-			&& window->cancelGlyph->pos.x > window->exit->pos.x + window->exit->pos.w;
-	}
-
 	void clickItem(const std::shared_ptr<CObjectListWindow> & window, size_t visibleIndex)
 	{
 		window->genItem(visibleIndex)->clickPressed(Point());
@@ -357,6 +376,204 @@ protected:
 		ENGINE->input().gameControllerHandler = std::unique_ptr<InputSourceGameController>(
 			new InputSourceGameController(InputSourceGameController::HeadlessTestTag()));
 		ENGINE->input().gameControllerHandler->activePresentation = presentation;
+	}
+
+	SDL_JoystickID attachVirtualDualSense()
+	{
+		const Uint32 requiredSubsystems = SDL_INIT_JOYSTICK | SDL_INIT_GAMECONTROLLER;
+		initializedSdlSubsystems = requiredSubsystems & ~SDL_WasInit(requiredSubsystems);
+		if(initializedSdlSubsystems && SDL_InitSubSystem(initializedSdlSubsystems) != 0)
+			throw std::runtime_error(SDL_GetError());
+
+		SDL_VirtualJoystickDesc descriptor{};
+		descriptor.version = SDL_VIRTUAL_JOYSTICK_DESC_VERSION;
+		descriptor.type = SDL_JOYSTICK_TYPE_GAMECONTROLLER;
+		descriptor.nbuttons = SDL_CONTROLLER_BUTTON_MAX;
+		descriptor.vendor_id = 1356;
+		descriptor.product_id = 3302;
+		descriptor.name = "VCMI test DualSense";
+
+		const int deviceIndex = SDL_JoystickAttachVirtualEx(&descriptor);
+		if(deviceIndex < 0)
+			throw std::runtime_error(SDL_GetError());
+		virtualControllerDeviceIndices.push_back(deviceIndex);
+
+		char guid[33]{};
+		SDL_JoystickGetGUIDString(SDL_JoystickGetDeviceGUID(deviceIndex), guid, sizeof(guid));
+		const std::string mapping = std::string(guid)
+			+ ",VCMI test DualSense,a:b0,b:b1,dpdown:b12,platform:Mac OS X,type:ps5";
+		if(SDL_GameControllerAddMapping(mapping.c_str()) < 0)
+			throw std::runtime_error(SDL_GetError());
+		if(!SDL_IsGameController(deviceIndex))
+			throw std::runtime_error("Virtual DualSense is not a game controller.");
+
+		SDL_Joystick * joystick = SDL_JoystickOpen(deviceIndex);
+		if(!joystick)
+			throw std::runtime_error(SDL_GetError());
+		const SDL_JoystickID instanceId = SDL_JoystickInstanceID(joystick);
+		SDL_JoystickClose(joystick);
+		if(instanceId < 0)
+			throw std::runtime_error(SDL_GetError());
+
+		auto & testSettings = const_cast<JsonNode &>(settings.toJsonNode());
+		testSettings["input"]["enableController"].Bool() = true;
+		ENGINE->inputHandlerInstance = std::make_unique<InputHandler>();
+		return instanceId;
+	}
+
+	void dispatchVirtualControllerButton(SDL_JoystickID instanceId, SDL_GameControllerButton button)
+	{
+		SDL_Event event{};
+		event.type = SDL_CONTROLLERBUTTONDOWN;
+		event.cbutton.type = SDL_CONTROLLERBUTTONDOWN;
+		event.cbutton.which = instanceId;
+		event.cbutton.button = static_cast<Uint8>(button);
+		event.cbutton.state = SDL_PRESSED;
+		if(SDL_PushEvent(&event) != 1)
+			throw std::runtime_error(SDL_GetError());
+
+		ENGINE->input().fetchEvents();
+		ENGINE->input().processEvents();
+	}
+
+	SDL_GameControllerType openedControllerType(SDL_JoystickID instanceId) const
+	{
+		const auto & controllers = ENGINE->input().gameControllerHandler->gameControllerMap;
+		const auto found = controllers.find(instanceId);
+		if(found == controllers.end())
+			return SDL_CONTROLLER_TYPE_UNKNOWN;
+		return SDL_GameControllerGetType(found->second.get());
+	}
+
+	void drawGlyphForCalibration(const std::shared_ptr<CObjectListWindow> & window, Canvas & canvas, bool accept) const
+	{
+		(accept ? window->acceptGlyph : window->cancelGlyph)->showAll(canvas);
+	}
+
+	std::pair<Point, Point> glyphCalibrationAnchors(const std::shared_ptr<CObjectListWindow> & window) const
+	{
+		return {window->acceptGlyph->pos.topLeft(), window->cancelGlyph->pos.topLeft()};
+	}
+
+	bool pixelsDiffer(const ColorRGBA & before, const ColorRGBA & after) const
+	{
+		return before.r != after.r || before.g != after.g || before.b != after.b || before.a != after.a;
+	}
+
+	std::vector<Point> changedPixelMask(const Canvas & before, const Canvas & after, const Rect & region) const
+	{
+		std::vector<Point> result;
+		for(int y = region.y; y < region.bottom(); ++y)
+		{
+			for(int x = region.x; x < region.right(); ++x)
+			{
+				const Point position(x, y);
+				if(pixelsDiffer(before.getPixel(position), after.getPixel(position)))
+					result.push_back(position);
+			}
+		}
+		return result;
+	}
+
+	size_t composedGlyphDeltaPixels(const Canvas & withoutGlyphs, const Canvas & withGlyphs, const std::vector<Point> & mask) const
+	{
+		size_t result = 0;
+		for(const auto & position : mask)
+		{
+			if(pixelsDiffer(withoutGlyphs.getPixel(position), withGlyphs.getPixel(position)))
+				++result;
+		}
+		return result;
+	}
+
+	struct GlyphCompositionState
+	{
+		Point windowOrigin;
+		Point acceptGlyphOrigin;
+		Point cancelGlyphOrigin;
+		Point acceptButtonOrigin;
+		Point cancelButtonOrigin;
+		InputMode inputMode;
+		ControllerPresentation presentation;
+		std::optional<size_t> focusedItem;
+		std::optional<size_t> selectedItem;
+		bool controllerFocusVisible;
+		size_t windowStackSize;
+		bool isTopWindow;
+	};
+
+	GlyphCompositionState glyphCompositionState(const std::shared_ptr<CObjectListWindow> & window) const
+	{
+		return {
+			window->pos.topLeft(),
+			window->acceptGlyph->pos.topLeft(),
+			window->cancelGlyph->pos.topLeft(),
+			window->ok->pos.topLeft(),
+			window->exit->pos.topLeft(),
+			ENGINE->input().getCurrentInputMode(),
+			ENGINE->input().getControllerPresentation(),
+			window->focusedItem,
+			window->selectedItem,
+			window->controllerFocusVisible,
+			ENGINE->windows().count(),
+			ENGINE->windows().isTopWindow(window)
+		};
+	}
+
+	void expectSameGlyphCompositionState(const GlyphCompositionState & expected, const GlyphCompositionState & actual) const
+	{
+		EXPECT_EQ(actual.windowOrigin, expected.windowOrigin);
+		EXPECT_EQ(actual.acceptGlyphOrigin, expected.acceptGlyphOrigin);
+		EXPECT_EQ(actual.cancelGlyphOrigin, expected.cancelGlyphOrigin);
+		EXPECT_EQ(actual.acceptButtonOrigin, expected.acceptButtonOrigin);
+		EXPECT_EQ(actual.cancelButtonOrigin, expected.cancelButtonOrigin);
+		EXPECT_EQ(actual.inputMode, expected.inputMode);
+		EXPECT_EQ(actual.presentation, expected.presentation);
+		EXPECT_EQ(actual.focusedItem, expected.focusedItem);
+		EXPECT_EQ(actual.selectedItem, expected.selectedItem);
+		EXPECT_EQ(actual.controllerFocusVisible, expected.controllerFocusVisible);
+		EXPECT_EQ(actual.windowStackSize, expected.windowStackSize);
+		EXPECT_EQ(actual.isTopWindow, expected.isTopWindow);
+	}
+
+	void setGlyphTexts(const std::shared_ptr<CObjectListWindow> & window, const std::string & acceptText, const std::string & cancelText) const
+	{
+		window->acceptGlyph->setText(acceptText);
+		window->cancelGlyph->setText(cancelText);
+	}
+
+	bool glyphsComposeAfterActionControls(const std::shared_ptr<CObjectListWindow> & window) const
+	{
+		const auto acceptGlyph = std::find(window->children.begin(), window->children.end(), window->acceptGlyph.get());
+		const auto cancelGlyph = std::find(window->children.begin(), window->children.end(), window->cancelGlyph.get());
+		const auto acceptButton = std::find(window->children.begin(), window->children.end(), window->ok.get());
+		const auto cancelButton = std::find(window->children.begin(), window->children.end(), window->exit.get());
+		return acceptGlyph > acceptButton && cancelGlyph > cancelButton;
+	}
+
+	void writeRenderedGlyphArtifact(const Canvas & canvas, const Point & dimensions, bool candidateComposition) const
+	{
+		const std::string filename = candidateComposition
+			? "../../evidence/m2-rendered-glyph-mask-candidate.ppm"
+			: "../../evidence/m2-rendered-glyph-mask-baseline.ppm";
+		std::ofstream output(filename, std::ios::binary | std::ios::trunc);
+		if(!output)
+			throw std::runtime_error("Unable to create rendered glyph artifact: " + filename);
+
+		output << "P6\n" << dimensions.x << ' ' << dimensions.y << "\n255\n";
+		for(int y = 0; y < dimensions.y; ++y)
+		{
+			for(int x = 0; x < dimensions.x; ++x)
+			{
+				const auto pixel = canvas.getPixel(Point(x, y));
+				output.put(static_cast<char>(pixel.r));
+				output.put(static_cast<char>(pixel.g));
+				output.put(static_cast<char>(pixel.b));
+			}
+		}
+		if(!output)
+			throw std::runtime_error("Unable to write rendered glyph artifact: " + filename);
+		std::cout << "Rendered glyph artifact: " << filename << std::endl;
 	}
 
 	void initializeCursorPresentation()
@@ -556,8 +773,8 @@ TEST_F(ShortcutGlyphQueryTest, DualSenseBindingsRefreshGlyphsAfterControllerActi
 
 	const auto acceptBindings = ENGINE->shortcuts().getJoystickBindings(EShortcut::GLOBAL_ACCEPT);
 	const auto cancelBindings = ENGINE->shortcuts().getJoystickBindings(EShortcut::GLOBAL_CANCEL);
-	ASSERT_EQ(acceptBindings, std::vector<std::string>({"a"}));
-	ASSERT_EQ(cancelBindings, std::vector<std::string>({"b"}));
+	ASSERT_FALSE(acceptBindings.empty());
+	ASSERT_FALSE(cancelBindings.empty());
 
 	auto window = std::make_shared<CObjectListWindow>(
 		std::vector<CObjectListWindow::ListItem>{{"Spell", true, ""}},
@@ -588,7 +805,93 @@ TEST_F(ShortcutGlyphQueryTest, DualSenseBindingsRefreshGlyphsAfterControllerActi
 
 	EXPECT_EQ(acceptGlyphText(window), "×");
 	EXPECT_EQ(cancelGlyphText(window), "○");
-	EXPECT_TRUE(glyphsAreVisibleBesideActions(window));
+}
+
+TEST_F(CObjectListWindowControllerTest, DualSenseGlyphsRenderAboveProductionActionControls)
+{
+	initializeProductionListConstruction();
+
+	const auto acceptBindings = ENGINE->shortcuts().getJoystickBindings(EShortcut::GLOBAL_ACCEPT);
+	const auto cancelBindings = ENGINE->shortcuts().getJoystickBindings(EShortcut::GLOBAL_CANCEL);
+	ASSERT_EQ(acceptBindings, std::vector<std::string>({"a"}));
+	ASSERT_EQ(cancelBindings, std::vector<std::string>({"b"}));
+
+	auto window = std::make_shared<CObjectListWindow>(
+		std::vector<CObjectListWindow::ListItem>{{"Enabled", true, ""}, {"Disabled", false, "Already selected"}},
+		nullptr,
+		"Add spell",
+		"Select a spell",
+		[](int)
+		{
+		},
+		0,
+		std::vector<std::shared_ptr<IImage>>{productionListIcon, productionListIcon},
+		true,
+		true);
+
+	const Point canvasDimensions = window->pos.dimensions();
+	ASSERT_EQ(canvasDimensions, Point(320, 460));
+	window->moveTo(Point(), true);
+	ASSERT_EQ(window->pos.topLeft(), Point());
+	const auto [acceptGlyphAnchor, cancelGlyphAnchor] = glyphCalibrationAnchors(window);
+	ASSERT_EQ(acceptGlyphAnchor, Point(42, 414));
+	ASSERT_EQ(cancelGlyphAnchor, Point(254, 414));
+	ENGINE->windows().pushWindow(window);
+	ASSERT_TRUE(acceptGlyphText(window).empty());
+	ASSERT_TRUE(cancelGlyphText(window).empty());
+	const SDL_JoystickID controllerInstance = attachVirtualDualSense();
+	dispatchVirtualControllerButton(controllerInstance, SDL_CONTROLLER_BUTTON_DPAD_DOWN);
+
+	ASSERT_EQ(openedControllerType(controllerInstance), SDL_CONTROLLER_TYPE_PS5);
+	ASSERT_EQ(ENGINE->input().getCurrentInputMode(), InputMode::CONTROLLER);
+	ASSERT_EQ(ENGINE->input().getControllerPresentation(), ControllerPresentation::DUALSENSE);
+	const auto acceptToken = ENGINE->input().getControllerGlyphToken(acceptBindings);
+	const auto cancelToken = ENGINE->input().getControllerGlyphToken(cancelBindings);
+	ASSERT_TRUE(acceptToken.has_value());
+	ASSERT_TRUE(cancelToken.has_value());
+	ASSERT_EQ(acceptGlyphText(window), *acceptToken);
+	ASSERT_EQ(cancelGlyphText(window), *cancelToken);
+
+	const Rect calibrationArea(Point(), canvasDimensions);
+	Canvas calibrationBefore(canvasDimensions, CanvasScalingPolicy::IGNORE);
+	Canvas calibrationAccept(canvasDimensions, CanvasScalingPolicy::IGNORE);
+	ASSERT_TRUE(changedPixelMask(calibrationBefore, calibrationAccept, calibrationArea).empty());
+	drawGlyphForCalibration(window, calibrationAccept, true);
+	const auto acceptMask = changedPixelMask(calibrationBefore, calibrationAccept, calibrationArea);
+	ASSERT_FALSE(acceptMask.empty());
+
+	Canvas calibrationCancel(canvasDimensions, CanvasScalingPolicy::IGNORE);
+	ASSERT_TRUE(changedPixelMask(calibrationBefore, calibrationCancel, calibrationArea).empty());
+	drawGlyphForCalibration(window, calibrationCancel, false);
+	const auto cancelMask = changedPixelMask(calibrationBefore, calibrationCancel, calibrationArea);
+	ASSERT_FALSE(cancelMask.empty());
+
+	const auto stateWithGlyphs = glyphCompositionState(window);
+	setGlyphTexts(window, "", "");
+	ASSERT_TRUE(acceptGlyphText(window).empty());
+	ASSERT_TRUE(cancelGlyphText(window).empty());
+	Canvas withoutGlyphs(canvasDimensions, CanvasScalingPolicy::IGNORE);
+	window->CWindowObject::showAll(withoutGlyphs);
+	ASSERT_TRUE(acceptGlyphText(window).empty());
+	ASSERT_TRUE(cancelGlyphText(window).empty());
+	expectSameGlyphCompositionState(stateWithGlyphs, glyphCompositionState(window));
+
+	setGlyphTexts(window, *acceptToken, *cancelToken);
+	ASSERT_EQ(acceptGlyphText(window), *acceptToken);
+	ASSERT_EQ(cancelGlyphText(window), *cancelToken);
+	Canvas withGlyphs(canvasDimensions, CanvasScalingPolicy::IGNORE);
+	window->showAll(withGlyphs);
+	ASSERT_EQ(acceptGlyphText(window), *acceptToken);
+	ASSERT_EQ(cancelGlyphText(window), *cancelToken);
+	expectSameGlyphCompositionState(stateWithGlyphs, glyphCompositionState(window));
+
+	const size_t preservedAcceptMask = composedGlyphDeltaPixels(withoutGlyphs, withGlyphs, acceptMask);
+	const size_t preservedCancelMask = composedGlyphDeltaPixels(withoutGlyphs, withGlyphs, cancelMask);
+	writeRenderedGlyphArtifact(withGlyphs, canvasDimensions, glyphsComposeAfterActionControls(window));
+	EXPECT_EQ(preservedAcceptMask, acceptMask.size())
+		<< "Composed accept action control does not preserve the complete binding-derived glyph mask.";
+	EXPECT_EQ(preservedCancelMask, cancelMask.size())
+		<< "Composed cancel action control does not preserve the complete binding-derived glyph mask.";
 }
 
 TEST_F(CObjectListWindowControllerTest, ProductionBattleOnlyAddPayloadPreparesControlledSpells)

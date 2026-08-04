@@ -1953,8 +1953,6 @@ void CObjectListWindow::init(std::shared_ptr<CIntObject> titleWidget_, std::stri
 	title = std::make_shared<CLabel>(152, titleWidget_ ? 27 : 51, FONT_BIG, ETextAlignment::CENTER, Colors::YELLOW, _title);
 	descr = std::make_shared<CLabel>(145, 133, FONT_SMALL, ETextAlignment::CENTER, Colors::WHITE, _descr);
 	exit = std::make_shared<CButton>( Point(228, 402), AnimationPath::builtin(blue ? "MuBcanc" : "ICANCEL.DEF"), CButton::tooltip(), std::bind(&CObjectListWindow::exitPressed, this), EShortcut::GLOBAL_CANCEL);
-	acceptGlyph = std::make_shared<CLabel>(42, 414, FONT_TINY, ETextAlignment::CENTER, Colors::YELLOW, "");
-	cancelGlyph = std::make_shared<CLabel>(254, 414, FONT_TINY, ETextAlignment::CENTER, Colors::YELLOW, "");
 
 	if(titleWidget)
 	{
@@ -1969,6 +1967,8 @@ void CObjectListWindow::init(std::shared_ptr<CIntObject> titleWidget_, std::stri
 		list->getSlider()->setInertiaEnabled(true);
 
 	ok = std::make_shared<CButton>(Point(15, 402), AnimationPath::builtin(blue ? "MuBchck" : "IOKAY.DEF"), CButton::tooltip(), std::bind(&CObjectListWindow::elementSelected, this), EShortcut::GLOBAL_ACCEPT);
+	acceptGlyph = std::make_shared<CLabel>(42, 414, FONT_TINY, ETextAlignment::CENTER, Colors::YELLOW, "");
+	cancelGlyph = std::make_shared<CLabel>(254, 414, FONT_TINY, ETextAlignment::CENTER, Colors::YELLOW, "");
 	updateOkButton();
 	updateControllerGlyphs();
 
