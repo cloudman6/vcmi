@@ -218,10 +218,10 @@ private:
 	std::vector<std::shared_ptr<IImage>> images;
 
 	std::shared_ptr<CListBox> list;
-	std::shared_ptr<CButton> ok;
-	std::shared_ptr<CButton> exit;
 	std::shared_ptr<CLabel> acceptGlyph;
 	std::shared_ptr<CLabel> cancelGlyph;
+	std::shared_ptr<CButton> ok;
+	std::shared_ptr<CButton> exit;
 
 	std::shared_ptr<CTextInput> searchBox;
 	std::shared_ptr<TransparentFilledRectangle> searchBoxRectangle;

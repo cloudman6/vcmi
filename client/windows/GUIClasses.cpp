@@ -1967,8 +1967,10 @@ void CObjectListWindow::init(std::shared_ptr<CIntObject> titleWidget_, std::stri
 		list->getSlider()->setInertiaEnabled(true);
 
 	ok = std::make_shared<CButton>(Point(15, 402), AnimationPath::builtin(blue ? "MuBchck" : "IOKAY.DEF"), CButton::tooltip(), std::bind(&CObjectListWindow::elementSelected, this), EShortcut::GLOBAL_ACCEPT);
-	acceptGlyph = std::make_shared<CLabel>(42, 414, FONT_TINY, ETextAlignment::CENTER, Colors::YELLOW, "");
-	cancelGlyph = std::make_shared<CLabel>(254, 414, FONT_TINY, ETextAlignment::CENTER, Colors::YELLOW, "");
+	acceptGlyph = std::make_shared<CLabel>(27, 12, FONT_TINY, ETextAlignment::CENTER, Colors::YELLOW, "");
+	cancelGlyph = std::make_shared<CLabel>(26, 12, FONT_TINY, ETextAlignment::CENTER, Colors::YELLOW, "");
+	ok->addChild(acceptGlyph.get(), true);
+	exit->addChild(cancelGlyph.get(), true);
 	updateOkButton();
 	updateControllerGlyphs();
 
