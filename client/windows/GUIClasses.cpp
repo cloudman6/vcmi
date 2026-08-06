@@ -73,7 +73,6 @@
 #include "../../lib/CSoundBase.h"
 #include "../../lib/constants/EntityIdentifiers.h"
 
-
 ImagePath CRecruitmentWindow::getRecruitmentBackground(const CGDwelling * dwelling, int level)
 {
 	int cardsCount = 0;
@@ -1952,7 +1951,8 @@ void CObjectListWindow::init(std::shared_ptr<CIntObject> titleWidget_, std::stri
 
 	title = std::make_shared<CLabel>(152, titleWidget_ ? 27 : 51, FONT_BIG, ETextAlignment::CENTER, Colors::YELLOW, _title);
 	descr = std::make_shared<CLabel>(145, 133, FONT_SMALL, ETextAlignment::CENTER, Colors::WHITE, _descr);
-	exit = std::make_shared<CButton>( Point(228, 402), AnimationPath::builtin(blue ? "MuBcanc" : "ICANCEL.DEF"), CButton::tooltip(), std::bind(&CObjectListWindow::exitPressed, this), EShortcut::GLOBAL_CANCEL);
+	exit = std::make_shared<CButton>(Point(228, 402), AnimationPath::builtin(blue ? "MuBcanc" : "ICANCEL.DEF"), CButton::tooltip(), std::bind(&CObjectListWindow::exitPressed, this), EShortcut::GLOBAL_CANCEL);
+	exit->setRedrawParent(true);
 
 	if(titleWidget)
 	{
@@ -1967,10 +1967,16 @@ void CObjectListWindow::init(std::shared_ptr<CIntObject> titleWidget_, std::stri
 		list->getSlider()->setInertiaEnabled(true);
 
 	ok = std::make_shared<CButton>(Point(15, 402), AnimationPath::builtin(blue ? "MuBchck" : "IOKAY.DEF"), CButton::tooltip(), std::bind(&CObjectListWindow::elementSelected, this), EShortcut::GLOBAL_ACCEPT);
-	acceptGlyph = std::make_shared<CLabel>(27, 12, FONT_TINY, ETextAlignment::CENTER, Colors::YELLOW, "");
-	cancelGlyph = std::make_shared<CLabel>(26, 12, FONT_TINY, ETextAlignment::CENTER, Colors::YELLOW, "");
-	ok->addChild(acceptGlyph.get(), true);
-	exit->addChild(cancelGlyph.get(), true);
+	ok->setRedrawParent(true);
+	const int promptHeight = static_cast<int>(ENGINE->renderHandler().loadFont(FONT_TINY)->getLineHeight());
+	acceptGlyph = std::make_shared<CLabel>(16, 414 - promptHeight / 2, FONT_TINY, ETextAlignment::CENTER, Colors::BLACK, "");
+	cancelGlyph = std::make_shared<CLabel>(229, 414 - promptHeight / 2, FONT_TINY, ETextAlignment::CENTER, Colors::BLACK, "");
+	acceptGlyph->pos.w = ok->pos.w - 2;
+	acceptGlyph->pos.h = promptHeight;
+	cancelGlyph->pos.w = exit->pos.w - 2;
+	cancelGlyph->pos.h = promptHeight;
+	ok->addChild(acceptGlyph.get());
+	exit->addChild(cancelGlyph.get());
 	updateOkButton();
 	updateControllerGlyphs();
 
@@ -2262,8 +2268,9 @@ void CObjectListWindow::updateControllerGlyphs()
 	if(headless || !acceptGlyph || !cancelGlyph)
 		return;
 
-	const auto acceptToken = controllerGlyphToken(EShortcut::GLOBAL_ACCEPT).value_or("");
-	const auto cancelToken = controllerGlyphToken(EShortcut::GLOBAL_CANCEL).value_or("");
+	const bool controllerInput = ENGINE->input().getCurrentInputMode() == InputMode::CONTROLLER;
+	const auto acceptToken = controllerInput ? controllerGlyphToken(EShortcut::GLOBAL_ACCEPT).value_or("") : "";
+	const auto cancelToken = controllerInput ? controllerGlyphToken(EShortcut::GLOBAL_CANCEL).value_or("") : "";
 
 	if(acceptGlyph->getText() != acceptToken)
 		acceptGlyph->setText(acceptToken);
@@ -2275,6 +2282,16 @@ void CObjectListWindow::showAll(Canvas & to)
 {
 	updateControllerGlyphs();
 	CWindowObject::showAll(to);
+}
+
+void CObjectListWindow::show(Canvas & to)
+{
+	updateControllerGlyphs();
+	CWindowObject::show(to);
+	if(acceptGlyph)
+		acceptGlyph->showAll(to);
+	if(cancelGlyph)
+		cancelGlyph->showAll(to);
 }
 
 void CObjectListWindow::activate()

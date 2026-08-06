@@ -294,6 +294,7 @@ public:
 	size_t selected() const;
 	void activate() override;
 	void deactivate() override;
+	void show(Canvas & to) override;
 	void showAll(Canvas & to) override;
 	bool captureThisKey(EShortcut key) override;
 	void keyPressed(EShortcut key) override;
