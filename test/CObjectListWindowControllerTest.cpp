@@ -540,7 +540,7 @@ protected:
 
 	void expectBackingDiffers(SDL_Surface * normal, SDL_Surface * state, const Rect & actionRect) const
 	{
-		const Rect backingProbe(actionRect.topLeft() + Point(128, 5), Point(8, 34));
+		const Rect backingProbe(actionRect.topLeft() + Point(112, 5), Point(8, 34));
 		EXPECT_GE(countDifferentPixels(normal, state, backingProbe), 6);
 	}
 
@@ -560,7 +560,7 @@ protected:
 
 	void expectPromptUnitPressedOffset(SDL_Surface * normal, SDL_Surface * pressed, const Rect & actionRect) const
 	{
-		const Rect promptUnit(actionRect.topLeft() + Point(10, 8), Point(120, 28));
+		const Rect promptUnit(actionRect.topLeft() + Point(10, 8), Point(104, 28));
 		EXPECT_GE(countDifferentPixels(normal, pressed, promptUnit), 6);
 		EXPECT_EQ(countOffsetMismatches(normal, pressed, promptUnit), 0);
 	}
@@ -602,7 +602,7 @@ protected:
 	{
 		const Rect actionRect = acceptPrompt ? acceptActionRect(window) : cancelActionRect(window);
 		const ColorRGBA backingColor = surfacePixel(surface, actionRect.topLeft() + Point(50, 5));
-		const Rect labelRegion(actionRect.topLeft() + Point(44, 10), Point(84, 24));
+		const Rect labelRegion(actionRect.topLeft() + Point(44, 10), Point(68, 24));
 		return hasPerceivableControllerSprite(surface, actionRect, backingColor)
 			&& countPerceivablePixels(surface, labelRegion, backingColor, 4.5) >= 4;
 	}
@@ -614,7 +614,7 @@ protected:
 	{
 		const Rect actionRect = acceptPrompt ? acceptActionRect(window) : cancelActionRect(window);
 		const ColorRGBA backingColor = surfacePixel(surface, actionRect.topLeft() + Point(50, 5));
-		const Rect labelRegion(actionRect.topLeft() + Point(44, 10), Point(84, 24));
+		const Rect labelRegion(actionRect.topLeft() + Point(44, 10), Point(68, 24));
 		EXPECT_TRUE(hasPerceivableControllerSprite(surface, actionRect, backingColor));
 		EXPECT_GE(countPerceivablePixels(surface, labelRegion, backingColor, 4.5), 4);
 	}
@@ -640,7 +640,7 @@ protected:
 	{
 		EXPECT_EQ(actual.x, topLeft.x);
 		EXPECT_EQ(actual.y, topLeft.y);
-		EXPECT_EQ(actual.w, 140);
+		EXPECT_EQ(actual.w, 124);
 		EXPECT_EQ(actual.h, 44);
 	}
 
@@ -724,6 +724,8 @@ protected:
 			EXPECT_TRUE(cancelActionRect(window).intersectionTest(window->cancelGlyph->pos));
 			EXPECT_EQ(window->acceptPromptOverlay->pos.dimensions(), acceptActionRect(window).dimensions());
 			EXPECT_EQ(window->cancelPromptOverlay->pos.dimensions(), cancelActionRect(window).dimensions());
+			EXPECT_EQ(window->acceptGlyph->pos.center().y, acceptActionRect(window).center().y);
+			EXPECT_EQ(window->cancelGlyph->pos.center().y, cancelActionRect(window).center().y);
 		}
 		else
 		{
@@ -840,6 +842,8 @@ protected:
 
 		auto & testSettings = const_cast<JsonNode &>(settings.toJsonNode());
 		testSettings["input"]["enableController"].Bool() = true;
+		testSettings["input"]["controllerAxisDeadZone"].Float() = 0.2;
+		testSettings["input"]["controllerAxisFullZone"].Float() = 1.0;
 		ENGINE->inputHandlerInstance = std::make_unique<InputHandler>();
 		return instanceId;
 	}
@@ -852,6 +856,21 @@ protected:
 		event.cbutton.which = instanceId;
 		event.cbutton.button = static_cast<Uint8>(button);
 		event.cbutton.state = SDL_PRESSED;
+		if(SDL_PushEvent(&event) != 1)
+			throw std::runtime_error(SDL_GetError());
+
+		ENGINE->input().fetchEvents();
+		ENGINE->input().processEvents();
+	}
+
+	void dispatchVirtualControllerAxis(SDL_JoystickID instanceId, SDL_GameControllerAxis axis, Sint16 value)
+	{
+		SDL_Event event{};
+		event.type = SDL_CONTROLLERAXISMOTION;
+		event.caxis.type = SDL_CONTROLLERAXISMOTION;
+		event.caxis.which = instanceId;
+		event.caxis.axis = static_cast<Uint8>(axis);
+		event.caxis.value = value;
 		if(SDL_PushEvent(&event) != 1)
 			throw std::runtime_error(SDL_GetError());
 
@@ -1056,7 +1075,7 @@ TEST_F(ShortcutGlyphQueryTest, ControllerGlyphRefreshDoesNotReenterShowAll)
 	EXPECT_TRUE(reentrantAppliedStates.empty());
 	EXPECT_TRUE(actionButtonVisualsApplied(window));
 	expectActionRectAt(acceptActionRect(window), window->pos.topLeft() + Point(15, 402));
-	expectActionRectAt(cancelActionRect(window), window->pos.topLeft() + Point(173, 402));
+	expectActionRectAt(cancelActionRect(window), window->pos.topLeft() + Point(158, 402));
 
 	const auto stableShowAllCount = window->showAllCount;
 	window->showAll(canvas);
@@ -1104,6 +1123,7 @@ TEST_F(CObjectListWindowControllerTest, ControllerFocusHidesCursorUntilMouseTake
 TEST_F(ShortcutGlyphQueryTest, DualSenseBindingsRefreshGlyphsAfterControllerActivation)
 {
 	initializeProductionListConstruction();
+	initializeCursorPresentation();
 	setJoystickBindings({
 		{"a", EShortcut::GLOBAL_ACCEPT},
 		{"b", EShortcut::GLOBAL_CANCEL}
@@ -1150,6 +1170,24 @@ TEST_F(ShortcutGlyphQueryTest, DualSenseBindingsRefreshGlyphsAfterControllerActi
 
 	EXPECT_EQ(acceptGlyphText(window), localizationLibrary->generaltexth->translate("vcmi.lobby.battleOnlySpellAdd.actionAdd"));
 	EXPECT_EQ(cancelGlyphText(window), localizationLibrary->generaltexth->translate("vcmi.lobby.battleOnlySpellAdd.actionCancel"));
+
+	dispatchMouseMotion(window->pos.center());
+	EXPECT_EQ(ENGINE->input().getCurrentInputMode(), InputMode::KEYBOARD_AND_MOUSE);
+	EXPECT_FALSE(actionButtonVisualsApplied(window));
+	EXPECT_EQ(acceptGlyphText(window), "");
+	EXPECT_EQ(cancelGlyphText(window), "");
+
+	dispatchVirtualControllerAxis(controllerInstance, SDL_CONTROLLER_AXIS_LEFTX, 1);
+	EXPECT_EQ(ENGINE->input().getCurrentInputMode(), InputMode::KEYBOARD_AND_MOUSE);
+	EXPECT_FALSE(actionButtonVisualsApplied(window));
+	EXPECT_EQ(acceptGlyphText(window), "");
+	EXPECT_EQ(cancelGlyphText(window), "");
+
+	dispatchVirtualControllerAxis(controllerInstance, SDL_CONTROLLER_AXIS_LEFTX, SDL_JOYSTICK_AXIS_MAX);
+	EXPECT_EQ(ENGINE->input().getCurrentInputMode(), InputMode::CONTROLLER);
+	EXPECT_TRUE(actionButtonVisualsApplied(window));
+	EXPECT_EQ(acceptGlyphText(window), localizationLibrary->generaltexth->translate("vcmi.lobby.battleOnlySpellAdd.actionAdd"));
+	EXPECT_EQ(cancelGlyphText(window), localizationLibrary->generaltexth->translate("vcmi.lobby.battleOnlySpellAdd.actionCancel"));
 }
 
 TEST_F(ShortcutGlyphQueryTest, DualSenseGlyphsRenderAboveProductionActionControls)
@@ -1184,8 +1222,10 @@ TEST_F(ShortcutGlyphQueryTest, DualSenseGlyphsRenderAboveProductionActionControl
 	setInputMode(InputMode::KEYBOARD_AND_MOUSE);
 	Canvas screen = ENGINE->screenHandler().getScreenCanvas();
 	window->showAll(screen);
-	EXPECT_EQ(acceptActionRect(window).topLeft(), window->pos.topLeft() + Point(15, 402));
-	EXPECT_EQ(cancelActionRect(window).topLeft(), window->pos.topLeft() + Point(228, 402));
+	const Rect acceptMouseRect = acceptActionRect(window);
+	const Rect cancelMouseRect = cancelActionRect(window);
+	EXPECT_EQ(acceptMouseRect.topLeft(), window->pos.topLeft() + Point(15, 402));
+	EXPECT_EQ(cancelMouseRect.topLeft(), window->pos.topLeft() + Point(228, 402));
 	ASSERT_TRUE(acceptGlyphText(window).empty());
 	ASSERT_TRUE(cancelGlyphText(window).empty());
 	const SDL_JoystickID controllerInstance = attachVirtualDualSense();
@@ -1208,7 +1248,10 @@ TEST_F(ShortcutGlyphQueryTest, DualSenseGlyphsRenderAboveProductionActionControl
 	expectPromptsOwnedByActionRedrawSubtrees(window);
 	expectPromptsHaveActionRedrawGeometry(window);
 	expectActionRectAt(acceptActionRect(window), window->pos.topLeft() + Point(15, 402));
-	expectActionRectAt(cancelActionRect(window), window->pos.topLeft() + Point(173, 402));
+	expectActionRectAt(cancelActionRect(window), window->pos.topLeft() + Point(158, 402));
+	EXPECT_EQ(acceptActionRect(window).x, acceptMouseRect.x);
+	EXPECT_EQ(cancelActionRect(window).x + cancelActionRect(window).w, cancelMouseRect.x + cancelMouseRect.w);
+	EXPECT_LE(acceptActionRect(window).x + acceptActionRect(window).w, cancelActionRect(window).x);
 	auto frame = renderWindowFrame(window);
 	expectActionPromptPlayerPerceivable(frame.get(), window, true);
 	expectActionPromptPlayerPerceivable(frame.get(), window, false);
@@ -1221,7 +1264,7 @@ TEST_F(ShortcutGlyphQueryTest, DualSenseGlyphsRenderAboveProductionActionControl
 	EXPECT_GT(acceptProbe->showAllCount, 0);
 	EXPECT_GT(cancelProbe->showAllCount, 0);
 	expectActionRectAt(acceptActionRect(window), window->pos.topLeft() + Point(15, 402));
-	expectActionRectAt(cancelActionRect(window), window->pos.topLeft() + Point(173, 402));
+	expectActionRectAt(cancelActionRect(window), window->pos.topLeft() + Point(158, 402));
 
 	setInputMode(InputMode::KEYBOARD_AND_MOUSE);
 	const auto acceptMouseModeShowAllCount = acceptProbe->showAllCount;
@@ -1351,7 +1394,7 @@ TEST_F(ShortcutGlyphQueryTest, UnknownControllerUsesGenericRasterActionControlsW
 	EXPECT_EQ(acceptGlyphText(window), localizationLibrary->generaltexth->translate("vcmi.lobby.battleOnlySpellAdd.actionAdd"));
 	EXPECT_EQ(cancelGlyphText(window), localizationLibrary->generaltexth->translate("vcmi.lobby.battleOnlySpellAdd.actionCancel"));
 	expectActionRectAt(acceptActionRect(window), window->pos.topLeft() + Point(15, 402));
-	expectActionRectAt(cancelActionRect(window), window->pos.topLeft() + Point(173, 402));
+	expectActionRectAt(cancelActionRect(window), window->pos.topLeft() + Point(158, 402));
 	expectPromptUnitVisualActions(window, true, true);
 	expectPromptUnitVisualActions(window, false, true);
 

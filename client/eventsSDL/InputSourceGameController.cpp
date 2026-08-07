@@ -208,10 +208,18 @@ void InputSourceGameController::dispatchAxisShortcuts(const std::vector<EShortcu
 	}
 }
 
+bool InputSourceGameController::isAxisMotionActive(const SDL_ControllerAxisEvent & axis) const
+{
+	return getRealAxisValue(axis.value) != 0;
+}
+
 void InputSourceGameController::handleEventAxisMotion(const SDL_ControllerAxisEvent & axis)
 {
-	setActiveController(axis.which);
-	tryToConvertCursor();
+	if(isAxisMotionActive(axis))
+	{
+		setActiveController(axis.which);
+		tryToConvertCursor();
+	}
 
 	SDL_GameControllerAxis axisID = static_cast<SDL_GameControllerAxis>(axis.axis);
 	std::string axisName = SDL_GameControllerGetStringForAxis(axisID);

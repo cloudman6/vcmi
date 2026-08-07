@@ -84,12 +84,11 @@ const JsonPath objectListControllerCancelButtonConfig = JsonPath::builtin("confi
 const Point battleOnlySpellAcceptMousePosition(15, 402);
 const Point battleOnlySpellCancelMousePosition(228, 402);
 const Point battleOnlySpellAcceptControllerPosition(15, 402);
-const Point battleOnlySpellCancelControllerPosition(173, 402);
-const Point battleOnlySpellControllerActionSize(140, 44);
+const Point battleOnlySpellControllerActionSize(124, 44);
 const Point battleOnlySpellControllerSpritePosition(12, 10);
 const Point battleOnlySpellControllerSpriteSize(24, 24);
 const int battleOnlySpellControllerLabelX = 44;
-const int battleOnlySpellControllerLabelWidth = 84;
+const int battleOnlySpellControllerLabelWidth = 68;
 
 enum class ControllerActionPromptState
 {
@@ -2407,16 +2406,15 @@ void CObjectListWindow::configureBattleOnlySpellActionPrompts()
 	if(cancelGlyph->parent)
 		cancelGlyph->parent->removeChild(cancelGlyph.get());
 
-	const int promptHeight = static_cast<int>(ENGINE->renderHandler().loadFont(FONT_SMALL)->getLineHeight());
 	const ColorRGBA transparent(0, 0, 0, 0);
 	acceptGlyphBackground = std::make_shared<TransparentFilledRectangle>(Rect(Point(0, 0), Point(1, 1)), transparent, transparent);
 	cancelGlyphBackground = std::make_shared<TransparentFilledRectangle>(Rect(Point(0, 0), Point(1, 1)), transparent, transparent);
-	acceptGlyph = std::make_shared<CLabel>(battleOnlySpellControllerLabelX, battleOnlySpellControllerActionSize.y / 2, FONT_SMALL, ETextAlignment::CENTERLEFT, Colors::BLACK, "");
-	cancelGlyph = std::make_shared<CLabel>(battleOnlySpellControllerLabelX, battleOnlySpellControllerActionSize.y / 2, FONT_SMALL, ETextAlignment::CENTERLEFT, Colors::BLACK, "");
+	acceptGlyph = std::make_shared<CLabel>(battleOnlySpellControllerLabelX, 0, FONT_SMALL, ETextAlignment::CENTERLEFT, Colors::BLACK, "");
+	cancelGlyph = std::make_shared<CLabel>(battleOnlySpellControllerLabelX, 0, FONT_SMALL, ETextAlignment::CENTERLEFT, Colors::BLACK, "");
 	acceptGlyph->pos.w = battleOnlySpellControllerLabelWidth;
-	acceptGlyph->pos.h = promptHeight;
+	acceptGlyph->pos.h = battleOnlySpellControllerActionSize.y;
 	cancelGlyph->pos.w = battleOnlySpellControllerLabelWidth;
-	cancelGlyph->pos.h = promptHeight;
+	cancelGlyph->pos.h = battleOnlySpellControllerActionSize.y;
 
 	acceptPromptOverlay = std::make_shared<ControllerActionPromptOverlay>(acceptGlyph);
 	cancelPromptOverlay = std::make_shared<ControllerActionPromptOverlay>(cancelGlyph);
@@ -2482,8 +2480,9 @@ void CObjectListWindow::setActionButtonVisuals(bool acceptVisible, bool cancelVi
 	{
 		if(cancelVisible)
 		{
+			const int mouseRight = battleOnlySpellCancelMousePosition.x + exit->pos.w;
 			exit->setConfigurable(objectListControllerCancelButtonConfig);
-			exit->moveTo(pos.topLeft() + battleOnlySpellCancelControllerPosition);
+			exit->moveTo(pos.topLeft() + Point(mouseRight - battleOnlySpellControllerActionSize.x, battleOnlySpellCancelMousePosition.y));
 		}
 		else
 		{
@@ -2638,12 +2637,13 @@ void CObjectListWindow::restoreFocus()
 
 void CObjectListWindow::inputModeChanged(InputMode modi)
 {
-	if(modi != InputMode::KEYBOARD_AND_MOUSE)
-		return;
-
-	controllerFocusVisible = false;
-	refreshFocusPresentation();
-	updateCursorPresentation();
+	if(modi == InputMode::KEYBOARD_AND_MOUSE)
+	{
+		controllerFocusVisible = false;
+		refreshFocusPresentation();
+		updateCursorPresentation();
+	}
+	updateControllerGlyphs();
 }
 
 void CObjectListWindow::updateOkButton()

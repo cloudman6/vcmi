@@ -129,7 +129,8 @@ void InputHandler::handleCurrentEvent(const SDL_Event & current)
 		case SDL_CONTROLLERAXISMOTION:
 			if (enableController)
 			{
-				setCurrentInputMode(InputMode::CONTROLLER);
+				if(gameControllerHandler->isAxisMotionActive(current.caxis))
+					setCurrentInputMode(InputMode::CONTROLLER);
 				gameControllerHandler->handleEventAxisMotion(current.caxis);
 			}
 			return;

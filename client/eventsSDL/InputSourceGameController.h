@@ -80,6 +80,7 @@ public:
 	void handleEventDeviceAdded(const SDL_ControllerDeviceEvent & device);
 	void handleEventDeviceRemoved(const SDL_ControllerDeviceEvent & device);
 	void handleEventDeviceRemapped(const SDL_ControllerDeviceEvent & device);
+	bool isAxisMotionActive(const SDL_ControllerAxisEvent & axis) const;
 	void handleEventAxisMotion(const SDL_ControllerAxisEvent & axis);
 	void handleEventButtonDown(const SDL_ControllerButtonEvent & button);
 	void handleEventButtonUp(const SDL_ControllerButtonEvent & button);
