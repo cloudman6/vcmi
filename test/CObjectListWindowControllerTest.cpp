@@ -512,19 +512,36 @@ protected:
 		const Rect actionRect = acceptPrompt ? acceptActionRect(window) : cancelActionRect(window);
 		if(promptBackingOverride)
 			canvas.drawColor(actionRect, *promptBackingOverride);
+		else if(acceptPrompt)
+			window->ok->showAll(canvas);
 		else
-		{
-			const JsonNode config(JsonPath::builtin(acceptPrompt
-				? "config/widgets/buttons/objectListControllerAccept.json"
-				: "config/widgets/buttons/objectListControllerCancel.json"));
-			InterfaceObjectConfigurable backing(config["normal"]);
-			backing.moveTo(actionRect.topLeft());
-			backing.showAll(canvas);
-		}
+			window->exit->showAll(canvas);
 		if(acceptPrompt)
 			window->acceptPromptOverlay->showAll(canvas);
 		else
 			window->cancelPromptOverlay->showAll(canvas);
+	}
+
+	size_t countDifferentPixels(SDL_Surface * lhs, SDL_Surface * rhs, const Rect & region) const
+	{
+		size_t result = 0;
+		for(int y = std::max(region.y, 0); y < std::min(region.y + region.h, lhs->h); ++y)
+			for(int x = std::max(region.x, 0); x < std::min(region.x + region.w, lhs->w); ++x)
+			{
+				const auto left = surfacePixel(lhs, Point(x, y));
+				const auto right = surfacePixel(rhs, Point(x, y));
+				if(left.r != right.r || left.g != right.g || left.b != right.b || left.a != right.a)
+					++result;
+			}
+		return result;
+	}
+
+	void expectActionCompositionDiffers(SDL_Surface * normal, SDL_Surface * state, const Rect & actionRect) const
+	{
+		const Rect backingProbe(actionRect.topLeft() + Point(128, 5), Point(8, 34));
+		const Rect promptProbe(actionRect.topLeft() + Point(10, 8), Point(122, 30));
+		EXPECT_GE(countDifferentPixels(normal, state, backingProbe), 6);
+		EXPECT_GE(countDifferentPixels(normal, state, promptProbe), 6);
 	}
 
 	size_t countPerceivablePixels(
@@ -609,6 +626,19 @@ protected:
 	bool actionButtonVisualsApplied(const std::shared_ptr<CObjectListWindow> & window) const
 	{
 		return window->acceptControllerButtonVisual && window->cancelControllerButtonVisual;
+	}
+
+	bool setActionButtonPressed(const std::shared_ptr<CObjectListWindow> & window, bool accept, bool pressed) const
+	{
+		const auto & button = accept ? window->ok : window->exit;
+		if(pressed)
+		{
+			button->setSoundDisabled(true);
+			button->clickPressed(button->pos.center());
+		}
+		else
+			button->clickCancel(button->pos.center());
+		return button->isPressed();
 	}
 
 	void expectPromptUnitVisualActions(const std::shared_ptr<CObjectListWindow> & window, bool acceptPrompt, bool visible) const
@@ -1203,6 +1233,54 @@ TEST_F(ShortcutGlyphQueryTest, DualSenseGlyphsRenderAboveProductionActionControl
 	expectPromptUnitVisualActions(window, true, true);
 	expectPromptUnitVisualActions(window, false, false);
 	EXPECT_EQ(cancelProbe->showAllCount, cancelNoBindingShowAllCount);
+}
+
+TEST_F(ShortcutGlyphQueryTest, DualSenseActionBarComposesButtonStatesAndRestoresMouseMode)
+{
+	initializeProductionListConstruction();
+	setJoystickBindings({{"a", EShortcut::GLOBAL_ACCEPT}, {"b", EShortcut::GLOBAL_CANCEL}});
+	auto window = std::make_shared<CObjectListWindow>(
+		std::vector<CObjectListWindow::ListItem>{{"Enabled", true, ""}, {"Disabled", false, "Already selected"}},
+		nullptr, "Add spell", "Select a spell", [](int){}, 0,
+		std::vector<std::shared_ptr<IImage>>{productionListIcon, productionListIcon}, true, true);
+	window->setBattleOnlySpellActionPrompts();
+	ENGINE->windows().pushWindow(window);
+	moveWindowIntoFrame(window);
+	setControllerPresentation(ControllerPresentation::DUALSENSE);
+	setInputMode(InputMode::CONTROLLER);
+	Canvas screen = ENGINE->screenHandler().getScreenCanvas();
+	window->showAll(screen);
+	ASSERT_TRUE(actionButtonVisualsApplied(window));
+	auto normalFrame = renderWindowFrame(window);
+	expectActionPromptPlayerPerceivable(normalFrame.get(), window, true);
+	expectActionPromptPlayerPerceivable(normalFrame.get(), window, false);
+	const Rect normalAcceptRect = acceptActionRect(window);
+	const Rect normalCancelRect = cancelActionRect(window);
+	window->changeSelection(1);
+	window->showAll(screen);
+	auto disabledFrame = renderWindowFrame(window);
+	expectActionPromptPlayerPerceivable(disabledFrame.get(), window, true);
+	expectActionCompositionDiffers(normalFrame.get(), disabledFrame.get(), normalAcceptRect);
+	window->changeSelection(0);
+	ASSERT_TRUE(setActionButtonPressed(window, true, true));
+	window->showAll(screen);
+	auto acceptPressedFrame = renderWindowFrame(window);
+	expectActionCompositionDiffers(normalFrame.get(), acceptPressedFrame.get(), normalAcceptRect);
+	setActionButtonPressed(window, true, false);
+	ASSERT_TRUE(setActionButtonPressed(window, false, true));
+	window->showAll(screen);
+	auto cancelPressedFrame = renderWindowFrame(window);
+	expectActionCompositionDiffers(normalFrame.get(), cancelPressedFrame.get(), normalCancelRect);
+	setActionButtonPressed(window, false, false);
+	setInputMode(InputMode::KEYBOARD_AND_MOUSE);
+	window->showAll(screen);
+	EXPECT_FALSE(actionButtonVisualsApplied(window));
+	EXPECT_EQ(acceptGlyphText(window), "");
+	EXPECT_EQ(cancelGlyphText(window), "");
+	expectPromptUnitVisualActions(window, true, false);
+	expectPromptUnitVisualActions(window, false, false);
+	EXPECT_EQ(acceptActionRect(window).topLeft(), window->pos.topLeft() + Point(15, 402));
+	EXPECT_EQ(cancelActionRect(window).topLeft(), window->pos.topLeft() + Point(228, 402));
 }
 
 TEST_F(ShortcutGlyphQueryTest, UnknownControllerUsesGenericRasterActionControlsWithoutPublicGlyphToken)
