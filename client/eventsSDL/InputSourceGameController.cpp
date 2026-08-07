@@ -21,13 +21,34 @@
 
 #include "../../lib/CConfigHandler.h"
 
+namespace
+{
+ControllerPresentation controllerPresentation(SDL_GameController * controller)
+{
+	switch(SDL_GameControllerGetType(controller))
+	{
+	case SDL_CONTROLLER_TYPE_PS4:
+	case SDL_CONTROLLER_TYPE_PS5:
+		return ControllerPresentation::DUALSENSE;
+	default:
+		return ControllerPresentation::UNKNOWN;
+	}
+}
+}
+
 void InputSourceGameController::gameControllerDeleter(SDL_GameController * gameController)
 {
 	if(gameController)
 		SDL_GameControllerClose(gameController);
 }
 
-InputSourceGameController::InputSourceGameController():
+InputSourceGameController::InputSourceGameController()
+	: InputSourceGameController(HeadlessTestTag())
+{
+	tryOpenAllGameControllers();
+}
+
+InputSourceGameController::InputSourceGameController(HeadlessTestTag):
 	cursorAxisValueX(0),
 	cursorAxisValueY(0),
 	cursorPlanDisX(0.0),
@@ -45,7 +66,6 @@ InputSourceGameController::InputSourceGameController():
 	configAxisSpeed(settings["input"]["controllerAxisSpeed"].Float()),
 	configAxisScale(settings["input"]["controllerAxisScale"].Float())
 {
-	tryOpenAllGameControllers();
 }
 
 void InputSourceGameController::tryOpenAllGameControllers()
@@ -82,6 +102,23 @@ void InputSourceGameController::openGameController(int index)
 	}
 
 	gameControllerMap.try_emplace(joystickIndex, std::move(controllerPtr));
+	controllerPresentations.try_emplace(joystickIndex, controllerPresentation(gameControllerMap.at(joystickIndex).get()));
+}
+
+void InputSourceGameController::setActiveController(int instanceID)
+{
+	activeController = instanceID;
+	if(const auto entry = controllerPresentations.find(instanceID); entry != controllerPresentations.end())
+		activePresentation = entry->second;
+	else
+		activePresentation = ControllerPresentation::UNKNOWN;
+}
+
+void InputSourceGameController::invalidateControllerPresentation(int instanceID)
+{
+	controllerPresentations.erase(instanceID);
+	if(activeController == instanceID)
+		activePresentation = ControllerPresentation::UNKNOWN;
 }
 
 int InputSourceGameController::getJoystickIndex(SDL_GameController * controller)
@@ -114,6 +151,12 @@ void InputSourceGameController::handleEventDeviceRemoved(const SDL_ControllerDev
 		return;
 	}
 	gameControllerMap.erase(device.which);
+	invalidateControllerPresentation(device.which);
+	if(activeController == device.which)
+	{
+		activeController = -1;
+		activePresentation = ControllerPresentation::UNKNOWN;
+	}
 }
 
 void InputSourceGameController::handleEventDeviceRemapped(const SDL_ControllerDeviceEvent & device)
@@ -124,7 +167,10 @@ void InputSourceGameController::handleEventDeviceRemapped(const SDL_ControllerDe
 		return;
 	}
 	gameControllerMap.erase(device.which);
+	invalidateControllerPresentation(device.which);
 	openGameController(device.which);
+	if(activeController == device.which)
+		setActiveController(device.which);
 }
 
 double InputSourceGameController::getRealAxisValue(int value) const
@@ -164,6 +210,7 @@ void InputSourceGameController::dispatchAxisShortcuts(const std::vector<EShortcu
 
 void InputSourceGameController::handleEventAxisMotion(const SDL_ControllerAxisEvent & axis)
 {
+	setActiveController(axis.which);
 	tryToConvertCursor();
 
 	SDL_GameControllerAxis axisID = static_cast<SDL_GameControllerAxis>(axis.axis);
@@ -208,6 +255,7 @@ void InputSourceGameController::tryToConvertCursor()
 
 void InputSourceGameController::handleEventButtonDown(const SDL_ControllerButtonEvent & button)
 {
+	setActiveController(button.which);
 	std::string buttonName = SDL_GameControllerGetStringForButton(static_cast<SDL_GameControllerButton>(button.button));
 	const auto & shortcutsVector = ENGINE->shortcuts().translateJoystickButton(buttonName);
 	
@@ -217,10 +265,29 @@ void InputSourceGameController::handleEventButtonDown(const SDL_ControllerButton
 
 void InputSourceGameController::handleEventButtonUp(const SDL_ControllerButtonEvent & button)
 {
+	setActiveController(button.which);
 	std::string buttonName = SDL_GameControllerGetStringForButton(static_cast<SDL_GameControllerButton>(button.button));
 	const auto & shortcutsVector = ENGINE->shortcuts().translateJoystickButton(buttonName);
 	ENGINE->events().dispatchKeyReleased(buttonName);
 	ENGINE->events().dispatchShortcutReleased(shortcutsVector);
+}
+
+ControllerPresentation InputSourceGameController::getActivePresentation() const
+{
+	return activePresentation;
+}
+
+std::optional<std::string> InputSourceGameController::getGlyphToken(
+	ControllerPresentation presentation, const std::vector<std::string> & bindings)
+{
+	if(presentation != ControllerPresentation::DUALSENSE || bindings.size() != 1)
+		return std::nullopt;
+
+	if(bindings.front() == "a")
+		return "×";
+	if(bindings.front() == "b")
+		return "○";
+	return std::nullopt;
 }
 
 void InputSourceGameController::doCursorMove(int deltaX, int deltaY)

@@ -13,6 +13,7 @@
 enum class EShortcut;
 
 class JsonNode;
+class ShortcutGlyphQueryTest;
 
 class ShortcutHandler
 {
@@ -22,6 +23,8 @@ class ShortcutHandler
 
 	std::multimap<std::string, EShortcut> loadShortcuts(const JsonNode & data) const;
 	std::vector<EShortcut> translateShortcut(const std::multimap<std::string, EShortcut> & options, const std::string & key) const;
+
+	friend class ShortcutGlyphQueryTest;
 
 public:
 	ShortcutHandler();
@@ -34,6 +37,9 @@ public:
 	std::vector<EShortcut> translateJoystickButton(const std::string & key) const;
 
 	std::vector<EShortcut> translateJoystickAxis(const std::string & key) const;
+
+	/// Returns sorted unique joystick button bindings assigned to the provided shortcut.
+	std::vector<std::string> getJoystickBindings(EShortcut shortcut) const;
 
 	/// attempts to find shortcut by its unique identifier. Returns EShortcut::NONE on failure
 	EShortcut findShortcut(const std::string & identifier ) const;

@@ -233,6 +233,9 @@ void CIntObject::removeChild(CIntObject * child, bool adjustPosition)
 
 void CIntObject::redraw()
 {
+	if(ENGINE->isHeadlessForTests())
+		return;
+
 	//currently most of calls come from active objects so this check won't affect them
 	//it should fix glitches when called by inactive elements located below active window
 	if (isActive())

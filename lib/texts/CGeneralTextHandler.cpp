@@ -314,6 +314,27 @@ CGeneralTextHandler::CGeneralTextHandler():
 	}
 }
 
+CGeneralTextHandler::CGeneralTextHandler(TestConstructionTag):
+	tcommands        (*this, "core.tcommand" ),
+	hcommands        (*this, "core.hallinfo" ),
+	fcommands        (*this, "core.castinfo" ),
+	advobtxt         (*this, "core.advevent" ),
+	restypes         (*this, "core.restypes" ),
+	overview         (*this, "core.overview" ),
+	arraytxt         (*this, "core.arraytxt" ),
+	primarySkillNames(*this, "core.priskill" ),
+	jktexts          (*this, "core.jktext"   ),
+	tavernInfo       (*this, "core.tvrninfo" ),
+	turnDurations    (*this, "core.turndur"  ),
+	heroscrn         (*this, "core.heroscrn" ),
+	levels           (*this, "core.skilllev" ),
+	zelp             (*this, "core.help"     ),
+	allTexts         (*this, "core.genrltxt" ),
+	capColors        (*this, "vcmi.capitalColors"  ),
+	roeMapping()
+{
+}
+
 int32_t CGeneralTextHandler::pluralText(const int32_t textIndex, const int32_t count) const
 {
 	if(textIndex == 0)

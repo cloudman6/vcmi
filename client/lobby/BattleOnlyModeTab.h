@@ -10,6 +10,7 @@
 #pragma once
 
 #include "../windows/CWindowObject.h"
+#include "../windows/GUIClasses.h"
 #include "../../lib/constants/EntityIdentifiers.h"
 #include "../../lib/mapping/CMap.h"
 
@@ -31,10 +32,22 @@ class GraphicalPrimitiveCanvas;
 class CTextInput;
 class TransparentFilledRectangle;
 class CToggleButton;
+class CObjectListWindowControllerTest;
 
 class BattleOnlyModeHeroSelector : public CIntObject
 {
 private:
+	struct SpellListPayload
+	{
+		std::shared_ptr<const std::vector<SpellID>> values;
+		std::vector<CObjectListWindow::ListItem> items;
+		std::vector<std::shared_ptr<IImage>> images;
+		bool searchBoxEnabled = true;
+		bool blue = true;
+	};
+
+	friend class CObjectListWindowControllerTest;
+
 	BattleOnlyModeTab& parent;
 
 	std::shared_ptr<CPicture> backgroundImage;
@@ -50,6 +63,9 @@ private:
 	void selectCreature(int slot);
 	void selectSecSkill(int slot);
 	void selectArtifact(int slot, ArtifactID artifactId);
+	static SpellListPayload prepareAddSpellList(
+		const std::vector<SpellID> & allSpells,
+		const std::vector<SpellID> & currentSpells);
 
 	int id;
 public:

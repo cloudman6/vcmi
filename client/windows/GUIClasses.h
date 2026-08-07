@@ -45,6 +45,7 @@ class VideoWidgetOnce;
 class GraphicalPrimitiveCanvas;
 class TransparentFilledRectangle;
 class CSecSkillPlace;
+enum class ControllerPresentation;
 
 enum class EUserEvent;
 
@@ -177,12 +178,26 @@ private:
 };
 
 /// Town portal, castle gate window
-class CObjectListWindow : public CWindowObject
+class CObjectListWindow : public CWindowObject, public IFocusScope
 {
+public:
+	struct ListItem
+	{
+		std::string text;
+		bool enabled = true;
+		std::string disabledReason;
+	};
+
+private:
+	struct HeadlessTestTag
+	{
+	};
+
 	class CItem : public CIntObject
 	{
 		CObjectListWindow * parent;
 		std::shared_ptr<CLabel> text;
+		std::shared_ptr<CLabel> disabledReason;
 		std::shared_ptr<CPicture> border;
 		std::shared_ptr<CPicture> icon;
 	public:
@@ -190,6 +205,7 @@ class CObjectListWindow : public CWindowObject
 		CItem(CObjectListWindow * parent, size_t id, std::string text);
 
 		void select(bool on);
+		void setSelected(bool on);
 		void clickPressed(const Point & cursorPosition) override;
 		void clickDouble(const Point & cursorPosition) override;
 		void showPopupWindow(const Point & cursorPosition) override;
@@ -202,6 +218,12 @@ class CObjectListWindow : public CWindowObject
 	std::vector<std::shared_ptr<IImage>> images;
 
 	std::shared_ptr<CListBox> list;
+	std::shared_ptr<TransparentFilledRectangle> acceptGlyphBackground;
+	std::shared_ptr<TransparentFilledRectangle> cancelGlyphBackground;
+	std::shared_ptr<CIntObject> acceptPromptOverlay;
+	std::shared_ptr<CIntObject> cancelPromptOverlay;
+	std::shared_ptr<CLabel> acceptGlyph;
+	std::shared_ptr<CLabel> cancelGlyph;
 	std::shared_ptr<CButton> ok;
 	std::shared_ptr<CButton> exit;
 
@@ -209,16 +231,55 @@ class CObjectListWindow : public CWindowObject
 	std::shared_ptr<TransparentFilledRectangle> searchBoxRectangle;
 	std::shared_ptr<CLabel> searchBoxDescription;
 
-	std::vector< std::pair<int, std::string> > items; //all items present in list
-	std::vector< std::pair<int, std::string> > itemsVisible; //visible items present in list
+	std::vector<ListItem> items;
+	std::vector<int> itemValues;
+	std::vector<size_t> itemsVisible;
+	std::optional<size_t> focusedItem;
+	std::optional<size_t> selectedItem;
+	bool controllerFocusVisible = true;
+	bool headless = false;
+	bool blueTheme = false;
+	bool useBattleOnlySpellActionPrompts = false;
+	bool acceptControllerButtonVisual = false;
+	bool cancelControllerButtonVisual = false;
+	bool applyingActionButtonVisuals = false;
+	std::vector<std::string> * lifecycleTrace = nullptr;
+	std::string lifecycleTraceName;
 
 	void init(std::shared_ptr<CIntObject> titleWidget_, std::string _title, std::string _descr, bool searchBoxEnabled, bool blue);
 	void trimTextIfTooWide(std::string & text, bool preserveCountSuffix) const; // trim item's text to fit within window's width
 	void itemsSearchCallback(const std::string & text);
 	void exitPressed();
-public:
-	size_t selected;//index of currently selected item
+	bool isItemEnabled(size_t index) const;
+	bool isItemVisible(size_t index) const;
+	int itemValue(size_t index) const;
+	void validateItems() const;
+	std::optional<size_t> findEnabledItem(size_t preferredIndex) const;
+	std::optional<size_t> findRestoredFocus() const;
+	void initializeSelection(size_t initialSelection);
+	void selectFromMouse(size_t which);
+	void refreshFocusPresentation();
+	void updateCursorPresentation();
+	void updateOkButton();
+	void configureBattleOnlySpellActionPrompts();
+	void showControllerGlyphPrompts(Canvas & to);
+	std::optional<std::string> controllerGlyphToken(EShortcut shortcut) const;
+	void setActionButtonVisuals(bool acceptVisible, bool cancelVisible);
+	void updateControllerGlyphs();
+	void recordLifecycleEvent(const std::string & event);
+	void inputModeChanged(InputMode modi) override;
+	CObjectListWindow(
+		HeadlessTestTag,
+		std::vector<ListItem> items_,
+		std::vector<int> itemValues_,
+		std::function<void(int)> callback);
+	static std::shared_ptr<CObjectListWindow> createForTesting(
+		std::vector<ListItem> items_, std::vector<int> itemValues_, std::function<void(int)> callback);
+	static std::shared_ptr<CObjectListWindow> createForTesting(
+		std::vector<int> itemIds, std::function<void(int)> callback);
 
+	friend class CObjectListWindowControllerTest;
+public:
 	std::function<void()> onExit;//optional exit callback
 	std::function<void(int)> onPopup;//optional popup callback
 	std::function<void(int)> onClicked;//optional if clicked on item callback
@@ -228,11 +289,31 @@ public:
 	///item names will be taken from map objects
 	CObjectListWindow(const std::vector<int> &_items, std::shared_ptr<CIntObject> titleWidget_, std::string _title, std::string _descr, std::function<void(int)> Callback, size_t initialSelection = 0, std::vector<std::shared_ptr<IImage>> images = {}, bool searchBoxEnabled = false, bool blue = false);
 	CObjectListWindow(const std::vector<std::string> &_items, std::shared_ptr<CIntObject> titleWidget_, std::string _title, std::string _descr, std::function<void(int)> Callback, size_t initialSelection = 0, std::vector<std::shared_ptr<IImage>> images = {}, bool searchBoxEnabled = false, bool blue = false);
+	CObjectListWindow(
+		const std::vector<ListItem> & _items,
+		std::shared_ptr<CIntObject> titleWidget_,
+		std::string _title,
+		std::string _descr,
+		std::function<void(int)> callback,
+		size_t initialSelection = 0,
+		std::vector<std::shared_ptr<IImage>> images = {},
+		bool searchBoxEnabled = false,
+		bool blue = false);
 
 	std::shared_ptr<CIntObject> genItem(size_t index);
 	void elementSelected();//call callback and close this window
 	void changeSelection(size_t which);
+	size_t selected() const;
+	void activate() override;
+	void deactivate() override;
+	void show(Canvas & to) override;
+	void showAll(Canvas & to) override;
+	bool captureThisKey(EShortcut key) override;
 	void keyPressed(EShortcut key) override;
+	void setBattleOnlySpellActionPrompts();
+	IFocusScope * getFocusScope() override { return this; }
+	void suspendFocus() override;
+	void restoreFocus() override;
 };
 
 class CTavernWindow : public CStatusbarWindow

@@ -53,6 +53,18 @@ InputHandler::InputHandler()
 {
 }
 
+InputHandler::InputHandler(HeadlessTestTag)
+	: enableMouse(false)
+	, enableTouch(false)
+	, enableController(false)
+	, currentInputMode(InputMode::KEYBOARD_AND_MOUSE)
+	, cachedPowerStateMode(static_cast<int>(PowerStateMode::UNKNOWN))
+	, cachedPowerStateSeconds(-1)
+	, cachedPowerStatePercent(-1)
+	, powerStateFrameCounter(0)
+{
+}
+
 InputHandler::~InputHandler() = default;
 
 void InputHandler::handleCurrentEvent(const SDL_Event & current)
@@ -147,6 +159,16 @@ void InputHandler::setCurrentInputMode(InputMode modi)
 InputMode InputHandler::getCurrentInputMode()
 {
 	return currentInputMode;
+}
+
+ControllerPresentation InputHandler::getControllerPresentation() const
+{
+	return gameControllerHandler ? gameControllerHandler->getActivePresentation() : ControllerPresentation::UNKNOWN;
+}
+
+std::optional<std::string> InputHandler::getControllerGlyphToken(const std::vector<std::string> & bindings) const
+{
+	return InputSourceGameController::getGlyphToken(getControllerPresentation(), bindings);
 }
 
 void InputHandler::copyToClipBoard(const std::string & text)

@@ -33,6 +33,12 @@
 
 #include <SDL_surface.h>
 
+CWindowObject::CWindowObject(HeadlessTestTag)
+	: WindowBase(0, Point())
+	, options(SHADOW_DISABLED)
+{
+}
+
 CWindowObject::CWindowObject(int options_, const ImagePath & imageName, Point centerAt):
 	WindowBase(0, Point()),
 	options(options_),

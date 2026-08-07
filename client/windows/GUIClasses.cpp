@@ -23,7 +23,10 @@
 #include "../GameInstance.h"
 #include "../gui/CursorHandler.h"
 #include "../gui/Shortcut.h"
+#include "../gui/ShortcutHandler.h"
 #include "../gui/WindowHandler.h"
+#include "../eventsSDL/InputHandler.h"
+#include "../eventsSDL/InputSourceGameController.h"
 #include "../media/ISoundPlayer.h"
 
 #include "../widgets/CComponent.h"
@@ -70,6 +73,121 @@
 #include "../../lib/CSoundBase.h"
 #include "../../lib/constants/EntityIdentifiers.h"
 
+namespace
+{
+const std::string battleOnlySpellActionAddKey = "vcmi.lobby.battleOnlySpellAdd.actionAdd";
+const std::string battleOnlySpellActionCancelKey = "vcmi.lobby.battleOnlySpellAdd.actionCancel";
+
+const JsonPath objectListControllerAcceptButtonConfig = JsonPath::builtin("config/widgets/buttons/objectListControllerAccept.json");
+const JsonPath objectListControllerCancelButtonConfig = JsonPath::builtin("config/widgets/buttons/objectListControllerCancel.json");
+
+enum class ControllerPromptShape
+{
+	NONE,
+	DUALSENSE_CROSS,
+	DUALSENSE_CIRCLE
+};
+
+class ControllerActionPromptOverlay final : public CIntObject
+{
+	std::shared_ptr<CLabel> label;
+	ControllerPromptShape shape = ControllerPromptShape::NONE;
+	ColorRGBA contentColor = Colors::BLACK;
+	Rect ringRect;
+	Rect cellRect;
+
+	void drawCircle(Canvas & to, const Rect & target, const ColorRGBA & color) const
+	{
+		const int radius = std::max(1, std::min(target.w, target.h) / 2 - 1);
+		const Point center = target.topLeft() + Point(target.w / 2, target.h / 2);
+
+		int x = radius;
+		int y = 0;
+		int error = 0;
+		while(x >= y)
+		{
+			to.drawPoint(center + Point(x, y), color);
+			to.drawPoint(center + Point(y, x), color);
+			to.drawPoint(center + Point(-y, x), color);
+			to.drawPoint(center + Point(-x, y), color);
+			to.drawPoint(center + Point(-x, -y), color);
+			to.drawPoint(center + Point(-y, -x), color);
+			to.drawPoint(center + Point(y, -x), color);
+			to.drawPoint(center + Point(x, -y), color);
+
+			if(error <= 0)
+			{
+				++y;
+				error += 2 * y + 1;
+			}
+			if(error > 0)
+			{
+				--x;
+				error -= 2 * x + 1;
+			}
+		}
+	}
+
+public:
+	ControllerActionPromptOverlay(Rect position, Rect ring, Rect cell, std::shared_ptr<CLabel> label_)
+		: CIntObject(CIntObject::SHOWALL, position.topLeft())
+		, label(std::move(label_))
+		, ringRect(ring)
+		, cellRect(cell)
+	{
+		pos.w = position.w;
+		pos.h = position.h;
+		addChild(label.get());
+	}
+
+	void setShape(ControllerPromptShape newShape)
+	{
+		shape = newShape;
+	}
+
+	void setContentColor(ColorRGBA color)
+	{
+		contentColor = color;
+		label->setColor(color);
+	}
+
+	void showAll(Canvas & to) override
+	{
+		if(shape == ControllerPromptShape::NONE)
+			return;
+
+		const Rect absoluteRing(pos.topLeft() + ringRect.topLeft(), ringRect.dimensions());
+		const Rect absoluteCell(pos.topLeft() + cellRect.topLeft(), cellRect.dimensions());
+
+		drawCircle(to, absoluteRing, contentColor);
+		drawCircle(to, Rect(absoluteRing.topLeft() + Point(1, 1), absoluteRing.dimensions() - Point(2, 2)), ColorRGBA(contentColor.r, contentColor.g, contentColor.b, 128));
+
+		if(shape == ControllerPromptShape::DUALSENSE_CROSS)
+		{
+			to.drawLine(absoluteCell.topLeft() + Point(1, 1), absoluteCell.topLeft() + Point(8, 8), contentColor, contentColor);
+			to.drawLine(absoluteCell.topLeft() + Point(8, 1), absoluteCell.topLeft() + Point(1, 8), contentColor, contentColor);
+		}
+		else if(shape == ControllerPromptShape::DUALSENSE_CIRCLE)
+		{
+			drawCircle(to, absoluteCell, contentColor);
+		}
+
+		CIntObject::showAll(to);
+	}
+};
+
+ControllerPromptShape controllerPromptShape(EShortcut shortcut)
+{
+	const auto bindings = ENGINE->shortcuts().getJoystickBindings(shortcut);
+	if(ENGINE->input().getControllerPresentation() != ControllerPresentation::DUALSENSE || bindings.size() != 1)
+		return ControllerPromptShape::NONE;
+	if(bindings.front() == "a")
+		return ControllerPromptShape::DUALSENSE_CROSS;
+	if(bindings.front() == "b")
+		return ControllerPromptShape::DUALSENSE_CIRCLE;
+	return ControllerPromptShape::NONE;
+}
+}
 
 ImagePath CRecruitmentWindow::getRecruitmentBackground(const CGDwelling * dwelling, int level)
 {
@@ -1725,41 +1843,75 @@ CObjectListWindow::CItem::CItem(CObjectListWindow * _parent, size_t _id, std::st
 {
 	OBJECT_CONSTRUCTION;
 
-	auto it = std::find(parent->items.begin(), parent->items.end(), parent->itemsVisible[index]);
-	int imgIndex = (it != parent->items.end()) ? std::distance(parent->items.begin(), it) : -1;
-	if(imgIndex >= 0 && imgIndex < parent->images.size() && parent->images[imgIndex])
-		icon = std::make_shared<CPicture>(parent->images[imgIndex], Point(1,1));
+	if(parent->headless)
+	{
+		pos = Rect(0, 0, 256, 25);
+		return;
+	}
+
+	if(index < parent->images.size() && parent->images[index])
+		icon = std::make_shared<CPicture>(parent->images[index], Point(1,1));
 
 	border = std::make_shared<CPicture>(ImagePath::builtin("TPGATES"));
 	pos = border->pos;
 
 	setRedrawParent(true);
 
-	text = std::make_shared<CLabel>(pos.w/2, pos.h/2, FONT_SMALL, ETextAlignment::CENTER, Colors::WHITE, _text, 256);
-	select(index == parent->selected);
+	const auto & item = parent->items[index];
+	const bool hasDisabledReason = !item.enabled && !item.disabledReason.empty();
+	text = std::make_shared<CLabel>(
+		pos.w / 2,
+		hasDisabledReason ? pos.h / 2 - 6 : pos.h / 2,
+		FONT_SMALL,
+		ETextAlignment::CENTER,
+		Colors::WHITE,
+		_text,
+		256);
+	if(hasDisabledReason)
+		disabledReason = std::make_shared<CLabel>(
+			pos.w / 2,
+			pos.h / 2 + 6,
+			FONT_TINY,
+			ETextAlignment::CENTER,
+			Colors::WHITE,
+			item.disabledReason,
+			256);
+	select(parent->controllerFocusVisible && parent->focusedItem == index);
+	setSelected(parent->selectedItem == index);
 }
 
 void CObjectListWindow::CItem::select(bool on)
 {
+	if(parent->headless)
+		return;
+
 	ui8 mask = UPDATE | SHOWALL;
 	if(on)
 		border->recActions |= mask;
 	else
 		border->recActions &= ~mask;
-	redraw();//???
+	redraw();
+}
+
+void CObjectListWindow::CItem::setSelected(bool on)
+{
+	if(parent->headless || !text)
+		return;
+
+	text->setColor(on ? Colors::YELLOW : Colors::WHITE);
 }
 
 void CObjectListWindow::CItem::clickPressed(const Point & cursorPosition)
 {
-	parent->changeSelection(index);
+	parent->selectFromMouse(index);
 
-	if(parent->onClicked)
-		parent->onClicked(index);
+	if(parent->isItemEnabled(index) && parent->onClicked)
+		parent->onClicked(parent->itemValue(index));
 }
 
 void CObjectListWindow::CItem::clickDouble(const Point & cursorPosition)
 {
-	if (parent->selected != index)
+	if(parent->focusedItem != index)
 	{
 		clickPressed(cursorPosition);
 		return;
@@ -1770,66 +1922,156 @@ void CObjectListWindow::CItem::clickDouble(const Point & cursorPosition)
 
 void CObjectListWindow::CItem::showPopupWindow(const Point & cursorPosition)
 {
-	int where = parent->itemsVisible[index].first;
-	if(parent->onPopup)
-		parent->onPopup(where);
+	if(parent->isItemEnabled(index) && parent->onPopup)
+		parent->onPopup(parent->itemValue(index));
 }
 
 CObjectListWindow::CObjectListWindow(const std::vector<int> & _items, std::shared_ptr<CIntObject> titleWidget_, std::string _title, std::string _descr, std::function<void(int)> Callback, size_t initialSelection, std::vector<std::shared_ptr<IImage>> images, bool searchBoxEnabled, bool blue)
 	: CWindowObject(PLAYER_COLORED, ImagePath::builtin(blue ? "TownPortalBackgroundBlue" : "TPGATE")),
 	onSelect(Callback),
-	selected(initialSelection),
 	images(images)
 {
 	OBJECT_CONSTRUCTION;
 
-	addUsedEvents(KEYBOARD);
+	addUsedEvents(KEYBOARD | INPUT_MODE_CHANGE);
 
 	items.reserve(_items.size());
+	itemValues.resize(_items.size());
+	std::iota(itemValues.begin(), itemValues.end(), 0);
 
 	for(size_t i = 0; i < _items.size(); i++)
 	{
 		std::string objectName = GAME->interface()->cb->getObjInstance(ObjectInstanceID(_items[i]))->getObjectName();
 		trimTextIfTooWide(objectName, false);
-		items.emplace_back(static_cast<int>(i), objectName);
+		items.push_back({objectName, true, {}});
 	}
-	itemsVisible = items;
+	validateItems();
+	itemsVisible.resize(items.size());
+	std::iota(itemsVisible.begin(), itemsVisible.end(), 0);
+	initializeSelection(initialSelection);
 
 	init(titleWidget_, _title, _descr, searchBoxEnabled, blue);
-	list->scrollTo(std::min(static_cast<int>(initialSelection + 4), static_cast<int>(items.size() - 1))); // 4 is for centering (list have 9 elements)
+	if(!items.empty())
+		list->scrollTo(std::min(static_cast<int>(initialSelection + 4), static_cast<int>(items.size() - 1)));
 }
 
 CObjectListWindow::CObjectListWindow(const std::vector<std::string> & _items, std::shared_ptr<CIntObject> titleWidget_, std::string _title, std::string _descr, std::function<void(int)> Callback, size_t initialSelection, std::vector<std::shared_ptr<IImage>> images, bool searchBoxEnabled, bool blue)
 	: CWindowObject(PLAYER_COLORED, ImagePath::builtin(blue ? "TownPortalBackgroundBlue" : "TPGATE")),
 	onSelect(Callback),
-	selected(initialSelection),
 	images(images)
 {
 	OBJECT_CONSTRUCTION;
 
-	addUsedEvents(KEYBOARD);
+	addUsedEvents(KEYBOARD | INPUT_MODE_CHANGE);
 
 	items.reserve(_items.size());
+	itemValues.resize(_items.size());
+	std::iota(itemValues.begin(), itemValues.end(), 0);
 
 	for(size_t i = 0; i < _items.size(); i++)
 	{
 		std::string objectName = _items[i];
 		trimTextIfTooWide(objectName, true);
-		items.emplace_back(static_cast<int>(i), objectName);
+		items.push_back({objectName, true, {}});
 	}
-	itemsVisible = items;
+	validateItems();
+	itemsVisible.resize(items.size());
+	std::iota(itemsVisible.begin(), itemsVisible.end(), 0);
+	initializeSelection(initialSelection);
 
 	init(titleWidget_, _title, _descr, searchBoxEnabled, blue);
-	list->scrollTo(std::min(static_cast<int>(initialSelection + 4), static_cast<int>(items.size() - 1))); // 4 is for centering (list have 9 elements)
+	if(!items.empty())
+		list->scrollTo(std::min(static_cast<int>(initialSelection + 4), static_cast<int>(items.size() - 1)));
+}
+
+CObjectListWindow::CObjectListWindow(
+	const std::vector<ListItem> & _items,
+	std::shared_ptr<CIntObject> titleWidget_,
+	std::string _title,
+	std::string _descr,
+	std::function<void(int)> callback,
+	size_t initialSelection,
+	std::vector<std::shared_ptr<IImage>> images_,
+	bool searchBoxEnabled,
+	bool blue)
+	: CWindowObject(PLAYER_COLORED, ImagePath::builtin(blue ? "TownPortalBackgroundBlue" : "TPGATE"))
+	, onSelect(std::move(callback))
+	, items(_items)
+	, images(std::move(images_))
+{
+	OBJECT_CONSTRUCTION;
+
+	addUsedEvents(KEYBOARD | INPUT_MODE_CHANGE);
+	for(auto & item : items)
+		trimTextIfTooWide(item.text, true);
+	itemValues.resize(items.size());
+	std::iota(itemValues.begin(), itemValues.end(), 0);
+	validateItems();
+	itemsVisible.resize(items.size());
+	std::iota(itemsVisible.begin(), itemsVisible.end(), 0);
+	initializeSelection(initialSelection);
+
+	init(titleWidget_, std::move(_title), std::move(_descr), searchBoxEnabled, blue);
+	if(!items.empty())
+		list->scrollTo(std::min(static_cast<int>(initialSelection + 4), static_cast<int>(items.size() - 1)));
+}
+
+CObjectListWindow::CObjectListWindow(
+	HeadlessTestTag,
+	std::vector<ListItem> items_,
+	std::vector<int> itemValues_,
+	std::function<void(int)> callback)
+	: CWindowObject(CWindowObject::HeadlessTestTag())
+	, onSelect(std::move(callback))
+	, items(std::move(items_))
+	, itemValues(std::move(itemValues_))
+	, headless(true)
+{
+	addUsedEvents(KEYBOARD | INPUT_MODE_CHANGE);
+	if(itemValues.empty())
+	{
+		itemValues.resize(items.size());
+		std::iota(itemValues.begin(), itemValues.end(), 0);
+	}
+	if(itemValues.size() != items.size())
+		throw std::invalid_argument("List item values must match item count.");
+	validateItems();
+	itemsVisible.resize(items.size());
+	std::iota(itemsVisible.begin(), itemsVisible.end(), 0);
+	initializeSelection(0);
+	auto createItem = std::bind(&CObjectListWindow::genItem, this, _1);
+	list = std::make_shared<CListBox>(createItem, Point(), Point(0, 25), 9, itemsVisible.size());
+}
+
+std::shared_ptr<CObjectListWindow> CObjectListWindow::createForTesting(
+	std::vector<ListItem> items_, std::vector<int> itemValues_, std::function<void(int)> callback)
+{
+	auto window = new CObjectListWindow(
+		HeadlessTestTag(), std::move(items_), std::move(itemValues_), std::move(callback));
+	return std::shared_ptr<CObjectListWindow>(window);
+}
+
+std::shared_ptr<CObjectListWindow> CObjectListWindow::createForTesting(
+	std::vector<int> itemIds, std::function<void(int)> callback)
+{
+	std::vector<ListItem> listItems;
+	listItems.reserve(itemIds.size());
+	for(const int itemId : itemIds)
+		listItems.push_back({std::to_string(itemId), true, {}});
+	return createForTesting(std::move(listItems), {}, std::move(callback));
 }
 
 void CObjectListWindow::init(std::shared_ptr<CIntObject> titleWidget_, std::string _title, std::string _descr, bool searchBoxEnabled, bool blue)
 {
 	titleWidget = titleWidget_;
+	blueTheme = blue;
 
 	title = std::make_shared<CLabel>(152, titleWidget_ ? 27 : 51, FONT_BIG, ETextAlignment::CENTER, Colors::YELLOW, _title);
 	descr = std::make_shared<CLabel>(145, 133, FONT_SMALL, ETextAlignment::CENTER, Colors::WHITE, _descr);
-	exit = std::make_shared<CButton>( Point(228, 402), AnimationPath::builtin(blue ? "MuBcanc" : "ICANCEL.DEF"), CButton::tooltip(), std::bind(&CObjectListWindow::exitPressed, this), EShortcut::GLOBAL_CANCEL);
+	const Point acceptActionPosition(15, 402);
+	const Point cancelActionPosition(228, 402);
+	exit = std::make_shared<CButton>(cancelActionPosition, AnimationPath::builtin(blue ? "MuBcanc" : "ICANCEL.DEF"), CButton::tooltip(), std::bind(&CObjectListWindow::exitPressed, this), EShortcut::GLOBAL_CANCEL);
+	exit->setRedrawParent(true);
 
 	if(titleWidget)
 	{
@@ -1843,8 +2085,39 @@ void CObjectListWindow::init(std::shared_ptr<CIntObject> titleWidget_, std::stri
 	if(list->getSlider())
 		list->getSlider()->setInertiaEnabled(true);
 
-	ok = std::make_shared<CButton>(Point(15, 402), AnimationPath::builtin(blue ? "MuBchck" : "IOKAY.DEF"), CButton::tooltip(), std::bind(&CObjectListWindow::elementSelected, this), EShortcut::GLOBAL_ACCEPT);
-	ok->block(!list->size());
+	ok = std::make_shared<CButton>(acceptActionPosition, AnimationPath::builtin(blue ? "MuBchck" : "IOKAY.DEF"), CButton::tooltip(), std::bind(&CObjectListWindow::elementSelected, this), EShortcut::GLOBAL_ACCEPT);
+	ok->setRedrawParent(true);
+	const Rect acceptActionRect(pos.topLeft() + acceptActionPosition, ok->pos.dimensions());
+	const Rect cancelActionRect(pos.topLeft() + cancelActionPosition, exit->pos.dimensions());
+	const int promptHeight = static_cast<int>(ENGINE->renderHandler().loadFont(FONT_SMALL)->getLineHeight());
+	const int promptBoxHeight = promptHeight + 8;
+	const int promptBoxWidth = 34;
+	const int promptBoxY = acceptActionRect.y + (acceptActionRect.h - promptBoxHeight) / 2;
+	const ColorRGBA promptBackgroundColor(0, 0, 0, 160);
+	const ColorRGBA promptBorderColor = blue ? ColorRGBA(75, 84, 128) : ColorRGBA(128, 100, 75);
+	const Rect acceptPromptRect(acceptActionRect.x + acceptActionRect.w + 8, promptBoxY, promptBoxWidth, promptBoxHeight);
+	const Rect cancelPromptRect(cancelActionRect.x - promptBoxWidth - 8, promptBoxY, promptBoxWidth, promptBoxHeight);
+
+	acceptGlyphBackground = std::make_shared<TransparentFilledRectangle>(acceptPromptRect, promptBackgroundColor, promptBorderColor);
+	cancelGlyphBackground = std::make_shared<TransparentFilledRectangle>(cancelPromptRect, promptBackgroundColor, promptBorderColor);
+	acceptGlyph = std::make_shared<CLabel>(acceptPromptRect.x, acceptPromptRect.center().y, FONT_SMALL, ETextAlignment::CENTER, Colors::WHITE, "");
+	cancelGlyph = std::make_shared<CLabel>(cancelPromptRect.x, cancelPromptRect.center().y, FONT_SMALL, ETextAlignment::CENTER, Colors::WHITE, "");
+	acceptGlyphBackground->pos = acceptPromptRect;
+	cancelGlyphBackground->pos = cancelPromptRect;
+	acceptGlyph->pos.x = acceptPromptRect.x;
+	acceptGlyph->pos.y = acceptPromptRect.center().y;
+	acceptGlyph->pos.w = acceptPromptRect.w;
+	acceptGlyph->pos.h = promptHeight;
+	cancelGlyph->pos.x = cancelPromptRect.x;
+	cancelGlyph->pos.y = cancelPromptRect.center().y;
+	cancelGlyph->pos.w = cancelPromptRect.w;
+	cancelGlyph->pos.h = promptHeight;
+	ok->addChild(acceptGlyphBackground.get());
+	ok->addChild(acceptGlyph.get());
+	exit->addChild(cancelGlyphBackground.get());
+	exit->addChild(cancelGlyph.get());
+	updateOkButton();
+	updateControllerGlyphs();
 
 	if(!searchBoxEnabled)
 		return;
@@ -1865,14 +2138,14 @@ void CObjectListWindow::trimTextIfTooWide(std::string & text, bool preserveCount
 	std::string suffix = "...";
 	int maxWidth = pos.w - 60;	// 60 px for scrollbar and borders
 
-	if(text[0] == '{')
+	if(!text.empty() && text[0] == '{')
 		suffix += "}";
 
-	if (preserveCountSuffix)
+	if(preserveCountSuffix)
 	{
 		auto posBrace = text.find_last_of("(");
 		auto posClosing = text.find_last_of(")");
-		if (posBrace != std::string::npos && posClosing != std::string::npos && posClosing > posBrace)
+		if(posBrace != std::string::npos && posClosing != std::string::npos && posClosing > posBrace)
 		{
 			std::string objCount = text.substr(posBrace, posClosing - posBrace) + ')';
 			suffix += " ";
@@ -1904,23 +2177,25 @@ void CObjectListWindow::trimTextIfTooWide(std::string & text, bool preserveCount
 
 void CObjectListWindow::itemsSearchCallback(const std::string & text)
 {
-	searchBoxDescription->setEnabled(text.empty());
+	if(searchBoxDescription)
+		searchBoxDescription->setEnabled(text.empty());
 
 	itemsVisible.clear();
-	std::vector<std::pair<int, decltype(items)::value_type>> rankedItems; // Store (score, item)
+	std::vector<std::pair<int, size_t>> rankedItems;
 
-	for(const auto & item : items)
+	for(size_t index = 0; index < items.size(); ++index)
 	{
+		const auto & item = items[index];
 		// remove color information
 		std::vector<std::string> parts;
-		boost::split(parts, item.second, boost::is_any_of("|"));
+		boost::split(parts, item.text, boost::is_any_of("|"));
 		std::string name = parts.back();
 		boost::erase_all(name, "{");
     	boost::erase_all(name, "}");
 
 		auto score = TextOperations::textSearchSimilarityScore(text, name); // Keep only relevant items
-		if (TextOperations::isRelevantScore(name, score))
-			rankedItems.emplace_back(score, item);
+		if(TextOperations::isRelevantScore(name, score))
+			rankedItems.emplace_back(score, index);
 	}
 
 	// Sort: Lower score is better match
@@ -1934,25 +2209,46 @@ void CObjectListWindow::itemsSearchCallback(const std::string & text)
 	for(const auto & rankedItem : rankedItems)
 		itemsVisible.push_back(rankedItem.second);
 
-	selected = 0;
-	list->resize(itemsVisible.size());
-	list->scrollTo(0);
-	ok->block(!itemsVisible.size());
+	if(itemsVisible.empty())
+	{
+		focusedItem.reset();
+	}
+	else if(!focusedItem || !isItemVisible(*focusedItem))
+	{
+		focusedItem = itemsVisible.front();
+	}
+	if(!selectedItem || !isItemVisible(*selectedItem) || !isItemEnabled(*selectedItem))
+		selectedItem = findEnabledItem(focusedItem.value_or(0));
+	controllerFocusVisible = ENGINE->input().getCurrentInputMode() == InputMode::CONTROLLER;
+	if(list)
+	{
+		list->resize(itemsVisible.size());
+		list->scrollTo(0);
+	}
+	updateOkButton();
+	updateCursorPresentation();
 
-	redraw();
+	if(!headless)
+		redraw();
 }
 
 std::shared_ptr<CIntObject> CObjectListWindow::genItem(size_t index)
 {
 	if(index < itemsVisible.size())
-		return std::make_shared<CItem>(this, index, itemsVisible[index].second);
+	{
+		const auto canonicalIndex = itemsVisible[index];
+		return std::make_shared<CItem>(this, canonicalIndex, items[canonicalIndex].text);
+	}
 	return std::shared_ptr<CIntObject>();
 }
 
 void CObjectListWindow::elementSelected()
 {
+	if(!focusedItem || !isItemEnabled(*focusedItem))
+		return;
+
 	std::function<void(int)> toCall = onSelect;//save
-	int where = itemsVisible[selected].first;      //required variables
+	const int where = itemValue(*focusedItem);      //required variables
 	close();//then destroy window
 	toCall(where);//and send selected object
 }
@@ -1967,28 +2263,441 @@ void CObjectListWindow::exitPressed()
 
 void CObjectListWindow::changeSelection(size_t which)
 {
-	ok->block(false);
-	if(selected == which)
+	if(!isItemVisible(which))
 		return;
 
-	for(std::shared_ptr<CIntObject> element : list->getItems())
-	{
-		CItem * item = dynamic_cast<CItem*>(element.get());
-		if(item)
-		{
-			if(item->index == selected)
-				item->select(false);
+	focusedItem = which;
+	controllerFocusVisible = true;
+	if(isItemEnabled(which))
+		selectedItem = which;
+	refreshFocusPresentation();
+	updateCursorPresentation();
+	updateOkButton();
+}
 
-			if(item->index == which)
-				item->select(true);
+size_t CObjectListWindow::selected() const
+{
+	if(!selectedItem)
+		return 0;
+
+	const auto visibleSelection = std::find(itemsVisible.begin(), itemsVisible.end(), *selectedItem);
+	if(visibleSelection == itemsVisible.end())
+		return 0;
+	return std::distance(itemsVisible.begin(), visibleSelection);
+}
+
+bool CObjectListWindow::isItemEnabled(size_t index) const
+{
+	return index < items.size() && items[index].enabled;
+}
+
+bool CObjectListWindow::isItemVisible(size_t index) const
+{
+	return vstd::contains(itemsVisible, index);
+}
+
+int CObjectListWindow::itemValue(size_t index) const
+{
+	return itemValues.at(index);
+}
+
+void CObjectListWindow::validateItems() const
+{
+	for(const auto & item : items)
+	{
+		if(!item.enabled && item.disabledReason.empty())
+			throw std::invalid_argument("Disabled list items require a localized reason.");
+	}
+}
+
+std::optional<size_t> CObjectListWindow::findRestoredFocus() const
+{
+	if(itemsVisible.empty())
+		return std::nullopt;
+
+	if(focusedItem && isItemVisible(*focusedItem))
+		return focusedItem;
+
+	const size_t preferredIndex = focusedItem.value_or(0);
+	for(size_t index = preferredIndex; index < items.size(); ++index)
+	{
+		if(isItemVisible(index))
+			return index;
+	}
+	for(size_t index = preferredIndex; index > 0; --index)
+	{
+		if(isItemVisible(index - 1))
+			return index - 1;
+	}
+	return std::nullopt;
+}
+
+std::optional<size_t> CObjectListWindow::findEnabledItem(size_t preferredIndex) const
+{
+	if(items.empty())
+		return std::nullopt;
+
+	const size_t firstIndex = std::min(preferredIndex, items.size() - 1);
+	for(size_t index = firstIndex; index < items.size(); ++index)
+	{
+		if(isItemVisible(index) && isItemEnabled(index))
+			return index;
+	}
+	for(size_t index = firstIndex; index > 0; --index)
+	{
+		if(isItemVisible(index - 1) && isItemEnabled(index - 1))
+			return index - 1;
+	}
+	return std::nullopt;
+}
+
+void CObjectListWindow::initializeSelection(size_t initialSelection)
+{
+	if(items.empty())
+		return;
+
+	focusedItem = std::min(initialSelection, items.size() - 1);
+	selectedItem = findEnabledItem(*focusedItem);
+}
+
+void CObjectListWindow::selectFromMouse(size_t which)
+{
+	if(!isItemVisible(which))
+		return;
+
+	changeSelection(which);
+	controllerFocusVisible = false;
+	refreshFocusPresentation();
+	updateCursorPresentation();
+}
+
+void CObjectListWindow::refreshFocusPresentation()
+{
+	if(!list)
+		return;
+
+	for(const auto & element : list->getItems())
+	{
+		if(auto * item = dynamic_cast<CItem *>(element.get()))
+		{
+			item->select(controllerFocusVisible && focusedItem && item->index == *focusedItem);
+			item->setSelected(selectedItem && item->index == *selectedItem);
 		}
 	}
-	selected = which;
+}
+
+void CObjectListWindow::updateCursorPresentation()
+{
+	if(!ENGINE->cursorHandlerInstance)
+		return;
+
+	if(controllerFocusVisible)
+		ENGINE->cursor().hide();
+	else
+		ENGINE->cursor().show();
+}
+
+std::optional<std::string> CObjectListWindow::controllerGlyphToken(EShortcut shortcut) const
+{
+	const auto bindings = ENGINE->shortcuts().getJoystickBindings(shortcut);
+	return ENGINE->input().getControllerGlyphToken(bindings);
+}
+
+void CObjectListWindow::configureBattleOnlySpellActionPrompts()
+{
+	if(useBattleOnlySpellActionPrompts || !ok || !exit)
+		return;
+
+	useBattleOnlySpellActionPrompts = true;
+
+	if(acceptGlyphBackground->parent)
+		acceptGlyphBackground->parent->removeChild(acceptGlyphBackground.get());
+	if(acceptGlyph->parent)
+		acceptGlyph->parent->removeChild(acceptGlyph.get());
+	if(cancelGlyphBackground->parent)
+		cancelGlyphBackground->parent->removeChild(cancelGlyphBackground.get());
+	if(cancelGlyph->parent)
+		cancelGlyph->parent->removeChild(cancelGlyph.get());
+
+	const int promptHeight = static_cast<int>(ENGINE->renderHandler().loadFont(FONT_SMALL)->getLineHeight());
+	const ColorRGBA transparent(0, 0, 0, 0);
+	acceptGlyphBackground = std::make_shared<TransparentFilledRectangle>(Rect(Point(0, 0), Point(1, 1)), transparent, transparent);
+	cancelGlyphBackground = std::make_shared<TransparentFilledRectangle>(Rect(Point(0, 0), Point(1, 1)), transparent, transparent);
+	acceptGlyph = std::make_shared<CLabel>(36, 16, FONT_SMALL, ETextAlignment::CENTERLEFT, Colors::BLACK, "");
+	cancelGlyph = std::make_shared<CLabel>(36, 16, FONT_SMALL, ETextAlignment::CENTERLEFT, Colors::BLACK, "");
+	acceptGlyph->pos.w = 29;
+	acceptGlyph->pos.h = promptHeight;
+	cancelGlyph->pos.w = 28;
+	cancelGlyph->pos.h = promptHeight;
+
+	acceptPromptOverlay = std::make_shared<ControllerActionPromptOverlay>(Rect(Point(0, 0), Point(71, 33)), Rect(10, 5, 22, 22), Rect(16, 11, 10, 10), acceptGlyph);
+	cancelPromptOverlay = std::make_shared<ControllerActionPromptOverlay>(Rect(Point(0, 0), Point(70, 34)), Rect(10, 5, 22, 22), Rect(16, 11, 10, 10), cancelGlyph);
+	ok->setOverlay(acceptPromptOverlay);
+	exit->setOverlay(cancelPromptOverlay);
+	updateControllerGlyphs();
+}
+
+void CObjectListWindow::setBattleOnlySpellActionPrompts()
+{
+	configureBattleOnlySpellActionPrompts();
+}
+
+void CObjectListWindow::setActionButtonVisuals(bool acceptVisible, bool cancelVisible)
+{
+	if(!useBattleOnlySpellActionPrompts || !ok || !exit)
+		return;
+
+	if(applyingActionButtonVisuals)
+		return;
+
+	const bool acceptChanged = acceptControllerButtonVisual != acceptVisible;
+	const bool cancelChanged = cancelControllerButtonVisual != cancelVisible;
+	if(!acceptChanged && !cancelChanged)
+		return;
+
+	struct VisualApplicationGuard
+	{
+		bool & applying;
+
+		VisualApplicationGuard(bool & applying)
+			: applying(applying)
+		{
+			applying = true;
+		}
+
+		~VisualApplicationGuard()
+		{
+			applying = false;
+		}
+	};
+
+	acceptControllerButtonVisual = acceptVisible;
+	cancelControllerButtonVisual = cancelVisible;
+	VisualApplicationGuard guard(applyingActionButtonVisuals);
+
+	if(acceptChanged)
+	{
+		const Point currentPosition = ok->pos.topLeft();
+		if(acceptVisible)
+			ok->setConfigurable(objectListControllerAcceptButtonConfig);
+		else
+			ok->setImage(AnimationPath::builtin(blueTheme ? "MuBchck" : "IOKAY.DEF"));
+		ok->moveTo(currentPosition);
+		ok->setOverlay(acceptPromptOverlay);
+	}
+
+	if(cancelChanged)
+	{
+		const Point currentPosition = exit->pos.topLeft();
+		if(cancelVisible)
+			exit->setConfigurable(objectListControllerCancelButtonConfig);
+		else
+			exit->setImage(AnimationPath::builtin(blueTheme ? "MuBcanc" : "ICANCEL.DEF"));
+		exit->moveTo(currentPosition);
+		exit->setOverlay(cancelPromptOverlay);
+	}
+}
+
+void CObjectListWindow::updateControllerGlyphs()
+{
+	if(headless || !acceptGlyph || !cancelGlyph)
+		return;
+
+	const bool controllerInput = ENGINE->input().getCurrentInputMode() == InputMode::CONTROLLER;
+	const auto acceptToken = controllerInput ? controllerGlyphToken(EShortcut::GLOBAL_ACCEPT).value_or("") : "";
+	const auto cancelToken = controllerInput ? controllerGlyphToken(EShortcut::GLOBAL_CANCEL).value_or("") : "";
+	const auto setPromptVisible = [](const std::shared_ptr<CLabel> & glyph, const std::shared_ptr<TransparentFilledRectangle> & background, bool visible)
+	{
+		const ui16 visualActions = CIntObject::UPDATE | CIntObject::SHOWALL;
+		if(visible)
+		{
+			glyph->recActions |= visualActions;
+			background->recActions |= visualActions;
+		}
+		else
+		{
+			glyph->recActions &= ~visualActions;
+			background->recActions &= ~visualActions;
+		}
+	};
+
+	if(useBattleOnlySpellActionPrompts)
+	{
+		const bool acceptVisible = !acceptToken.empty();
+		const bool cancelVisible = !cancelToken.empty();
+		setActionButtonVisuals(acceptVisible, cancelVisible);
+
+		const auto acceptText = acceptVisible ? LIBRARY->generaltexth->translate(battleOnlySpellActionAddKey) : "";
+		const auto cancelText = cancelVisible ? LIBRARY->generaltexth->translate(battleOnlySpellActionCancelKey) : "";
+		if(acceptGlyph->getText() != acceptText)
+			acceptGlyph->setText(acceptText);
+		if(cancelGlyph->getText() != cancelText)
+			cancelGlyph->setText(cancelText);
+
+		auto acceptOverlay = std::dynamic_pointer_cast<ControllerActionPromptOverlay>(acceptPromptOverlay);
+		auto cancelOverlay = std::dynamic_pointer_cast<ControllerActionPromptOverlay>(cancelPromptOverlay);
+		if(acceptOverlay)
+		{
+			acceptOverlay->setShape(acceptVisible ? controllerPromptShape(EShortcut::GLOBAL_ACCEPT) : ControllerPromptShape::NONE);
+			acceptOverlay->setContentColor(ok->isBlocked() ? ColorRGBA(112, 104, 88) : Colors::BLACK);
+			acceptOverlay->recActions = acceptVisible ? CIntObject::UPDATE | CIntObject::SHOWALL : CIntObject::NO_ACTIONS;
+		}
+		if(cancelOverlay)
+		{
+			cancelOverlay->setShape(cancelVisible ? controllerPromptShape(EShortcut::GLOBAL_CANCEL) : ControllerPromptShape::NONE);
+			cancelOverlay->setContentColor(Colors::BLACK);
+			cancelOverlay->recActions = cancelVisible ? CIntObject::UPDATE | CIntObject::SHOWALL : CIntObject::NO_ACTIONS;
+		}
+		setPromptVisible(acceptGlyph, acceptGlyphBackground, acceptVisible);
+		setPromptVisible(cancelGlyph, cancelGlyphBackground, cancelVisible);
+		return;
+	}
+
+	if(acceptGlyph->getText() != acceptToken)
+		acceptGlyph->setText(acceptToken);
+	if(cancelGlyph->getText() != cancelToken)
+		cancelGlyph->setText(cancelToken);
+	setPromptVisible(acceptGlyph, acceptGlyphBackground, !acceptToken.empty());
+	setPromptVisible(cancelGlyph, cancelGlyphBackground, !cancelToken.empty());
+}
+
+void CObjectListWindow::showAll(Canvas & to)
+{
+	updateControllerGlyphs();
+	CWindowObject::showAll(to);
+	showControllerGlyphPrompts(to);
+}
+
+void CObjectListWindow::show(Canvas & to)
+{
+	updateControllerGlyphs();
+	CWindowObject::show(to);
+	showControllerGlyphPrompts(to);
+}
+
+void CObjectListWindow::showControllerGlyphPrompts(Canvas & to)
+{
+	if(useBattleOnlySpellActionPrompts)
+	{
+		if(acceptPromptOverlay && !acceptGlyph->getText().empty())
+			acceptPromptOverlay->showAll(to);
+		if(cancelPromptOverlay && !cancelGlyph->getText().empty())
+			cancelPromptOverlay->showAll(to);
+		return;
+	}
+
+	if(acceptGlyphBackground && !acceptGlyph->getText().empty())
+		static_cast<CIntObject *>(acceptGlyphBackground.get())->showAll(to);
+	if(acceptGlyph && !acceptGlyph->getText().empty())
+		acceptGlyph->showAll(to);
+	if(cancelGlyphBackground && !cancelGlyph->getText().empty())
+		static_cast<CIntObject *>(cancelGlyphBackground.get())->showAll(to);
+	if(cancelGlyph && !cancelGlyph->getText().empty())
+		cancelGlyph->showAll(to);
+}
+
+void CObjectListWindow::activate()
+{
+	CWindowObject::activate();
+	recordLifecycleEvent("activate");
+}
+
+void CObjectListWindow::deactivate()
+{
+	CWindowObject::deactivate();
+	recordLifecycleEvent("deactivate");
+}
+
+void CObjectListWindow::recordLifecycleEvent(const std::string & event)
+{
+	if(lifecycleTrace)
+		lifecycleTrace->push_back(lifecycleTraceName + "." + event);
+}
+
+void CObjectListWindow::suspendFocus()
+{
+	recordLifecycleEvent("suspend");
+	controllerFocusVisible = false;
+	refreshFocusPresentation();
+	updateCursorPresentation();
+}
+
+void CObjectListWindow::restoreFocus()
+{
+	recordLifecycleEvent("restore");
+	focusedItem = findRestoredFocus();
+	if(!selectedItem || !isItemVisible(*selectedItem) || !isItemEnabled(*selectedItem))
+		selectedItem = focusedItem ? findEnabledItem(*focusedItem) : std::nullopt;
+	controllerFocusVisible = focusedItem.has_value() && ENGINE->input().getCurrentInputMode() == InputMode::CONTROLLER;
+	refreshFocusPresentation();
+	updateCursorPresentation();
+	updateOkButton();
+}
+
+void CObjectListWindow::inputModeChanged(InputMode modi)
+{
+	if(modi != InputMode::KEYBOARD_AND_MOUSE)
+		return;
+
+	controllerFocusVisible = false;
+	refreshFocusPresentation();
+	updateCursorPresentation();
+}
+
+void CObjectListWindow::updateOkButton()
+{
+	if(ok)
+		ok->block(!focusedItem || !isItemEnabled(*focusedItem));
+}
+
+bool CObjectListWindow::captureThisKey(EShortcut key)
+{
+	return key == EShortcut::MOVE_UP
+		|| key == EShortcut::MOVE_DOWN
+		|| key == EShortcut::MOVE_PAGE_UP
+		|| key == EShortcut::MOVE_PAGE_DOWN
+		|| key == EShortcut::MOVE_FIRST
+		|| key == EShortcut::MOVE_LAST
+		|| key == EShortcut::GLOBAL_ACCEPT
+		|| key == EShortcut::GLOBAL_CANCEL;
 }
 
 void CObjectListWindow::keyPressed(EShortcut key)
 {
-	int sel = static_cast<int>(selected);
+	if(ENGINE->input().getCurrentInputMode() == InputMode::CONTROLLER)
+		updateControllerGlyphs();
+
+	if(key == EShortcut::GLOBAL_ACCEPT)
+	{
+		elementSelected();
+		return;
+	}
+	if(key == EShortcut::GLOBAL_CANCEL)
+	{
+		exitPressed();
+		return;
+	}
+
+	if(itemsVisible.empty())
+		return;
+
+	const bool controllerInput = ENGINE->input().getCurrentInputMode() == InputMode::CONTROLLER;
+	if(!controllerFocusVisible && controllerInput)
+	{
+		if(selectedItem && isItemVisible(*selectedItem))
+			changeSelection(*selectedItem);
+		else if(focusedItem)
+		{
+			const auto restoredSelection = findEnabledItem(*focusedItem);
+			if(restoredSelection && isItemVisible(*restoredSelection))
+				changeSelection(*restoredSelection);
+		}
+		return;
+	}
+
+	auto selectedVisible = std::find(itemsVisible.begin(), itemsVisible.end(), focusedItem.value_or(itemsVisible.front()));
+	const auto selectedOffset = std::distance(itemsVisible.begin(), selectedVisible);
+	int sel = selectedVisible == itemsVisible.end() ? 0 : static_cast<int>(selectedOffset);
 
 	switch(key)
 	{
@@ -2014,9 +2723,9 @@ void CObjectListWindow::keyPressed(EShortcut key)
 		return;
 	}
 
-	vstd::abetween<int>(sel, 0, itemsVisible.size()-1);
+	vstd::abetween<int>(sel, 0, static_cast<int>(itemsVisible.size() - 1));
 	list->scrollTo(sel);
-	changeSelection(sel);
+	changeSelection(itemsVisible[sel]);
 }
 
 VideoWindow::VideoWindow(const VideoPath & video, const ImagePath & rim, bool showBackground, float scaleFactor, const std::function<void(bool skipped)> & closeCb)
