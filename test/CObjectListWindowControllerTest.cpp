@@ -261,10 +261,12 @@ protected:
 				for(const auto * state : states)
 					addProductionImage(
 						renderer,
-						"controllerActionBar/" + std::string(family) + "-" + action + "-" + state + ".png",
-						EImageBlitMode::COLORKEY,
-						Point(48, 48),
-						std::string(family) == "playstation" ? Colors::BLACK : ColorRGBA(24, 24, 24, 255));
+							"controllerActionBar/" + std::string(family) + "-" + action + "-" + state + ".png",
+							EImageBlitMode::COLORKEY,
+							Point(48, 48),
+							std::string(family) == "playstation"
+								? (std::string(state) == "disabled" ? ColorRGBA(24, 24, 24, 255) : Colors::BLACK)
+								: ColorRGBA(24, 24, 24, 255));
 	}
 
 	void initializeProductionListConstruction()
@@ -536,12 +538,31 @@ protected:
 		return result;
 	}
 
-	void expectActionCompositionDiffers(SDL_Surface * normal, SDL_Surface * state, const Rect & actionRect) const
+	void expectBackingDiffers(SDL_Surface * normal, SDL_Surface * state, const Rect & actionRect) const
 	{
 		const Rect backingProbe(actionRect.topLeft() + Point(128, 5), Point(8, 34));
-		const Rect promptProbe(actionRect.topLeft() + Point(10, 8), Point(122, 30));
 		EXPECT_GE(countDifferentPixels(normal, state, backingProbe), 6);
-		EXPECT_GE(countDifferentPixels(normal, state, promptProbe), 6);
+	}
+
+	size_t countOffsetMismatches(SDL_Surface * normal, SDL_Surface * pressed, const Rect & region) const
+	{
+		size_t result = 0;
+		for(int y = region.y; y < region.y + region.h; ++y)
+			for(int x = region.x; x < region.x + region.w; ++x)
+			{
+				const auto source = surfacePixel(normal, Point(x, y));
+				const auto shifted = surfacePixel(pressed, Point(x + 1, y + 1));
+				if(source.r != shifted.r || source.g != shifted.g || source.b != shifted.b || source.a != shifted.a)
+					++result;
+			}
+		return result;
+	}
+
+	void expectPromptUnitPressedOffset(SDL_Surface * normal, SDL_Surface * pressed, const Rect & actionRect) const
+	{
+		const Rect promptUnit(actionRect.topLeft() + Point(10, 8), Point(120, 28));
+		EXPECT_GE(countDifferentPixels(normal, pressed, promptUnit), 6);
+		EXPECT_EQ(countOffsetMismatches(normal, pressed, promptUnit), 0);
 	}
 
 	size_t countPerceivablePixels(
@@ -1252,6 +1273,7 @@ TEST_F(ShortcutGlyphQueryTest, DualSenseActionBarComposesButtonStatesAndRestores
 	window->showAll(screen);
 	ASSERT_TRUE(actionButtonVisualsApplied(window));
 	auto normalFrame = renderWindowFrame(window);
+	auto normalPromptFrame = renderWindowFrame(window, Colors::WHITE);
 	expectActionPromptPlayerPerceivable(normalFrame.get(), window, true);
 	expectActionPromptPlayerPerceivable(normalFrame.get(), window, false);
 	const Rect normalAcceptRect = acceptActionRect(window);
@@ -1259,18 +1281,25 @@ TEST_F(ShortcutGlyphQueryTest, DualSenseActionBarComposesButtonStatesAndRestores
 	window->changeSelection(1);
 	window->showAll(screen);
 	auto disabledFrame = renderWindowFrame(window);
+	auto disabledPromptFrame = renderWindowFrame(window, Colors::WHITE);
 	expectActionPromptPlayerPerceivable(disabledFrame.get(), window, true);
-	expectActionCompositionDiffers(normalFrame.get(), disabledFrame.get(), normalAcceptRect);
+	expectBackingDiffers(normalFrame.get(), disabledFrame.get(), normalAcceptRect);
+	const Rect acceptSpriteRect(normalAcceptRect.topLeft() + Point(12, 10), Point(24, 24));
+	EXPECT_GE(countDifferentPixels(normalPromptFrame.get(), disabledPromptFrame.get(), acceptSpriteRect), 6);
 	window->changeSelection(0);
 	ASSERT_TRUE(setActionButtonPressed(window, true, true));
 	window->showAll(screen);
 	auto acceptPressedFrame = renderWindowFrame(window);
-	expectActionCompositionDiffers(normalFrame.get(), acceptPressedFrame.get(), normalAcceptRect);
+	auto acceptPressedPromptFrame = renderWindowFrame(window, Colors::WHITE);
+	expectBackingDiffers(normalFrame.get(), acceptPressedFrame.get(), normalAcceptRect);
+	expectPromptUnitPressedOffset(normalPromptFrame.get(), acceptPressedPromptFrame.get(), normalAcceptRect);
 	setActionButtonPressed(window, true, false);
 	ASSERT_TRUE(setActionButtonPressed(window, false, true));
 	window->showAll(screen);
 	auto cancelPressedFrame = renderWindowFrame(window);
-	expectActionCompositionDiffers(normalFrame.get(), cancelPressedFrame.get(), normalCancelRect);
+	auto cancelPressedPromptFrame = renderWindowFrame(window, Colors::WHITE);
+	expectBackingDiffers(normalFrame.get(), cancelPressedFrame.get(), normalCancelRect);
+	expectPromptUnitPressedOffset(normalPromptFrame.get(), cancelPressedPromptFrame.get(), normalCancelRect);
 	setActionButtonPressed(window, false, false);
 	setInputMode(InputMode::KEYBOARD_AND_MOUSE);
 	window->showAll(screen);
