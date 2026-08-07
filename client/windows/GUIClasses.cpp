@@ -81,111 +81,99 @@ const std::string battleOnlySpellActionCancelKey = "vcmi.lobby.battleOnlySpellAd
 const JsonPath objectListControllerAcceptButtonConfig = JsonPath::builtin("config/widgets/buttons/objectListControllerAccept.json");
 const JsonPath objectListControllerCancelButtonConfig = JsonPath::builtin("config/widgets/buttons/objectListControllerCancel.json");
 
-enum class ControllerPromptShape
+const Point battleOnlySpellAcceptMousePosition(15, 402);
+const Point battleOnlySpellCancelMousePosition(228, 402);
+const Point battleOnlySpellAcceptControllerPosition(15, 402);
+const Point battleOnlySpellCancelControllerPosition(173, 402);
+const Point battleOnlySpellControllerActionSize(140, 44);
+const Point battleOnlySpellControllerSpritePosition(12, 10);
+const Point battleOnlySpellControllerSpriteSize(24, 24);
+const int battleOnlySpellControllerLabelX = 44;
+const int battleOnlySpellControllerLabelWidth = 84;
+
+enum class ControllerActionPromptState
 {
-	NONE,
-	DUALSENSE_CROSS,
-	DUALSENSE_CIRCLE
+	NORMAL,
+	PRESSED,
+	DISABLED
 };
 
 class ControllerActionPromptOverlay final : public CIntObject
 {
 	std::shared_ptr<CLabel> label;
-	ControllerPromptShape shape = ControllerPromptShape::NONE;
-	ColorRGBA contentColor = Colors::BLACK;
-	Rect ringRect;
-	Rect cellRect;
-
-	void drawCircle(Canvas & to, const Rect & target, const ColorRGBA & color) const
-	{
-		const int radius = std::max(1, std::min(target.w, target.h) / 2 - 1);
-		const Point center = target.topLeft() + Point(target.w / 2, target.h / 2);
-
-		int x = radius;
-		int y = 0;
-		int error = 0;
-		while(x >= y)
-		{
-			to.drawPoint(center + Point(x, y), color);
-			to.drawPoint(center + Point(y, x), color);
-			to.drawPoint(center + Point(-y, x), color);
-			to.drawPoint(center + Point(-x, y), color);
-			to.drawPoint(center + Point(-x, -y), color);
-			to.drawPoint(center + Point(-y, -x), color);
-			to.drawPoint(center + Point(y, -x), color);
-			to.drawPoint(center + Point(x, -y), color);
-
-			if(error <= 0)
-			{
-				++y;
-				error += 2 * y + 1;
-			}
-			if(error > 0)
-			{
-				--x;
-				error -= 2 * x + 1;
-			}
-		}
-	}
+	std::shared_ptr<CPicture> sprite;
+	std::optional<ImagePath> currentSprite;
 
 public:
-	ControllerActionPromptOverlay(Rect position, Rect ring, Rect cell, std::shared_ptr<CLabel> label_)
-		: CIntObject(CIntObject::SHOWALL, position.topLeft())
+	ControllerActionPromptOverlay(std::shared_ptr<CLabel> label_)
+		: CIntObject(CIntObject::SHOWALL, Point())
 		, label(std::move(label_))
-		, ringRect(ring)
-		, cellRect(cell)
 	{
-		pos.w = position.w;
-		pos.h = position.h;
+		pos.w = battleOnlySpellControllerActionSize.x;
+		pos.h = battleOnlySpellControllerActionSize.y;
 		addChild(label.get());
 	}
 
-	void setShape(ControllerPromptShape newShape)
+	void setSprite(std::optional<ImagePath> spritePath)
 	{
-		shape = newShape;
-	}
+		if(currentSprite == spritePath)
+			return;
 
-	void setContentColor(ColorRGBA color)
-	{
-		contentColor = color;
-		label->setColor(color);
+		if(sprite)
+			removeChild(sprite.get());
+
+		currentSprite = spritePath;
+		sprite.reset();
+		if(currentSprite)
+		{
+			sprite = std::make_shared<CPicture>(*currentSprite, pos.topLeft() + battleOnlySpellControllerSpritePosition, EImageBlitMode::COLORKEY);
+			sprite->scaleTo(battleOnlySpellControllerSpriteSize);
+			addChild(sprite.get());
+			if(label->parent == this)
+			{
+				removeChild(label.get());
+				addChild(label.get());
+			}
+		}
 	}
 
 	void showAll(Canvas & to) override
 	{
-		if(shape == ControllerPromptShape::NONE)
+		if(!sprite)
 			return;
-
-		const Rect absoluteRing(pos.topLeft() + ringRect.topLeft(), ringRect.dimensions());
-		const Rect absoluteCell(pos.topLeft() + cellRect.topLeft(), cellRect.dimensions());
-
-		drawCircle(to, absoluteRing, contentColor);
-		drawCircle(to, Rect(absoluteRing.topLeft() + Point(1, 1), absoluteRing.dimensions() - Point(2, 2)), ColorRGBA(contentColor.r, contentColor.g, contentColor.b, 128));
-
-		if(shape == ControllerPromptShape::DUALSENSE_CROSS)
-		{
-			to.drawLine(absoluteCell.topLeft() + Point(1, 1), absoluteCell.topLeft() + Point(8, 8), contentColor, contentColor);
-			to.drawLine(absoluteCell.topLeft() + Point(8, 1), absoluteCell.topLeft() + Point(1, 8), contentColor, contentColor);
-		}
-		else if(shape == ControllerPromptShape::DUALSENSE_CIRCLE)
-		{
-			drawCircle(to, absoluteCell, contentColor);
-		}
 
 		CIntObject::showAll(to);
 	}
 };
 
-ControllerPromptShape controllerPromptShape(EShortcut shortcut)
+std::optional<ImagePath> controllerActionPromptSprite(EShortcut shortcut, ControllerActionPromptState state)
 {
 	const auto bindings = ENGINE->shortcuts().getJoystickBindings(shortcut);
-	if(ENGINE->input().getControllerPresentation() != ControllerPresentation::DUALSENSE || bindings.size() != 1)
-		return ControllerPromptShape::NONE;
-	if(bindings.front() == "a")
-		return ControllerPromptShape::DUALSENSE_CROSS;
-	if(bindings.front() == "b")
-		return ControllerPromptShape::DUALSENSE_CIRCLE;
-	return ControllerPromptShape::NONE;
+	if(bindings.size() != 1)
+		return std::nullopt;
+
+	const bool accept = shortcut == EShortcut::GLOBAL_ACCEPT && bindings.front() == "a";
+	const bool cancel = shortcut == EShortcut::GLOBAL_CANCEL && bindings.front() == "b";
+	if(!accept && !cancel)
+		return std::nullopt;
+
+	const auto presentation = ENGINE->input().getControllerPresentation();
+	const std::string family = presentation == ControllerPresentation::DUALSENSE ? "playstation" : "generic";
+	const std::string action = accept ? "add" : "cancel";
+	std::string stateName;
+	switch(state)
+	{
+	case ControllerActionPromptState::NORMAL:
+		stateName = "normal";
+		break;
+	case ControllerActionPromptState::PRESSED:
+		stateName = "pressed";
+		break;
+	case ControllerActionPromptState::DISABLED:
+		stateName = "disabled";
+		break;
+	}
+	return ImagePath::builtin("controllerActionBar/" + family + "-" + action + "-" + stateName + ".png");
 }
 }
 
@@ -2423,15 +2411,15 @@ void CObjectListWindow::configureBattleOnlySpellActionPrompts()
 	const ColorRGBA transparent(0, 0, 0, 0);
 	acceptGlyphBackground = std::make_shared<TransparentFilledRectangle>(Rect(Point(0, 0), Point(1, 1)), transparent, transparent);
 	cancelGlyphBackground = std::make_shared<TransparentFilledRectangle>(Rect(Point(0, 0), Point(1, 1)), transparent, transparent);
-	acceptGlyph = std::make_shared<CLabel>(36, 16, FONT_SMALL, ETextAlignment::CENTERLEFT, Colors::BLACK, "");
-	cancelGlyph = std::make_shared<CLabel>(36, 16, FONT_SMALL, ETextAlignment::CENTERLEFT, Colors::BLACK, "");
-	acceptGlyph->pos.w = 29;
+	acceptGlyph = std::make_shared<CLabel>(battleOnlySpellControllerLabelX, battleOnlySpellControllerActionSize.y / 2, FONT_SMALL, ETextAlignment::CENTERLEFT, Colors::BLACK, "");
+	cancelGlyph = std::make_shared<CLabel>(battleOnlySpellControllerLabelX, battleOnlySpellControllerActionSize.y / 2, FONT_SMALL, ETextAlignment::CENTERLEFT, Colors::BLACK, "");
+	acceptGlyph->pos.w = battleOnlySpellControllerLabelWidth;
 	acceptGlyph->pos.h = promptHeight;
-	cancelGlyph->pos.w = 28;
+	cancelGlyph->pos.w = battleOnlySpellControllerLabelWidth;
 	cancelGlyph->pos.h = promptHeight;
 
-	acceptPromptOverlay = std::make_shared<ControllerActionPromptOverlay>(Rect(Point(0, 0), Point(71, 33)), Rect(10, 5, 22, 22), Rect(16, 11, 10, 10), acceptGlyph);
-	cancelPromptOverlay = std::make_shared<ControllerActionPromptOverlay>(Rect(Point(0, 0), Point(70, 34)), Rect(10, 5, 22, 22), Rect(16, 11, 10, 10), cancelGlyph);
+	acceptPromptOverlay = std::make_shared<ControllerActionPromptOverlay>(acceptGlyph);
+	cancelPromptOverlay = std::make_shared<ControllerActionPromptOverlay>(cancelGlyph);
 	ok->setOverlay(acceptPromptOverlay);
 	exit->setOverlay(cancelPromptOverlay);
 	updateControllerGlyphs();
@@ -2477,23 +2465,31 @@ void CObjectListWindow::setActionButtonVisuals(bool acceptVisible, bool cancelVi
 
 	if(acceptChanged)
 	{
-		const Point currentPosition = ok->pos.topLeft();
 		if(acceptVisible)
+		{
 			ok->setConfigurable(objectListControllerAcceptButtonConfig);
+			ok->moveTo(pos.topLeft() + battleOnlySpellAcceptControllerPosition);
+		}
 		else
+		{
 			ok->setImage(AnimationPath::builtin(blueTheme ? "MuBchck" : "IOKAY.DEF"));
-		ok->moveTo(currentPosition);
+			ok->moveTo(pos.topLeft() + battleOnlySpellAcceptMousePosition);
+		}
 		ok->setOverlay(acceptPromptOverlay);
 	}
 
 	if(cancelChanged)
 	{
-		const Point currentPosition = exit->pos.topLeft();
 		if(cancelVisible)
+		{
 			exit->setConfigurable(objectListControllerCancelButtonConfig);
+			exit->moveTo(pos.topLeft() + battleOnlySpellCancelControllerPosition);
+		}
 		else
+		{
 			exit->setImage(AnimationPath::builtin(blueTheme ? "MuBcanc" : "ICANCEL.DEF"));
-		exit->moveTo(currentPosition);
+			exit->moveTo(pos.topLeft() + battleOnlySpellCancelMousePosition);
+		}
 		exit->setOverlay(cancelPromptOverlay);
 	}
 }
@@ -2523,8 +2519,14 @@ void CObjectListWindow::updateControllerGlyphs()
 
 	if(useBattleOnlySpellActionPrompts)
 	{
-		const bool acceptVisible = !acceptToken.empty();
-		const bool cancelVisible = !cancelToken.empty();
+		const auto acceptState = ok->isBlocked()
+			? ControllerActionPromptState::DISABLED
+			: (ok->isPressed() ? ControllerActionPromptState::PRESSED : ControllerActionPromptState::NORMAL);
+		const auto cancelState = exit->isPressed() ? ControllerActionPromptState::PRESSED : ControllerActionPromptState::NORMAL;
+		const auto acceptSprite = controllerInput ? controllerActionPromptSprite(EShortcut::GLOBAL_ACCEPT, acceptState) : std::nullopt;
+		const auto cancelSprite = controllerInput ? controllerActionPromptSprite(EShortcut::GLOBAL_CANCEL, cancelState) : std::nullopt;
+		const bool acceptVisible = acceptSprite.has_value();
+		const bool cancelVisible = cancelSprite.has_value();
 		setActionButtonVisuals(acceptVisible, cancelVisible);
 
 		const auto acceptText = acceptVisible ? LIBRARY->generaltexth->translate(battleOnlySpellActionAddKey) : "";
@@ -2538,14 +2540,14 @@ void CObjectListWindow::updateControllerGlyphs()
 		auto cancelOverlay = std::dynamic_pointer_cast<ControllerActionPromptOverlay>(cancelPromptOverlay);
 		if(acceptOverlay)
 		{
-			acceptOverlay->setShape(acceptVisible ? controllerPromptShape(EShortcut::GLOBAL_ACCEPT) : ControllerPromptShape::NONE);
-			acceptOverlay->setContentColor(ok->isBlocked() ? ColorRGBA(112, 104, 88) : Colors::BLACK);
+			acceptOverlay->setSprite(acceptVisible ? acceptSprite : std::nullopt);
+			acceptGlyph->setColor(Colors::BLACK);
 			acceptOverlay->recActions = acceptVisible ? CIntObject::UPDATE | CIntObject::SHOWALL : CIntObject::NO_ACTIONS;
 		}
 		if(cancelOverlay)
 		{
-			cancelOverlay->setShape(cancelVisible ? controllerPromptShape(EShortcut::GLOBAL_CANCEL) : ControllerPromptShape::NONE);
-			cancelOverlay->setContentColor(Colors::BLACK);
+			cancelOverlay->setSprite(cancelVisible ? cancelSprite : std::nullopt);
+			cancelGlyph->setColor(Colors::BLACK);
 			cancelOverlay->recActions = cancelVisible ? CIntObject::UPDATE | CIntObject::SHOWALL : CIntObject::NO_ACTIONS;
 		}
 		setPromptVisible(acceptGlyph, acceptGlyphBackground, acceptVisible);
