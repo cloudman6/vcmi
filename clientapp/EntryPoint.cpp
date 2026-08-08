@@ -172,6 +172,21 @@ int main(int argc, char * argv[])
 #endif
 		;
 
+#ifndef VCMI_CONTROLLER_E2E
+	// Fail closed before option parsing: these options are not registered in
+	// production builds, so boost would only emit a parse warning and the game
+	// would start silently instead of rejecting the E2E request
+	for(int argIndex = 1; argIndex < argc; ++argIndex)
+	{
+		const std::string argument = argv[argIndex];
+		if(argument == "--controller-e2e-scenario" || argument == "--controller-e2e-output")
+		{
+			std::cerr << "controller-e2e requested but this vcmiclient was built without test support" << std::endl;
+			return 16;
+		}
+	}
+#endif
+
 	if(argc > 1)
 	{
 		try
@@ -219,12 +234,6 @@ int main(int argc, char * argv[])
 			vm["controller-e2e-output"].as<std::string>());
 		if(earlyExit != ControllerE2E::E2E_PASS)
 			return earlyExit;
-	}
-#else
-	if(vm.count("controller-e2e-scenario") || vm.count("controller-e2e-output"))
-	{
-		std::cerr << "controller-e2e requested but this vcmiclient was built without test support" << std::endl;
-		return 16;
 	}
 #endif
 
