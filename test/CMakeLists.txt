@@ -226,6 +226,17 @@ if(ENABLE_CLIENT)
 	)
 	gtest_discover_tests(vcmi_cobject_list_window_controller_test)
 	vcmi_set_output_dir(vcmi_cobject_list_window_controller_test "")
+
+	add_executable(vcmi_controller_e2e_test
+		controllerE2E/ControllerE2EUnitTest.cpp
+	)
+	target_link_libraries(vcmi_controller_e2e_test PRIVATE gtest_main vcmiclientcommon)
+	target_include_directories(vcmi_controller_e2e_test
+		PRIVATE ${GTestSrc}
+		PRIVATE ${GTestSrc}/include
+	)
+	gtest_discover_tests(vcmi_controller_e2e_test)
+	vcmi_set_output_dir(vcmi_controller_e2e_test "")
 endif()
 
 add_executable(vcmitest ${test_SRCS} ${test_HEADERS} ${mock_HEADERS})
