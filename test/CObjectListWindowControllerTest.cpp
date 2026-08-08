@@ -147,6 +147,18 @@ protected:
 		testSettings["session"]["encoding"].String() = Languages::getLanguageOptions("english").encoding;
 		// CursorHandler asserts the software cursor contract in Debug builds
 		testSettings["video"]["cursor"].String() = "software";
+		// The headless engine never runs settings.init, so the fixture must
+		// provide the window geometry itself; without it SDL 2.30 creates a
+		// 0x0 window and screen-buffer creation fails
+		testSettings["video"]["fullscreen"].Bool() = false;
+		testSettings["video"]["resolution"]["width"].Integer() = 800;
+		testSettings["video"]["resolution"]["height"].Integer() = 600;
+		// Headless environments without a working accelerated renderer (CI
+		// containers, xvfb without GL) can force the SDL render driver; the
+		// headless engine never runs settings.init, so the value must come from
+		// the fixture itself
+		if(const char * forcedRenderDriver = std::getenv("VCMI_TEST_RENDER_DRIVER"))
+			testSettings["video"]["driver"].String() = forcedRenderDriver;
 		testSettings["input"]["enableMouse"].Bool() = true;
 		ENGINE = std::unique_ptr<GameEngine>(new GameEngine(GameEngine::HeadlessTestTag()));
 		ENGINE->input().setCurrentInputMode(InputMode::CONTROLLER);
@@ -443,9 +455,10 @@ protected:
 
 	void moveWindowIntoFrame(const std::shared_ptr<CObjectListWindow> & window) const
 	{
-		const Point offset(std::max(0, -window->pos.x), std::max(0, -window->pos.y));
-		if(offset.x || offset.y)
-			window->moveBy(offset);
+		// Pixel probes compare absolute coordinates against 320x460 offscreen
+		// surfaces, so the window origin must be deterministic regardless of
+		// how the host resolution centered it
+		window->moveBy(-window->pos.topLeft());
 	}
 
 	Rect acceptActionRect(const std::shared_ptr<CObjectListWindow> & window) const
