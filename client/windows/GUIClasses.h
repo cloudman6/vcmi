@@ -245,10 +245,7 @@ private:
 	bool applyingActionButtonVisuals = false;
 
 #ifdef VCMI_CONTROLLER_E2E
-	/// Test-only semantic evidence owned by this consumer: confirm/cancel
-	/// intent counts observed through the production activation paths
-	int controllerE2EConfirmCount = 0;
-	int controllerE2ECancelCount = 0;
+	/// Test-only semantic probe registration owned by this consumer
 	void registerControllerE2EProbe();
 #endif
 

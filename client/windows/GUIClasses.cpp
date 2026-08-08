@@ -2236,10 +2236,6 @@ void CObjectListWindow::elementSelected()
 	if(!focusedItem || !isItemEnabled(*focusedItem))
 		return;
 
-#ifdef VCMI_CONTROLLER_E2E
-	++controllerE2EConfirmCount;
-#endif
-
 	std::function<void(int)> toCall = onSelect;//save
 	const int where = itemValue(*focusedItem);      //required variables
 	close();//then destroy window
@@ -2248,9 +2244,6 @@ void CObjectListWindow::elementSelected()
 
 void CObjectListWindow::exitPressed()
 {
-#ifdef VCMI_CONTROLLER_E2E
-	++controllerE2ECancelCount;
-#endif
 	std::function<void()> toCall = onExit;//save
 	close();//then destroy window
 	if(toCall)
@@ -2476,8 +2469,6 @@ void CObjectListWindow::registerControllerE2EProbe()
 		snapshot["controller_focus_visible"].Bool() = observed->controllerFocusVisible;
 		snapshot["accept_visual_visible"].Bool() = observed->acceptControllerButtonVisual;
 		snapshot["cancel_visual_visible"].Bool() = observed->cancelControllerButtonVisual;
-		snapshot["confirm_count"].Integer() = observed->controllerE2EConfirmCount;
-		snapshot["cancel_count"].Integer() = observed->controllerE2ECancelCount;
 		snapshot["accept_glyph_text"].String() = observed->acceptGlyph ? observed->acceptGlyph->getText() : "";
 		snapshot["cancel_glyph_text"].String() = observed->cancelGlyph ? observed->cancelGlyph->getText() : "";
 		return snapshot;

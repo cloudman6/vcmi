@@ -18,6 +18,7 @@
 
 #include <boost/filesystem.hpp>
 #include <fstream>
+#include <sstream>
 
 namespace ControllerE2E
 {
@@ -36,6 +37,90 @@ std::string sanitizeLabel(const std::string & label)
 			result += '_';
 	}
 	return result.empty() ? "capture" : result;
+}
+
+/// JSONL requires exactly one JSON document per line. JsonWriter is not
+/// exported from the shared library, so evidence serialization stays local.
+void writeCompact(std::ostream & out, const JsonNode & node)
+{
+	switch(node.getType())
+	{
+	case JsonNode::JsonType::DATA_NULL:
+		out << "null";
+		return;
+	case JsonNode::JsonType::DATA_BOOL:
+		out << (node.Bool() ? "true" : "false");
+		return;
+	case JsonNode::JsonType::DATA_INTEGER:
+		out << node.Integer();
+		return;
+	case JsonNode::JsonType::DATA_FLOAT:
+		out << node.Float();
+		return;
+	case JsonNode::JsonType::DATA_STRING:
+	{
+		out << '"';
+		for(const char character : node.String())
+		{
+			switch(character)
+			{
+			case '"': out << "\\\""; break;
+			case '\\': out << "\\\\"; break;
+			case '\n': out << "\\n"; break;
+			case '\r': out << "\\r"; break;
+			case '\t': out << "\\t"; break;
+			default:
+				if(static_cast<unsigned char>(character) < 0x20)
+				{
+					char buffer[8];
+					std::snprintf(buffer, sizeof(buffer), "\\u%04x", character);
+					out << buffer;
+				}
+				else
+					out << character;
+			}
+		}
+		out << '"';
+		return;
+	}
+	case JsonNode::JsonType::DATA_VECTOR:
+	{
+		out << '[';
+		bool first = true;
+		for(const auto & entry : node.Vector())
+		{
+			if(!first)
+				out << ',';
+			first = false;
+			writeCompact(out, entry);
+		}
+		out << ']';
+		return;
+	}
+	case JsonNode::JsonType::DATA_STRUCT:
+	{
+		out << '{';
+		bool first = true;
+		for(const auto & [key, value] : node.Struct())
+		{
+			if(!first)
+				out << ',';
+			first = false;
+			writeCompact(out, JsonNode(key));
+			out << ':';
+			writeCompact(out, value);
+		}
+		out << '}';
+		return;
+	}
+	}
+}
+
+std::string compactJson(const JsonNode & document)
+{
+	std::ostringstream stream;
+	writeCompact(stream, document);
+	return stream.str();
 }
 
 }
@@ -98,7 +183,7 @@ bool ArtifactWriter::appendJsonLine(const std::string & fileName, const JsonNode
 		std::ofstream stream((outputDir / fileName).string(), std::ios::app);
 		if(!stream.is_open())
 			throw std::runtime_error("cannot open file for append");
-		stream << document.toString() << "\n";
+		stream << compactJson(document) << "\n";
 		if(!stream.good())
 			throw std::runtime_error("append failed");
 		return true;

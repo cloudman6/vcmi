@@ -9,7 +9,7 @@
 	],
 	"steps": [
 		{"op": "wait_frames", "frames": 5},
-		{"op": "assert_event_count", "kind": "device_added", "count": 1},
+		{"op": "assert", "probe": "runtime", "field": "scenario_devices_attached", "equals": 1},
 		{"op": "press", "device": "pad0", "control": "south"},
 		{"op": "wait_until", "probe": "input", "field": "mode", "equals": "controller", "timeout_ms": 2000},
 		{"op": "assert", "probe": "runtime", "field": "presentation", "equals": "unknown"},

@@ -109,6 +109,10 @@ class ControllerE2EExecutor
 
 	PendingTap pendingTap;
 	std::vector<PendingRamp> pendingRamps;
+	/// control key -> frame whose SDL poll observed the release; a new press
+	/// on the same control must wait for the next poll or SDL collapses the
+	/// release+press state transition into no event
+	std::map<std::string, uint64_t> pressBlockedUntilPoll;
 	WaitState waitState;
 	UnchangedState unchangedState;
 
@@ -123,7 +127,8 @@ class ControllerE2EExecutor
 	void registerBuiltinProbes();
 	void registerProfiles();
 	bool runPrelude(std::string & error);
-	void applyPrePollStep(const ScenarioStep & step, std::string & error);
+	enum class StepApplyResult { APPLIED, PENDING, FAILED };
+	StepApplyResult applyPrePollStep(const ScenarioStep & step, std::string & error);
 	void advanceStepPointer();
 	void applyScheduledState();
 	void fail(int code, const std::string & message);

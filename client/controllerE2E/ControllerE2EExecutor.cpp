@@ -169,6 +169,8 @@ struct AddSpellFixtureState
 {
 	std::shared_ptr<const std::vector<SpellID>> values;
 	std::vector<SpellID> confirmedSpells;
+	int confirmCount = 0;
+	int cancelCount = 0;
 	bool active = false;
 };
 
@@ -288,6 +290,11 @@ void ControllerE2EExecutor::registerBuiltinProbes()
 		}
 		if(executor)
 		{
+			int attached = 0;
+			for(const auto & [alias, state] : executor->devices)
+				if(state.device && state.device->isAttached())
+					++attached;
+			snapshot["scenario_devices_attached"].Integer() = attached;
 			auto & controllers = snapshot["controllers"].Vector();
 			for(const auto & [alias, state] : executor->devices)
 			{
@@ -347,14 +354,25 @@ void ControllerE2EExecutor::registerBuiltinProbes()
 			recent.push_back(event);
 		return snapshot;
 	});
+
+	/// Fixture-owned business outcome. It survives the consumer window closing,
+	/// which is exactly when confirm/cancel assertions need to read it.
+	registry.registerProbe("domain", []()
+	{
+		JsonNode snapshot;
+		snapshot["active"].Bool() = addSpellFixture.active;
+		snapshot["confirm_count"].Integer() = static_cast<si64>(addSpellFixture.confirmedSpells.size());
+		snapshot["cancel_count"].Integer() = addSpellFixture.cancelCount;
+		return snapshot;
+	});
 }
 
 bool ControllerE2EExecutor::runPrelude(std::string & error)
 {
 	for(const auto & step : scenario.prelude)
 	{
-		applyPrePollStep(step, error);
-		if(!error.empty())
+		const auto result = applyPrePollStep(step, error);
+		if(result == StepApplyResult::FAILED)
 			return false;
 	}
 	return true;
@@ -376,7 +394,7 @@ void ControllerE2EExecutor::activate()
 	}
 }
 
-void ControllerE2EExecutor::applyPrePollStep(const ScenarioStep & step, std::string & error)
+ControllerE2EExecutor::StepApplyResult ControllerE2EExecutor::applyPrePollStep(const ScenarioStep & step, std::string & error)
 {
 	auto deviceFor = [&](const std::string & alias) -> SDLVirtualController *
 	{
@@ -397,30 +415,30 @@ void ControllerE2EExecutor::applyPrePollStep(const ScenarioStep & step, std::str
 		if(profileIterator == profiles.end())
 		{
 			error = "unknown profile '" + step.profileId + "'";
-			return;
+			return StepApplyResult::FAILED;
 		}
 		DeviceState & state = devices[step.device];
 		state.device = std::make_unique<SDLVirtualController>(step.device, profileIterator->second);
 		if(!state.device->attach(error))
-			return;
+			return StepApplyResult::FAILED;
 		if(!state.device->verifyAttachment(error))
-			return;
+			return StepApplyResult::FAILED;
 		state.detachedByScenario = false;
 		JsonNode record;
 		record["device"].String() = step.device;
 		record["identity"].String() = state.device->describeIdentity();
 		recordSdlEventIdentity(record);
-		return;
+		return StepApplyResult::APPLIED;
 	}
 	case ScenarioStep::Kind::DETACH:
 	{
 		auto * device = deviceFor(step.device);
 		if(!device)
-			return;
+			return StepApplyResult::FAILED;
 		if(!device->detach(error))
-			return;
+			return StepApplyResult::FAILED;
 		devices[step.device].detachedByScenario = true;
-		return;
+		return StepApplyResult::APPLIED;
 	}
 	case ScenarioStep::Kind::RECONNECT:
 	{
@@ -428,23 +446,23 @@ void ControllerE2EExecutor::applyPrePollStep(const ScenarioStep & step, std::str
 		if(!state.device)
 		{
 			error = "unknown device '" + step.device + "'";
-			return;
+			return StepApplyResult::FAILED;
 		}
 		const VirtualControllerProfile profile = state.device->getProfile();
 		state.device = std::make_unique<SDLVirtualController>(step.device, profile);
 		if(!state.device->attach(error))
-			return;
+			return StepApplyResult::FAILED;
 		if(!state.device->verifyAttachment(error))
-			return;
+			return StepApplyResult::FAILED;
 		state.detachedByScenario = false;
-		return;
+		return StepApplyResult::APPLIED;
 	}
 	case ScenarioStep::Kind::SELECT_DEVICE:
 	{
 		if(!deviceFor(step.device))
-			return;
+			return StepApplyResult::FAILED;
 		selectedDeviceAlias = step.device;
-		return;
+		return StepApplyResult::APPLIED;
 	}
 	case ScenarioStep::Kind::PRESS:
 	case ScenarioStep::Kind::RELEASE:
@@ -452,33 +470,48 @@ void ControllerE2EExecutor::applyPrePollStep(const ScenarioStep & step, std::str
 	{
 		auto * device = deviceFor(step.device);
 		if(!device)
-			return;
+			return StepApplyResult::FAILED;
+		const std::string blockKey = step.device + "/" + step.control;
 		const bool pressed = step.kind != ScenarioStep::Kind::RELEASE;
+		if(pressed)
+		{
+			// SDL collapses a release and the following press into zero events
+			// when both land between the same two polls; defer the press until
+			// the poll after the release has been observed
+			const auto blocked = pressBlockedUntilPoll.find(blockKey);
+			if(blocked != pressBlockedUntilPoll.end() && frame <= blocked->second)
+				return StepApplyResult::PENDING;
+		}
 		if(!device->setButton(step.control, pressed, error))
-			return;
+			return StepApplyResult::FAILED;
+		if(pressed)
+			pressBlockedUntilPoll.erase(blockKey);
+		else
+			pressBlockedUntilPoll[blockKey] = frame;
 		if(step.kind == ScenarioStep::Kind::TAP)
 		{
 			pendingTap.device = step.device;
 			pendingTap.control = step.control;
 			pendingTap.releaseAtFrame = static_cast<int>(frame) + step.holdFrames;
 		}
-		return;
+		return StepApplyResult::APPLIED;
 	}
 	case ScenarioStep::Kind::SET_AXIS:
 	{
 		auto * device = deviceFor(step.device);
 		if(!device)
-			return;
-		device->setAxis(step.control, step.axisValue, error);
-		return;
+			return StepApplyResult::FAILED;
+		if(!device->setAxis(step.control, step.axisValue, error))
+			return StepApplyResult::FAILED;
+		return StepApplyResult::APPLIED;
 	}
 	case ScenarioStep::Kind::RAMP_AXIS:
 	{
 		auto * device = deviceFor(step.device);
 		if(!device)
-			return;
+			return StepApplyResult::FAILED;
 		if(!device->setAxis(step.control, step.axisFrom, error))
-			return;
+			return StepApplyResult::FAILED;
 		PendingRamp ramp;
 		ramp.device = step.device;
 		ramp.control = step.control;
@@ -487,15 +520,18 @@ void ControllerE2EExecutor::applyPrePollStep(const ScenarioStep & step, std::str
 		ramp.startFrame = static_cast<int>(frame);
 		ramp.frames = step.rampFrames;
 		pendingRamps.push_back(ramp);
-		return;
+		return StepApplyResult::APPLIED;
 	}
 	case ScenarioStep::Kind::NEUTRALIZE:
 	{
 		auto * device = deviceFor(step.device);
 		if(!device)
-			return;
-		device->neutralize(error);
-		return;
+			return StepApplyResult::FAILED;
+		if(!device->neutralize(error))
+			return StepApplyResult::FAILED;
+		for(const auto & [control, index] : device->getProfile().buttons)
+			pressBlockedUntilPoll[step.device + "/" + control] = frame;
+		return StepApplyResult::APPLIED;
 	}
 	case ScenarioStep::Kind::PRESS_KEY:
 	case ScenarioStep::Kind::RELEASE_KEY:
@@ -504,7 +540,7 @@ void ControllerE2EExecutor::applyPrePollStep(const ScenarioStep & step, std::str
 		if(keycode == SDLK_UNKNOWN)
 		{
 			error = "unknown key name '" + step.keyName + "'";
-			return;
+			return StepApplyResult::FAILED;
 		}
 		SDL_Event event{};
 		event.type = step.kind == ScenarioStep::Kind::PRESS_KEY ? SDL_KEYDOWN : SDL_KEYUP;
@@ -513,8 +549,11 @@ void ControllerE2EExecutor::applyPrePollStep(const ScenarioStep & step, std::str
 		event.key.keysym.sym = keycode;
 		event.key.keysym.scancode = SDL_GetScancodeFromKey(keycode);
 		if(SDL_PushEvent(&event) != 1)
+		{
 			error = "SDL_PushEvent failed: " + std::string(SDL_GetError());
-		return;
+			return StepApplyResult::FAILED;
+		}
+		return StepApplyResult::APPLIED;
 	}
 	case ScenarioStep::Kind::MOVE_MOUSE:
 	case ScenarioStep::Kind::CLICK_MOUSE:
@@ -528,10 +567,10 @@ void ControllerE2EExecutor::applyPrePollStep(const ScenarioStep & step, std::str
 		if(SDL_PushEvent(&motion) != 1)
 		{
 			error = "SDL_PushEvent failed: " + std::string(SDL_GetError());
-			return;
+			return StepApplyResult::FAILED;
 		}
 		if(step.kind == ScenarioStep::Kind::MOVE_MOUSE)
-			return;
+			return StepApplyResult::APPLIED;
 
 		Uint8 button = SDL_BUTTON_LEFT;
 		if(step.mouseButton == "right")
@@ -541,7 +580,7 @@ void ControllerE2EExecutor::applyPrePollStep(const ScenarioStep & step, std::str
 		else if(step.mouseButton != "left")
 		{
 			error = "unknown mouse button '" + step.mouseButton + "'";
-			return;
+			return StepApplyResult::FAILED;
 		}
 
 		SDL_Event down{};
@@ -554,19 +593,22 @@ void ControllerE2EExecutor::applyPrePollStep(const ScenarioStep & step, std::str
 		if(SDL_PushEvent(&down) != 1)
 		{
 			error = "SDL_PushEvent failed: " + std::string(SDL_GetError());
-			return;
+			return StepApplyResult::FAILED;
 		}
 		SDL_Event up = down;
 		up.type = SDL_MOUSEBUTTONUP;
 		up.button.type = SDL_MOUSEBUTTONUP;
 		up.button.state = SDL_RELEASED;
 		if(SDL_PushEvent(&up) != 1)
+		{
 			error = "SDL_PushEvent failed: " + std::string(SDL_GetError());
-		return;
+			return StepApplyResult::FAILED;
+		}
+		return StepApplyResult::APPLIED;
 	}
 	default:
 		error = "operation '" + step.kindName() + "' cannot run before poll";
-		return;
+		return StepApplyResult::FAILED;
 	}
 }
 
@@ -581,6 +623,8 @@ void ControllerE2EExecutor::applyScheduledState()
 			found->second.device->setButton(pendingTap.control, false, error);
 			if(!error.empty())
 				fail(E2E_DRIVER_ERROR, "scheduled tap release failed: " + error);
+			else
+				pressBlockedUntilPoll[pendingTap.device + "/" + pendingTap.control] = frame;
 		}
 		pendingTap = {};
 	}
@@ -694,16 +738,18 @@ void ControllerE2EExecutor::onBeforePoll()
 		case ScenarioStep::Kind::CLICK_MOUSE:
 		{
 			std::string error;
-			applyPrePollStep(step, error);
+			const auto result = applyPrePollStep(step, error);
+			if(result == StepApplyResult::PENDING)
+				return; // deferred until the previous release has been polled
 			JsonNode record;
 			record["index"].Integer() = step.index;
 			record["op"].String() = step.kindName();
 			record["frame"].Integer() = static_cast<si64>(frame);
-			record["result"].String() = error.empty() ? "applied" : "error";
-			if(!error.empty())
+			record["result"].String() = result == StepApplyResult::APPLIED ? "applied" : "error";
+			if(result != StepApplyResult::APPLIED)
 				record["message"].String() = error;
 			writeStepRecord(record);
-			if(!error.empty())
+			if(result != StepApplyResult::APPLIED)
 			{
 				fail(E2E_SCENARIO_ERROR, "step " + std::to_string(step.index) + " (" + step.kindName() + ") failed: " + error);
 				return;
@@ -754,6 +800,23 @@ void ControllerE2EExecutor::onAfterPresent()
 	const ScenarioStep & step = scenario.steps[stepCursor];
 	switch(step.kind)
 	{
+	// Pre-poll step still pending (e.g. a press deferred until the poll after
+	// the previous release); it is retried in the next onBeforePoll
+	case ScenarioStep::Kind::ATTACH:
+	case ScenarioStep::Kind::DETACH:
+	case ScenarioStep::Kind::RECONNECT:
+	case ScenarioStep::Kind::SELECT_DEVICE:
+	case ScenarioStep::Kind::PRESS:
+	case ScenarioStep::Kind::RELEASE:
+	case ScenarioStep::Kind::TAP:
+	case ScenarioStep::Kind::SET_AXIS:
+	case ScenarioStep::Kind::RAMP_AXIS:
+	case ScenarioStep::Kind::NEUTRALIZE:
+	case ScenarioStep::Kind::PRESS_KEY:
+	case ScenarioStep::Kind::RELEASE_KEY:
+	case ScenarioStep::Kind::MOVE_MOUSE:
+	case ScenarioStep::Kind::CLICK_MOUSE:
+		return;
 	case ScenarioStep::Kind::WAIT_FRAMES:
 	{
 		if(!waitState.active)
@@ -1228,6 +1291,10 @@ void ControllerE2EExecutor::pushAddSpellFixture()
 			return;
 		addSpellFixture.confirmedSpells.push_back(values->at(index));
 	}, 0, images, true, true);
+	window->onExit = []()
+	{
+		++addSpellFixture.cancelCount;
+	};
 	window->setBattleOnlySpellActionPrompts();
 	addSpellFixture.active = true;
 	ENGINE->windows().pushWindow(window);
