@@ -557,11 +557,14 @@ protected:
 		const int deviceIndex = SDL_JoystickAttachVirtualEx(&descriptor);
 #else
 		// SDL < 2.24 cannot attach virtual devices with vendor/product identity;
-		// use the 2.0.14 API plus an explicit GameController mapping instead
+		// use the 2.0.14 API plus an explicit GameController mapping instead.
+		// Note: the SDL 2.0.14 - 2.23 implementation consumes the counts in
+		// (naxes, nbuttons) order; this was fixed in 2.24 together with
+		// SDL_JoystickAttachVirtualEx, so the arguments are passed swapped here.
 		const int deviceIndex = SDL_JoystickAttachVirtual(
 			SDL_JOYSTICK_TYPE_GAMECONTROLLER,
-			SDL_CONTROLLER_BUTTON_MAX,
 			SDL_CONTROLLER_AXIS_MAX,
+			SDL_CONTROLLER_BUTTON_MAX,
 			0);
 #endif
 		if(deviceIndex < 0)
