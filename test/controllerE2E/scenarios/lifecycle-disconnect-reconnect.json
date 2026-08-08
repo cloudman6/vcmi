@@ -1,0 +1,36 @@
+{
+	"schema": "vcmi.controller-e2e/v1",
+	"id": "lifecycle.disconnect-reconnect-multi",
+	"profile": "dualsense",
+	"timeout_ms": 30000,
+	"fixture": {},
+	"prelude": [
+		{"op": "attach", "device": "pad0", "profile": "dualsense"}
+	],
+	"steps": [
+		{"op": "wait_frames", "frames": 5},
+		{"op": "tap", "device": "pad0", "control": "south"},
+		{"op": "wait_until", "probe": "input", "field": "mode", "equals": "controller", "timeout_ms": 2000},
+		{"op": "detach", "device": "pad0"},
+		{"op": "wait_frames", "frames": 5},
+		{"op": "assert_event_count", "kind": "device_removed", "count": 1},
+		{"op": "checkpoint", "name": "detached"},
+		{"op": "reconnect", "device": "pad0"},
+		{"op": "wait_frames", "frames": 5},
+		{"op": "assert_event_count", "kind": "device_added", "count": 2},
+		{"op": "move_mouse", "x": 10, "y": 10},
+		{"op": "click_mouse", "button": "left", "x": 10, "y": 10},
+		{"op": "wait_until", "probe": "input", "field": "mode", "equals": "keyboard_and_mouse", "timeout_ms": 2000},
+		{"op": "tap", "device": "pad0", "control": "dpad_down"},
+		{"op": "wait_until", "probe": "input", "field": "mode", "equals": "controller", "timeout_ms": 2000},
+		{"op": "attach", "device": "pad1", "profile": "synthetic-generic"},
+		{"op": "wait_frames", "frames": 3},
+		{"op": "select_device", "device": "pad1"},
+		{"op": "tap", "device": "pad1", "control": "south"},
+		{"op": "wait_frames", "frames": 3},
+		{"op": "neutralize", "device": "pad0"},
+		{"op": "neutralize", "device": "pad1"},
+		{"op": "capture_frame", "name": "multi-controller"},
+		{"op": "request_shutdown"}
+	]
+}
