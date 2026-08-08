@@ -297,11 +297,14 @@ bool SDLVirtualController::attach(std::string & error)
 	deviceIndex = SDL_JoystickAttachVirtualEx(&descriptor);
 #else
 	// SDL < 2.24 cannot carry vendor/product identity; explicit GameController
-	// mapping registered below keeps the device consumable by the production chain
+	// mapping registered below keeps the device consumable by the production
+	// chain. Note: the SDL 2.0.14 - 2.23 implementation consumes the count
+	// arguments as (naxes, nbuttons); the swap was fixed in 2.24 together
+	// with SDL_JoystickAttachVirtualEx, so they are passed swapped here.
 	deviceIndex = SDL_JoystickAttachVirtual(
 		SDL_JOYSTICK_TYPE_GAMECONTROLLER,
-		static_cast<int>(profile.buttons.size()),
 		static_cast<int>(profile.axes.size()),
+		static_cast<int>(profile.buttons.size()),
 		0);
 #endif
 	if(deviceIndex < 0)
