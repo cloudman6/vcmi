@@ -29,7 +29,7 @@ ControllerPresentation controllerPresentation(SDL_GameController * controller)
 	{
 	case SDL_CONTROLLER_TYPE_PS4:
 	case SDL_CONTROLLER_TYPE_PS5:
-		return ControllerPresentation::DUALSENSE;
+		return ControllerPresentation::PLAYSTATION;
 	default:
 		return ControllerPresentation::UNKNOWN;
 	}
@@ -288,7 +288,7 @@ ControllerPresentation InputSourceGameController::getActivePresentation() const
 std::optional<std::string> InputSourceGameController::getGlyphToken(
 	ControllerPresentation presentation, const std::vector<std::string> & bindings)
 {
-	if(presentation != ControllerPresentation::DUALSENSE || bindings.size() != 1)
+	if(presentation != ControllerPresentation::PLAYSTATION || bindings.size() != 1)
 		return std::nullopt;
 
 	if(bindings.front() == "a")

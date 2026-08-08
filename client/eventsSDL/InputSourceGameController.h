@@ -19,7 +19,7 @@
 enum class ControllerPresentation
 {
 	UNKNOWN,
-	DUALSENSE
+	PLAYSTATION
 };
 
 /// Class that handles game controller input from SDL events

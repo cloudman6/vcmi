@@ -78,8 +78,7 @@ namespace
 const std::string battleOnlySpellActionAddKey = "vcmi.lobby.battleOnlySpellAdd.actionAdd";
 const std::string battleOnlySpellActionCancelKey = "vcmi.lobby.battleOnlySpellAdd.actionCancel";
 
-const JsonPath objectListControllerAcceptButtonConfig = JsonPath::builtin("config/widgets/buttons/objectListControllerAccept.json");
-const JsonPath objectListControllerCancelButtonConfig = JsonPath::builtin("config/widgets/buttons/objectListControllerCancel.json");
+const JsonPath objectListControllerActionButtonConfig = JsonPath::builtin("config/widgets/buttons/objectListControllerAccept.json");
 
 const Point battleOnlySpellAcceptMousePosition(15, 402);
 const Point battleOnlySpellCancelMousePosition(228, 402);
@@ -157,7 +156,7 @@ std::optional<ImagePath> controllerActionPromptSprite(EShortcut shortcut, Contro
 		return std::nullopt;
 
 	const auto presentation = ENGINE->input().getControllerPresentation();
-	const std::string family = presentation == ControllerPresentation::DUALSENSE ? "playstation" : "generic";
+	const std::string family = presentation == ControllerPresentation::PLAYSTATION ? "playstation" : "generic";
 	const std::string action = accept ? "add" : "cancel";
 	std::string stateName;
 	switch(state)
@@ -2465,7 +2464,7 @@ void CObjectListWindow::setActionButtonVisuals(bool acceptVisible, bool cancelVi
 	{
 		if(acceptVisible)
 		{
-			ok->setConfigurable(objectListControllerAcceptButtonConfig);
+			ok->setConfigurable(objectListControllerActionButtonConfig);
 			ok->moveTo(pos.topLeft() + battleOnlySpellAcceptControllerPosition);
 		}
 		else
@@ -2481,7 +2480,7 @@ void CObjectListWindow::setActionButtonVisuals(bool acceptVisible, bool cancelVi
 		if(cancelVisible)
 		{
 			const int mouseRight = battleOnlySpellCancelMousePosition.x + exit->pos.w;
-			exit->setConfigurable(objectListControllerCancelButtonConfig);
+			exit->setConfigurable(objectListControllerActionButtonConfig);
 			exit->moveTo(pos.topLeft() + Point(mouseRight - battleOnlySpellControllerActionSize.x, battleOnlySpellCancelMousePosition.y));
 		}
 		else

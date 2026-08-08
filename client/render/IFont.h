@@ -44,6 +44,7 @@ public:
 
 	/// Internal function to render font, see renderTextLeft
 	virtual void renderText(SDL_Surface * surface, const std::string & data, const ColorRGBA & color, const Point & pos) const = 0;
+	/// Render text without font-specific outline or drop shadow effects
 	virtual void renderTextWithoutShadow(SDL_Surface * surface, const std::string & data, const ColorRGBA & color, const Point & pos) const;
 
 	virtual bool canRepresentCharacter(const char * data) const	= 0;

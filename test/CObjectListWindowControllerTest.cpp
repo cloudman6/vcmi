@@ -640,7 +640,7 @@ protected:
 	std::array<ControllerPresentation, 3> controllerPresentationsAfterRemap()
 	{
 		InputSourceGameController controller{InputSourceGameController::HeadlessTestTag()};
-		controller.controllerPresentations.emplace(17, ControllerPresentation::DUALSENSE);
+		controller.controllerPresentations.emplace(17, ControllerPresentation::PLAYSTATION);
 		controller.setActiveController(17);
 		const auto beforeRemap = controller.getActivePresentation();
 
@@ -759,7 +759,7 @@ TEST_F(ShortcutGlyphQueryTest, ControllerGlyphRefreshDoesNotReenterShowAll)
 	const SDL_JoystickID controllerInstance = attachVirtualDualSense();
 	dispatchVirtualControllerButton(controllerInstance, SDL_CONTROLLER_BUTTON_DPAD_DOWN);
 	ASSERT_EQ(ENGINE->input().getCurrentInputMode(), InputMode::CONTROLLER);
-	ASSERT_EQ(ENGINE->input().getControllerPresentation(), ControllerPresentation::DUALSENSE);
+	ASSERT_EQ(ENGINE->input().getControllerPresentation(), ControllerPresentation::PLAYSTATION);
 
 	window->showAll(canvas);
 
@@ -818,7 +818,7 @@ TEST_F(ShortcutGlyphQueryTest, DualSenseBindingsRefreshGlyphsAfterControllerActi
 
 	ASSERT_EQ(openedControllerType(controllerInstance), SDL_CONTROLLER_TYPE_PS5);
 	ASSERT_EQ(ENGINE->input().getCurrentInputMode(), InputMode::CONTROLLER);
-	ASSERT_EQ(ENGINE->input().getControllerPresentation(), ControllerPresentation::DUALSENSE);
+	ASSERT_EQ(ENGINE->input().getControllerPresentation(), ControllerPresentation::PLAYSTATION);
 	const auto acceptToken = ENGINE->input().getControllerGlyphToken(acceptBindings);
 	const auto cancelToken = ENGINE->input().getControllerGlyphToken(cancelBindings);
 	ASSERT_TRUE(acceptToken.has_value());
@@ -884,7 +884,7 @@ TEST_F(ShortcutGlyphQueryTest, DualSenseActionControlsUseAcceptedGeometryAndRest
 
 	ASSERT_EQ(openedControllerType(controllerInstance), SDL_CONTROLLER_TYPE_PS5);
 	ASSERT_EQ(ENGINE->input().getCurrentInputMode(), InputMode::CONTROLLER);
-	ASSERT_EQ(ENGINE->input().getControllerPresentation(), ControllerPresentation::DUALSENSE);
+	ASSERT_EQ(ENGINE->input().getControllerPresentation(), ControllerPresentation::PLAYSTATION);
 	const auto acceptLabel = localizationLibrary->generaltexth->translate("vcmi.lobby.battleOnlySpellAdd.actionAdd");
 	const auto cancelLabel = localizationLibrary->generaltexth->translate("vcmi.lobby.battleOnlySpellAdd.actionCancel");
 	ASSERT_EQ(acceptGlyphText(window), acceptLabel);
@@ -915,7 +915,7 @@ TEST_F(ShortcutGlyphQueryTest, DualSenseActionBarComposesButtonStatesAndRestores
 	window->setBattleOnlySpellActionPrompts();
 	ENGINE->windows().pushWindow(window);
 	moveWindowIntoFrame(window);
-	setControllerPresentation(ControllerPresentation::DUALSENSE);
+	setControllerPresentation(ControllerPresentation::PLAYSTATION);
 	setInputMode(InputMode::CONTROLLER);
 	Canvas screen = ENGINE->screenHandler().getScreenCanvas();
 	window->showAll(screen);
@@ -1423,8 +1423,8 @@ TEST_F(ShortcutGlyphQueryTest, ReverseQuerySortsDeduplicatesAndRemapsBindings)
 
 	EXPECT_EQ(acceptBindings, std::vector<std::string>({"a", "x"}));
 	EXPECT_EQ(cancelBindings, std::vector<std::string>({"b"}));
-	EXPECT_FALSE(InputSourceGameController::getGlyphToken(ControllerPresentation::DUALSENSE, acceptBindings));
-	EXPECT_EQ(InputSourceGameController::getGlyphToken(ControllerPresentation::DUALSENSE, cancelBindings), "○");
+	EXPECT_FALSE(InputSourceGameController::getGlyphToken(ControllerPresentation::PLAYSTATION, acceptBindings));
+	EXPECT_EQ(InputSourceGameController::getGlyphToken(ControllerPresentation::PLAYSTATION, cancelBindings), "○");
 
 	setJoystickBindings({
 		{"a", EShortcut::GLOBAL_ACCEPT},
@@ -1432,17 +1432,17 @@ TEST_F(ShortcutGlyphQueryTest, ReverseQuerySortsDeduplicatesAndRemapsBindings)
 	});
 
 	const auto remappedAcceptBindings = ENGINE->shortcuts().getJoystickBindings(EShortcut::GLOBAL_ACCEPT);
-	EXPECT_EQ(InputSourceGameController::getGlyphToken(ControllerPresentation::DUALSENSE, remappedAcceptBindings), "×");
+	EXPECT_EQ(InputSourceGameController::getGlyphToken(ControllerPresentation::PLAYSTATION, remappedAcceptBindings), "×");
 	EXPECT_FALSE(InputSourceGameController::getGlyphToken(ControllerPresentation::UNKNOWN, {"a"}));
-	EXPECT_FALSE(InputSourceGameController::getGlyphToken(ControllerPresentation::DUALSENSE, {}));
-	EXPECT_FALSE(InputSourceGameController::getGlyphToken(ControllerPresentation::DUALSENSE, {"a", "b"}));
-	EXPECT_FALSE(InputSourceGameController::getGlyphToken(ControllerPresentation::DUALSENSE, {"leftshoulder"}));
+	EXPECT_FALSE(InputSourceGameController::getGlyphToken(ControllerPresentation::PLAYSTATION, {}));
+	EXPECT_FALSE(InputSourceGameController::getGlyphToken(ControllerPresentation::PLAYSTATION, {"a", "b"}));
+	EXPECT_FALSE(InputSourceGameController::getGlyphToken(ControllerPresentation::PLAYSTATION, {"leftshoulder"}));
 }
 
 TEST_F(ShortcutGlyphQueryTest, ControllerRemapInvalidatesActivePresentation)
 {
 	const auto presentations = controllerPresentationsAfterRemap();
-	EXPECT_EQ(presentations[0], ControllerPresentation::DUALSENSE);
+	EXPECT_EQ(presentations[0], ControllerPresentation::PLAYSTATION);
 	EXPECT_EQ(presentations[1], ControllerPresentation::UNKNOWN);
 	EXPECT_EQ(presentations[2], ControllerPresentation::UNKNOWN);
 }
