@@ -45,6 +45,11 @@
 #include "../render/IImage.h"
 #include "../render/IFont.h"
 
+#ifdef VCMI_CONTROLLER_E2E
+#include "../controllerE2E/ControllerE2EProbes.h"
+#include "../../lib/json/JsonNode.h"
+#endif
+
 #include "../../lib/GameLibrary.h"
 #include "../../lib/callback/CCallback.h"
 #include "../../lib/entities/building/CBuilding.h"
@@ -85,7 +90,6 @@ const Point battleOnlySpellCancelMousePosition(228, 402);
 const Point battleOnlySpellAcceptControllerPosition(15, 402);
 const Point battleOnlySpellControllerActionSize(124, 32);
 const Point battleOnlySpellControllerSpritePosition(12, 4);
-const Point battleOnlySpellControllerSpriteSize(24, 24);
 const int battleOnlySpellControllerLabelX = 44;
 const int battleOnlySpellControllerLabelWidth = 68;
 
@@ -125,7 +129,6 @@ public:
 		if(currentSprite)
 		{
 			sprite = std::make_shared<CPicture>(*currentSprite, pos.topLeft() + battleOnlySpellControllerSpritePosition, EImageBlitMode::COLORKEY);
-			sprite->scaleTo(battleOnlySpellControllerSpriteSize);
 			addChild(sprite.get());
 			if(label->parent == this)
 			{
@@ -2233,6 +2236,10 @@ void CObjectListWindow::elementSelected()
 	if(!focusedItem || !isItemEnabled(*focusedItem))
 		return;
 
+#ifdef VCMI_CONTROLLER_E2E
+	++controllerE2EConfirmCount;
+#endif
+
 	std::function<void(int)> toCall = onSelect;//save
 	const int where = itemValue(*focusedItem);      //required variables
 	close();//then destroy window
@@ -2241,6 +2248,9 @@ void CObjectListWindow::elementSelected()
 
 void CObjectListWindow::exitPressed()
 {
+#ifdef VCMI_CONTROLLER_E2E
+	++controllerE2ECancelCount;
+#endif
 	std::function<void()> toCall = onExit;//save
 	close();//then destroy window
 	if(toCall)
@@ -2425,7 +2435,55 @@ void CObjectListWindow::configureBattleOnlySpellActionPrompts()
 void CObjectListWindow::setBattleOnlySpellActionPrompts()
 {
 	configureBattleOnlySpellActionPrompts();
+#ifdef VCMI_CONTROLLER_E2E
+	registerControllerE2EProbe();
+#endif
 }
+
+#ifdef VCMI_CONTROLLER_E2E
+/// Consumer-owned read-only domain probe for controller E2E. It observes the
+/// live battle-only Add Spell window through the window stack; it never
+/// mutates state and never exposes object pointers to scenarios.
+void CObjectListWindow::registerControllerE2EProbe()
+{
+	ControllerE2E::ProbeRegistry::instance().registerProbe("addSpell", []()
+	{
+		JsonNode snapshot;
+		if(!ENGINE)
+		{
+			snapshot["open"].Bool() = false;
+			return snapshot;
+		}
+
+		const auto listWindows = ENGINE->windows().findWindows<CObjectListWindow>();
+		CObjectListWindow * observed = nullptr;
+		for(const auto & window : listWindows)
+			if(window->useBattleOnlySpellActionPrompts)
+				observed = window.get();
+
+		if(!observed)
+		{
+			snapshot["open"].Bool() = false;
+			return snapshot;
+		}
+
+		snapshot["open"].Bool() = true;
+		snapshot["focus_index"].Integer() = observed->focusedItem ? static_cast<si64>(*observed->focusedItem) : -1;
+		snapshot["focused_enabled"].Bool() = observed->focusedItem ? observed->isItemEnabled(*observed->focusedItem) : false;
+		snapshot["focused_disabled_reason"].String() = observed->focusedItem && !observed->isItemEnabled(*observed->focusedItem)
+			? observed->items[*observed->focusedItem].disabledReason : "";
+		snapshot["selected_index"].Integer() = observed->selectedItem ? static_cast<si64>(*observed->selectedItem) : -1;
+		snapshot["controller_focus_visible"].Bool() = observed->controllerFocusVisible;
+		snapshot["accept_visual_visible"].Bool() = observed->acceptControllerButtonVisual;
+		snapshot["cancel_visual_visible"].Bool() = observed->cancelControllerButtonVisual;
+		snapshot["confirm_count"].Integer() = observed->controllerE2EConfirmCount;
+		snapshot["cancel_count"].Integer() = observed->controllerE2ECancelCount;
+		snapshot["accept_glyph_text"].String() = observed->acceptGlyph ? observed->acceptGlyph->getText() : "";
+		snapshot["cancel_glyph_text"].String() = observed->cancelGlyph ? observed->cancelGlyph->getText() : "";
+		return snapshot;
+	});
+}
+#endif
 
 void CObjectListWindow::setActionButtonVisuals(bool acceptVisible, bool cancelVisible)
 {

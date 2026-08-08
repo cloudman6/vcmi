@@ -40,6 +40,10 @@
 #include "../lib/texts/TextOperations.h"
 #include "../lib/texts/CGeneralTextHandler.h"
 
+#ifdef VCMI_CONTROLLER_E2E
+#include "controllerE2E/ControllerE2EExecutor.h"
+#endif
+
 #include <SDL_render.h>
 
 std::unique_ptr<GameEngine> ENGINE;
@@ -70,6 +74,11 @@ GameEngine::GameEngine()
 	screenHandlerInstance = std::make_unique<ScreenHandler>();
 	renderHandlerInstance = std::make_unique<RenderHandler>();
 	shortcutsHandlerInstance = std::make_unique<ShortcutHandler>();
+#ifdef VCMI_CONTROLLER_E2E
+	// Test-only: attach scenario virtual devices after SDL initialization and
+	// before InputHandler enumerates controllers
+	ControllerE2E::Hooks::onBeforeInputHandler();
+#endif
 	inputHandlerInstance = std::make_unique<InputHandler>(); // Must be after windowHandlerInstance and shortcutsHandlerInstance
 	framerateManagerInstance = std::make_unique<FramerateManager>(settings["video"]["targetfps"].Integer());
 
@@ -133,9 +142,15 @@ void GameEngine::fakeMouseMove()
 {
 	for (;;)
 	{
+#ifdef VCMI_CONTROLLER_E2E
+		ControllerE2E::Hooks::onBeforePoll();
+#endif
 		input().fetchEvents();
 		updateFrame();
 		screenHandlerInstance->presentScreenTexture();
+#ifdef VCMI_CONTROLLER_E2E
+		ControllerE2E::Hooks::onAfterPresent();
+#endif
 		framerate().framerateDelay(); // holds a constant FPS
 	}
 }

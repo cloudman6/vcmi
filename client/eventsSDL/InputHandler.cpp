@@ -31,6 +31,10 @@
 #include "../../lib/AsyncRunner.h"
 #include "../../lib/CConfigHandler.h"
 
+#ifdef VCMI_CONTROLLER_E2E
+#include "../controllerE2E/ControllerE2EExecutor.h"
+#endif
+
 #include <SDL_events.h>
 #include <SDL_timer.h>
 #include <SDL_clipboard.h>
@@ -258,6 +262,9 @@ bool InputHandler::ignoreEventsUntilInput()
 
 void InputHandler::preprocessEvent(const SDL_Event & ev)
 {
+#ifdef VCMI_CONTROLLER_E2E
+	ControllerE2E::Hooks::recordSdlEvent(ev);
+#endif
 	if(ev.type == SDL_QUIT)
 	{
 		std::scoped_lock interfaceLock(ENGINE->interfaceMutex);
