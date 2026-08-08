@@ -110,6 +110,7 @@ class DeterministicTestFont final : public IFont
 {
 	static constexpr int GLYPH_WIDTH = 5;
 	static constexpr int GLYPH_HEIGHT = 7;
+	static constexpr ColorRGBA SHADOW_COLOR = ColorRGBA(255, 0, 255, 255);
 
 	static uint32_t glyphPattern(std::string_view character)
 	{
@@ -143,7 +144,8 @@ public:
 		return TextOperations::isValidUnicodeCharacter(data, characterSize);
 	}
 
-	void renderText(SDL_Surface * surface, const std::string & data, const ColorRGBA & color, const Point & pos) const override
+private:
+	void renderGlyphs(SDL_Surface * surface, const std::string & data, const ColorRGBA & color, const Point & pos) const
 	{
 		Point currentPosition = pos;
 		for(size_t offset = 0; offset < data.size();)
@@ -170,6 +172,18 @@ public:
 			currentPosition.x += GLYPH_WIDTH;
 			offset += characterSize;
 		}
+	}
+
+public:
+	void renderText(SDL_Surface * surface, const std::string & data, const ColorRGBA & color, const Point & pos) const override
+	{
+		renderGlyphs(surface, data, SHADOW_COLOR, pos + Point(1, 1));
+		renderGlyphs(surface, data, color, pos);
+	}
+
+	void renderTextWithoutShadow(SDL_Surface * surface, const std::string & data, const ColorRGBA & color, const Point & pos) const override
+	{
+		renderGlyphs(surface, data, color, pos);
 	}
 };
 
@@ -538,9 +552,22 @@ protected:
 		return result;
 	}
 
+	size_t countPixelsWithColor(SDL_Surface * surface, const Rect & region, const ColorRGBA & expected) const
+	{
+		size_t result = 0;
+		for(int y = std::max(region.y, 0); y < std::min(region.y + region.h, surface->h); ++y)
+			for(int x = std::max(region.x, 0); x < std::min(region.x + region.w, surface->w); ++x)
+			{
+				const auto pixel = surfacePixel(surface, Point(x, y));
+				if(pixel.r == expected.r && pixel.g == expected.g && pixel.b == expected.b && pixel.a == expected.a)
+					++result;
+			}
+		return result;
+	}
+
 	void expectBackingDiffers(SDL_Surface * normal, SDL_Surface * state, const Rect & actionRect) const
 	{
-		const Rect backingProbe(actionRect.topLeft() + Point(112, 5), Point(8, 34));
+		const Rect backingProbe(actionRect.topLeft() + Point(112, 5), Point(8, 22));
 		EXPECT_GE(countDifferentPixels(normal, state, backingProbe), 6);
 	}
 
@@ -560,7 +587,7 @@ protected:
 
 	void expectPromptUnitPressedOffset(SDL_Surface * normal, SDL_Surface * pressed, const Rect & actionRect) const
 	{
-		const Rect promptUnit(actionRect.topLeft() + Point(10, 8), Point(104, 28));
+		const Rect promptUnit(actionRect.topLeft() + Point(10, 3), Point(104, 26));
 		EXPECT_GE(countDifferentPixels(normal, pressed, promptUnit), 6);
 		EXPECT_EQ(countOffsetMismatches(normal, pressed, promptUnit), 0);
 	}
@@ -591,7 +618,7 @@ protected:
 
 	bool hasPerceivableControllerSprite(SDL_Surface * surface, const Rect & actionRect, const ColorRGBA & backingColor) const
 	{
-		const Rect spriteRegion(actionRect.topLeft() + Point(12, 10), Point(24, 24));
+		const Rect spriteRegion(actionRect.topLeft() + Point(12, 4), Point(24, 24));
 		return countPerceivablePixels(surface, spriteRegion, backingColor, 4.5) >= 36;
 	}
 
@@ -602,7 +629,7 @@ protected:
 	{
 		const Rect actionRect = acceptPrompt ? acceptActionRect(window) : cancelActionRect(window);
 		const ColorRGBA backingColor = surfacePixel(surface, actionRect.topLeft() + Point(50, 5));
-		const Rect labelRegion(actionRect.topLeft() + Point(44, 10), Point(68, 24));
+		const Rect labelRegion(actionRect.topLeft() + Point(44, 4), Point(68, 24));
 		return hasPerceivableControllerSprite(surface, actionRect, backingColor)
 			&& countPerceivablePixels(surface, labelRegion, backingColor, 4.5) >= 4;
 	}
@@ -614,7 +641,7 @@ protected:
 	{
 		const Rect actionRect = acceptPrompt ? acceptActionRect(window) : cancelActionRect(window);
 		const ColorRGBA backingColor = surfacePixel(surface, actionRect.topLeft() + Point(50, 5));
-		const Rect labelRegion(actionRect.topLeft() + Point(44, 10), Point(68, 24));
+		const Rect labelRegion(actionRect.topLeft() + Point(44, 4), Point(68, 24));
 		EXPECT_TRUE(hasPerceivableControllerSprite(surface, actionRect, backingColor));
 		EXPECT_GE(countPerceivablePixels(surface, labelRegion, backingColor, 4.5), 4);
 	}
@@ -641,7 +668,7 @@ protected:
 		EXPECT_EQ(actual.x, topLeft.x);
 		EXPECT_EQ(actual.y, topLeft.y);
 		EXPECT_EQ(actual.w, 124);
-		EXPECT_EQ(actual.h, 44);
+		EXPECT_EQ(actual.h, 32);
 	}
 
 	bool actionButtonVisualsApplied(const std::shared_ptr<CObjectListWindow> & window) const
@@ -1255,6 +1282,9 @@ TEST_F(ShortcutGlyphQueryTest, DualSenseGlyphsRenderAboveProductionActionControl
 	auto frame = renderWindowFrame(window);
 	expectActionPromptPlayerPerceivable(frame.get(), window, true);
 	expectActionPromptPlayerPerceivable(frame.get(), window, false);
+	const ColorRGBA testShadowColor(255, 0, 255, 255);
+	EXPECT_EQ(countPixelsWithColor(frame.get(), acceptActionRect(window), testShadowColor), 0);
+	EXPECT_EQ(countPixelsWithColor(frame.get(), cancelActionRect(window), testShadowColor), 0);
 	auto lowContrastFrame = renderWindowFrame(window, Colors::BLACK);
 	EXPECT_FALSE(hasPlayerPerceivableActionPrompt(lowContrastFrame.get(), window, true));
 	EXPECT_FALSE(hasPlayerPerceivableActionPrompt(lowContrastFrame.get(), window, false));
@@ -1327,7 +1357,7 @@ TEST_F(ShortcutGlyphQueryTest, DualSenseActionBarComposesButtonStatesAndRestores
 	auto disabledPromptFrame = renderWindowFrame(window, Colors::WHITE);
 	expectActionPromptPlayerPerceivable(disabledFrame.get(), window, true);
 	expectBackingDiffers(normalFrame.get(), disabledFrame.get(), normalAcceptRect);
-	const Rect acceptSpriteRect(normalAcceptRect.topLeft() + Point(12, 10), Point(24, 24));
+	const Rect acceptSpriteRect(normalAcceptRect.topLeft() + Point(12, 4), Point(24, 24));
 	EXPECT_GE(countDifferentPixels(normalPromptFrame.get(), disabledPromptFrame.get(), acceptSpriteRect), 6);
 	window->changeSelection(0);
 	ASSERT_TRUE(setActionButtonPressed(window, true, true));

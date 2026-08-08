@@ -54,55 +54,62 @@ size_t IFont::getStringWidthScaled(const std::string & data) const
 	return width;
 }
 
-void IFont::renderTextLeft(SDL_Surface * surface, const std::string & data, const ColorRGBA & color, const Point & pos) const
+void IFont::renderTextWithoutShadow(SDL_Surface * surface, const std::string & data, const ColorRGBA & color, const Point & pos) const
 {
 	renderText(surface, data, color, pos);
 }
 
-void IFont::renderTextRight(SDL_Surface * surface, const std::string & data, const ColorRGBA & color, const Point & pos) const
+void IFont::renderTextLeft(SDL_Surface * surface, const std::string & data, const ColorRGBA & color, const Point & pos, bool withShadow) const
 {
-	Point size = Point(getStringWidth(data), getLineHeight()) * getScalingFactor();
-	renderText(surface, data, color, pos - size);
+	if(withShadow)
+		renderText(surface, data, color, pos);
+	else
+		renderTextWithoutShadow(surface, data, color, pos);
 }
 
-void IFont::renderTextCenter(SDL_Surface * surface, const std::string & data, const ColorRGBA & color, const Point & pos) const
+void IFont::renderTextRight(SDL_Surface * surface, const std::string & data, const ColorRGBA & color, const Point & pos, bool withShadow) const
 {
 	Point size = Point(getStringWidth(data), getLineHeight()) * getScalingFactor();
-	renderText(surface, data, color, pos - size / 2);
+	renderTextLeft(surface, data, color, pos - size, withShadow);
 }
 
-void IFont::renderTextLinesLeft(SDL_Surface * surface, const std::vector<std::string> & data, const ColorRGBA & color, const Point & pos) const
+void IFont::renderTextCenter(SDL_Surface * surface, const std::string & data, const ColorRGBA & color, const Point & pos, bool withShadow) const
+{
+	Point size = Point(getStringWidth(data), getLineHeight()) * getScalingFactor();
+	renderTextLeft(surface, data, color, pos - size / 2, withShadow);
+}
+
+void IFont::renderTextLinesLeft(SDL_Surface * surface, const std::vector<std::string> & data, const ColorRGBA & color, const Point & pos, bool withShadow) const
 {
 	Point currPos = pos;
 
 	for(const std::string & line : data)
 	{
-		renderTextLeft(surface, line, color, currPos);
+		renderTextLeft(surface, line, color, currPos, withShadow);
 		currPos.y += getLineHeight() * getScalingFactor();
 	}
 }
 
-void IFont::renderTextLinesRight(SDL_Surface * surface, const std::vector<std::string> & data, const ColorRGBA & color, const Point & pos) const
+void IFont::renderTextLinesRight(SDL_Surface * surface, const std::vector<std::string> & data, const ColorRGBA & color, const Point & pos, bool withShadow) const
 {
 	Point currPos = pos;
 	currPos.y -= data.size() * getLineHeight() * getScalingFactor();
 
 	for(const std::string & line : data)
 	{
-		renderTextRight(surface, line, color, currPos);
+		renderTextRight(surface, line, color, currPos, withShadow);
 		currPos.y += getLineHeight() * getScalingFactor();
 	}
 }
 
-void IFont::renderTextLinesCenter(SDL_Surface * surface, const std::vector<std::string> & data, const ColorRGBA & color, const Point & pos) const
+void IFont::renderTextLinesCenter(SDL_Surface * surface, const std::vector<std::string> & data, const ColorRGBA & color, const Point & pos, bool withShadow) const
 {
 	Point currPos = pos;
 	currPos.y -= data.size() * getLineHeight() / 2 * getScalingFactor();
 
 	for(const std::string & line : data)
 	{
-		renderTextCenter(surface, line, color, currPos);
+		renderTextCenter(surface, line, color, currPos, withShadow);
 		currPos.y += getLineHeight() * getScalingFactor();
 	}
 }
-

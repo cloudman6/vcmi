@@ -22,6 +22,16 @@
 
 void FontChain::renderText(SDL_Surface * surface, const std::string & data, const ColorRGBA & color, const Point & pos) const
 {
+	renderTextImpl(surface, data, color, pos, true);
+}
+
+void FontChain::renderTextWithoutShadow(SDL_Surface * surface, const std::string & data, const ColorRGBA & color, const Point & pos) const
+{
+	renderTextImpl(surface, data, color, pos, false);
+}
+
+void FontChain::renderTextImpl(SDL_Surface * surface, const std::string & data, const ColorRGBA & color, const Point & pos, bool withShadow) const
+{
 	auto chunks = splitTextToChunks(data);
 	int maxAscent = getFontAscentScaled();
 	Point currentPos = pos;
@@ -30,7 +40,10 @@ void FontChain::renderText(SDL_Surface * surface, const std::string & data, cons
 		Point chunkPos = currentPos;
 		int currAscent = chunk.font->getFontAscentScaled();
 		chunkPos.y += maxAscent - currAscent;
-		chunk.font->renderText(surface, chunk.text, color, chunkPos);
+		if(withShadow)
+			chunk.font->renderText(surface, chunk.text, color, chunkPos);
+		else
+			chunk.font->renderTextWithoutShadow(surface, chunk.text, color, chunkPos);
 		currentPos.x += chunk.font->getStringWidthScaled(chunk.text);
 	}
 }

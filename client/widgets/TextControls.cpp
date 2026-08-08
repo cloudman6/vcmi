@@ -45,8 +45,8 @@ void CLabel::showAll(Canvas & to)
 
 }
 
-CLabel::CLabel(int x, int y, EFonts Font, ETextAlignment Align, const ColorRGBA & Color, const std::string & Text, int maxWidth)
-	: CTextContainer(Align, Font, Color), text(Text), maxWidth(maxWidth)
+CLabel::CLabel(int x, int y, EFonts Font, ETextAlignment Align, const ColorRGBA & Color, const std::string & Text, int maxWidth, bool textShadow)
+	: CTextContainer(Align, Font, Color, textShadow), text(Text), maxWidth(maxWidth)
 {
 	setRedrawParent(true);
 	autoRedraw = true;
@@ -257,16 +257,16 @@ void CTextContainer::blitLine(Canvas & to, Rect destRect, std::string what)
 					if(auto color = Colors::parseColor(colorText))
 					{
 						toPrint = toPrint.substr(colorText.length() + 1, toPrint.length() - colorText.length());
-						to.drawText(where, font, *color, ETextAlignment::TOPLEFT, toPrint);
+						to.drawText(where, font, *color, ETextAlignment::TOPLEFT, toPrint, textShadow);
 					}
 					else
-						to.drawText(where, font, Colors::YELLOW, ETextAlignment::TOPLEFT, toPrint);
+						to.drawText(where, font, Colors::YELLOW, ETextAlignment::TOPLEFT, toPrint, textShadow);
 				}
 				else
-					to.drawText(where, font, Colors::YELLOW, ETextAlignment::TOPLEFT, toPrint);
+					to.drawText(where, font, Colors::YELLOW, ETextAlignment::TOPLEFT, toPrint, textShadow);
 			}
 			else // Non-enclosed text, use default color
-				to.drawText(where, font, color, ETextAlignment::TOPLEFT, toPrint);
+				to.drawText(where, font, color, ETextAlignment::TOPLEFT, toPrint, textShadow);
 
 			begin = end;
 
@@ -276,10 +276,11 @@ void CTextContainer::blitLine(Canvas & to, Rect destRect, std::string what)
 	} while(begin++ != std::string::npos);
 }
 
-CTextContainer::CTextContainer(ETextAlignment alignment, EFonts font, ColorRGBA color) :
+CTextContainer::CTextContainer(ETextAlignment alignment, EFonts font, ColorRGBA color, bool textShadow) :
 	alignment(alignment),
 	font(font),
-	color(color)
+	color(color),
+	textShadow(textShadow)
 {
 }
 

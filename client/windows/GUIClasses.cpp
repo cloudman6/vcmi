@@ -84,8 +84,8 @@ const JsonPath objectListControllerCancelButtonConfig = JsonPath::builtin("confi
 const Point battleOnlySpellAcceptMousePosition(15, 402);
 const Point battleOnlySpellCancelMousePosition(228, 402);
 const Point battleOnlySpellAcceptControllerPosition(15, 402);
-const Point battleOnlySpellControllerActionSize(124, 44);
-const Point battleOnlySpellControllerSpritePosition(12, 10);
+const Point battleOnlySpellControllerActionSize(124, 32);
+const Point battleOnlySpellControllerSpritePosition(12, 4);
 const Point battleOnlySpellControllerSpriteSize(24, 24);
 const int battleOnlySpellControllerLabelX = 44;
 const int battleOnlySpellControllerLabelWidth = 68;
@@ -2409,8 +2409,8 @@ void CObjectListWindow::configureBattleOnlySpellActionPrompts()
 	const ColorRGBA transparent(0, 0, 0, 0);
 	acceptGlyphBackground = std::make_shared<TransparentFilledRectangle>(Rect(Point(0, 0), Point(1, 1)), transparent, transparent);
 	cancelGlyphBackground = std::make_shared<TransparentFilledRectangle>(Rect(Point(0, 0), Point(1, 1)), transparent, transparent);
-	acceptGlyph = std::make_shared<CLabel>(battleOnlySpellControllerLabelX, 0, FONT_SMALL, ETextAlignment::CENTERLEFT, Colors::BLACK, "");
-	cancelGlyph = std::make_shared<CLabel>(battleOnlySpellControllerLabelX, 0, FONT_SMALL, ETextAlignment::CENTERLEFT, Colors::BLACK, "");
+	acceptGlyph = std::make_shared<CLabel>(battleOnlySpellControllerLabelX, 0, FONT_SMALL, ETextAlignment::CENTERLEFT, Colors::BLACK, "", 0, false);
+	cancelGlyph = std::make_shared<CLabel>(battleOnlySpellControllerLabelX, 0, FONT_SMALL, ETextAlignment::CENTERLEFT, Colors::BLACK, "", 0, false);
 	acceptGlyph->pos.w = battleOnlySpellControllerLabelWidth;
 	acceptGlyph->pos.h = battleOnlySpellControllerActionSize.y;
 	cancelGlyph->pos.w = battleOnlySpellControllerLabelWidth;

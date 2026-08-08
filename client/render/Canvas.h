@@ -104,10 +104,10 @@ public:
 	void drawBorderDashed(const Rect & target, const ColorRGBA & color);
 
 	/// renders single line of text with specified parameters
-	void drawText(const Point & position, const EFonts & font, const ColorRGBA & colorDest, ETextAlignment alignment, const std::string & text );
+	void drawText(const Point & position, const EFonts & font, const ColorRGBA & colorDest, ETextAlignment alignment, const std::string & text, bool withShadow = true);
 
 	/// renders multiple lines of text with specified parameters
-	void drawText(const Point & position, const EFonts & font, const ColorRGBA & colorDest, ETextAlignment alignment, const std::vector<std::string> & text );
+	void drawText(const Point & position, const EFonts & font, const ColorRGBA & colorDest, ETextAlignment alignment, const std::vector<std::string> & text, bool withShadow = true);
 
 	/// fills selected area with solid color
 	void drawColor(const Rect & target, const ColorRGBA & color);

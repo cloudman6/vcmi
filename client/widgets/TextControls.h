@@ -28,7 +28,7 @@ protected:
 	/// do actual blitting of line. Text "what" will be placed at "where" and aligned according to alignment
 	void blitLine(Canvas & to, Rect where, std::string what);
 
-	CTextContainer(ETextAlignment alignment, EFonts font, ColorRGBA color);
+	CTextContainer(ETextAlignment alignment, EFonts font, ColorRGBA color, bool textShadow = true);
 
 public:
 	static int getDelimitersWidth(EFonts font, std::string text);
@@ -36,6 +36,7 @@ public:
 	ETextAlignment alignment;
 	EFonts font;
 	ColorRGBA color; // default font color. Can be overridden by placing "{}" into the string
+	bool textShadow;
 };
 
 /// Label which shows text
@@ -62,7 +63,7 @@ public:
 	size_t getWidth();
 
 	CLabel(int x = 0, int y = 0, EFonts Font = FONT_SMALL, ETextAlignment Align = ETextAlignment::TOPLEFT,
-		const ColorRGBA & Color = Colors::WHITE, const std::string & Text = "", int maxWidth = 0);
+		const ColorRGBA & Color = Colors::WHITE, const std::string & Text = "", int maxWidth = 0, bool textShadow = true);
 	void showAll(Canvas & to) override; //shows statusbar (with current text)
 };
 

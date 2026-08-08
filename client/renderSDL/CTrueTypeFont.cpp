@@ -139,6 +139,14 @@ void CTrueTypeFont::renderText(SDL_Surface * surface, const std::string & text, 
 	renderTextImpl(surface, text, color, pos);
 }
 
+void CTrueTypeFont::renderTextWithoutShadow(SDL_Surface * surface, const std::string & text, const ColorRGBA & color, const Point & pos) const
+{
+	if(text.empty())
+		return;
+
+	renderTextImpl(surface, text, color, pos);
+}
+
 void CTrueTypeFont::renderTextImpl(SDL_Surface * surface, const std::string & text, const ColorRGBA & color, const Point & pos) const
 {
 	SDL_Surface * rendered;
@@ -156,4 +164,3 @@ void CTrueTypeFont::renderTextImpl(SDL_Surface * surface, const std::string & te
 		logGlobal->error("Failed to render text '%s'. Reason: '%s'", text, TTF_GetError());
 
 }
-

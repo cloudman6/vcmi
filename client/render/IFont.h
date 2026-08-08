@@ -44,6 +44,7 @@ public:
 
 	/// Internal function to render font, see renderTextLeft
 	virtual void renderText(SDL_Surface * surface, const std::string & data, const ColorRGBA & color, const Point & pos) const = 0;
+	virtual void renderTextWithoutShadow(SDL_Surface * surface, const std::string & data, const ColorRGBA & color, const Point & pos) const;
 
 	virtual bool canRepresentCharacter(const char * data) const	= 0;
 
@@ -54,17 +55,16 @@ public:
 	 * @param pos - position of rendered font
 	 */
 	/// pos = topleft corner of the text
-	void renderTextLeft(SDL_Surface * surface, const std::string & data, const ColorRGBA & color, const Point & pos) const;
+	void renderTextLeft(SDL_Surface * surface, const std::string & data, const ColorRGBA & color, const Point & pos, bool withShadow = true) const;
 	/// pos = center of the text
-	void renderTextRight(SDL_Surface * surface, const std::string & data, const ColorRGBA & color, const Point & pos) const;
+	void renderTextRight(SDL_Surface * surface, const std::string & data, const ColorRGBA & color, const Point & pos, bool withShadow = true) const;
 	/// pos = bottomright corner of the text
-	void renderTextCenter(SDL_Surface * surface, const std::string & data, const ColorRGBA & color, const Point & pos) const;
+	void renderTextCenter(SDL_Surface * surface, const std::string & data, const ColorRGBA & color, const Point & pos, bool withShadow = true) const;
 
 	/// pos = topleft corner of the text
-	void renderTextLinesLeft(SDL_Surface * surface, const std::vector<std::string> & data, const ColorRGBA & color, const Point & pos) const;
+	void renderTextLinesLeft(SDL_Surface * surface, const std::vector<std::string> & data, const ColorRGBA & color, const Point & pos, bool withShadow = true) const;
 	/// pos = center of the text
-	void renderTextLinesRight(SDL_Surface * surface, const std::vector<std::string> & data, const ColorRGBA & color, const Point & pos) const;
+	void renderTextLinesRight(SDL_Surface * surface, const std::vector<std::string> & data, const ColorRGBA & color, const Point & pos, bool withShadow = true) const;
 	/// pos = bottomright corner of the text
-	void renderTextLinesCenter(SDL_Surface * surface, const std::vector<std::string> & data, const ColorRGBA & color, const Point & pos) const;
+	void renderTextLinesCenter(SDL_Surface * surface, const std::vector<std::string> & data, const ColorRGBA & color, const Point & pos, bool withShadow = true) const;
 };
-
