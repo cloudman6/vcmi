@@ -175,13 +175,32 @@ int main(int argc, char * argv[])
 #ifndef VCMI_CONTROLLER_E2E
 	// Fail closed before option parsing: these options are not registered in
 	// production builds, so boost would only emit a parse warning and the game
-	// would start silently instead of rejecting the E2E request
+	// would start silently instead of rejecting the E2E request. Match as a
+	// case-insensitive prefix because boost also accepts --option=value and is
+	// parsed case-insensitively.
+	auto matchesE2EOption = [](const std::string & argument)
+	{
+		for(const char * prefix : {"--controller-e2e-scenario", "--controller-e2e-output"})
+		{
+			const std::string prefixString = prefix;
+			if(argument.size() < prefixString.size())
+				continue;
+			bool equal = true;
+			for(size_t position = 0; position < prefixString.size(); ++position)
+				if(std::tolower(static_cast<unsigned char>(argument[position])) != prefixString[position])
+					equal = false;
+			if(equal)
+				return true;
+		}
+		return false;
+	};
 	for(int argIndex = 1; argIndex < argc; ++argIndex)
 	{
-		const std::string argument = argv[argIndex];
-		if(argument == "--controller-e2e-scenario" || argument == "--controller-e2e-output")
+		if(matchesE2EOption(argv[argIndex]))
 		{
 			std::cerr << "controller-e2e requested but this vcmiclient was built without test support" << std::endl;
+			// keep in sync with ControllerE2E::E2E_UNSUPPORTED_BINARY, which is
+			// not compiled into production builds
 			return 16;
 		}
 	}

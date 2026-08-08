@@ -107,7 +107,7 @@ class ControllerE2EExecutor
 	int exitCode = E2E_DRIVER_ERROR;
 	std::vector<std::string> resultMessages;
 
-	PendingTap pendingTap;
+	std::vector<PendingTap> pendingTaps;
 	std::vector<PendingRamp> pendingRamps;
 	/// control key -> frame whose SDL poll observed the release; a new press
 	/// on the same control must wait for the next poll or SDL collapses the

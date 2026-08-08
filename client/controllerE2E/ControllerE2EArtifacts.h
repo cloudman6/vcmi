@@ -50,4 +50,8 @@ public:
 	std::string nextScreenshotName(const std::string & label);
 };
 
+/// SHA-256 of the input bytes as lowercase hex. Used for scenario/profile
+/// identity digests in the run manifest; covered by known-answer unit tests.
+std::string sha256Hex(const std::string & data);
+
 }

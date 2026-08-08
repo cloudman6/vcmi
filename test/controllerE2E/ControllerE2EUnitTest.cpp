@@ -11,6 +11,7 @@
 
 #include "../client/controllerE2E/ControllerE2EScenario.h"
 #include "../client/controllerE2E/ControllerE2EVirtualController.h"
+#include "../client/controllerE2E/ControllerE2EArtifacts.h"
 
 #include "../lib/json/JsonNode.h"
 
@@ -21,6 +22,13 @@
 #include <SDL_joystick.h>
 
 using namespace ControllerE2E;
+
+/// Production definition lives in clientapp/EntryPoint.cpp, which is not part
+/// of the test binary
+[[noreturn]] void handleFatalError(const std::string & message, bool)
+{
+	throw std::runtime_error(message);
+}
 
 namespace
 {
@@ -58,6 +66,16 @@ std::string replaceToken(const std::string & source, const std::string & token, 
 class ScenarioProtocolTest : public testing::Test
 {
 };
+
+TEST(EvidenceDigestTest, Sha256MatchesKnownAnswerVectors)
+{
+	EXPECT_EQ(ControllerE2E::sha256Hex(""),
+		"e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855");
+	EXPECT_EQ(ControllerE2E::sha256Hex("abc"),
+		"ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad");
+	EXPECT_EQ(ControllerE2E::sha256Hex("abcdbcdecdefdefgefghfghighijhijkijkljklmklmnlmnomnopnopq"),
+		"248d6a61d20638b8e5c026930c3e6039a33ce45964ff2167f6ecedd419db06c1");
+}
 
 TEST_F(ScenarioProtocolTest, AcceptsValidScenarioWithPreludeAndSteps)
 {
@@ -477,7 +495,18 @@ TEST_F(VirtualDeviceTest, MutationInjectedEventDoesNotChangeVirtualRawState)
 	drainEvents(events);
 
 	SDL_PumpEvents();
-	SDL_Joystick * opened = SDL_JoystickOpen(SDL_NumJoysticks() - 1);
+
+	// Resolve the opened device through the stable instance id; enumeration
+	// order is not guaranteed when the host has physical controllers
+	SDL_Joystick * opened = nullptr;
+	for(int index = 0; index < SDL_NumJoysticks(); ++index)
+	{
+		if(SDL_JoystickGetDeviceInstanceID(index) == device.getInstanceId())
+		{
+			opened = SDL_JoystickOpen(index);
+			break;
+		}
+	}
 	ASSERT_NE(opened, nullptr) << SDL_GetError();
 	// The already-opened driver handle owns the device; SDL returns the same
 	// instance. Reading state through it reflects raw virtual state only.
