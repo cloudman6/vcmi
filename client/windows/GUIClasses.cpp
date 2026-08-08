@@ -2045,7 +2045,7 @@ std::shared_ptr<CObjectListWindow> CObjectListWindow::createForTesting(
 	listItems.reserve(itemIds.size());
 	for(const int itemId : itemIds)
 		listItems.push_back({std::to_string(itemId), true, {}});
-	return createForTesting(std::move(listItems), {}, std::move(callback));
+	return createForTesting(std::move(listItems), std::move(itemIds), std::move(callback));
 }
 
 void CObjectListWindow::init(std::shared_ptr<CIntObject> titleWidget_, std::string _title, std::string _descr, bool searchBoxEnabled, bool blue)
@@ -2597,27 +2597,8 @@ void CObjectListWindow::showControllerGlyphPrompts(Canvas & to)
 		cancelGlyph->showAll(to);
 }
 
-void CObjectListWindow::activate()
-{
-	CWindowObject::activate();
-	recordLifecycleEvent("activate");
-}
-
-void CObjectListWindow::deactivate()
-{
-	CWindowObject::deactivate();
-	recordLifecycleEvent("deactivate");
-}
-
-void CObjectListWindow::recordLifecycleEvent(const std::string & event)
-{
-	if(lifecycleTrace)
-		lifecycleTrace->push_back(lifecycleTraceName + "." + event);
-}
-
 void CObjectListWindow::suspendFocus()
 {
-	recordLifecycleEvent("suspend");
 	controllerFocusVisible = false;
 	refreshFocusPresentation();
 	updateCursorPresentation();
@@ -2625,7 +2606,6 @@ void CObjectListWindow::suspendFocus()
 
 void CObjectListWindow::restoreFocus()
 {
-	recordLifecycleEvent("restore");
 	focusedItem = findRestoredFocus();
 	if(!selectedItem || !isItemVisible(*selectedItem) || !isItemEnabled(*selectedItem))
 		selectedItem = focusedItem ? findEnabledItem(*focusedItem) : std::nullopt;

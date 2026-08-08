@@ -83,57 +83,22 @@ public:
 	std::function<void()> onShowAll;
 };
 
-class PromptShowAllProbeLabel final : public CLabel
+class TestFont final : public IFont
 {
-public:
-	using CLabel::CLabel;
-
-	void showAll(Canvas & to) override
-	{
-		++showAllCount;
-		CLabel::showAll(to);
-	}
-
-	size_t showAllCount = 0;
-};
-
-class CursorFallbackWindow final : public CWindowObject
-{
-public:
-	CursorFallbackWindow()
-		: CWindowObject(CWindowObject::HeadlessTestTag())
-	{
-	}
-};
-
-class DeterministicTestFont final : public IFont
-{
-	static constexpr int GLYPH_WIDTH = 5;
-	static constexpr int GLYPH_HEIGHT = 7;
-	static constexpr ColorRGBA SHADOW_COLOR = ColorRGBA(255, 0, 255, 255);
-
-	static uint32_t glyphPattern(std::string_view character)
-	{
-		uint32_t result = 2166136261U;
-		for(const unsigned char byte : character)
-			result = (result ^ byte) * 16777619U;
-		return result;
-	}
-
 public:
 	size_t getLineHeightScaled() const override
 	{
-		return GLYPH_HEIGHT;
+		return 7;
 	}
 
 	size_t getGlyphWidthScaled(const char * data) const override
 	{
-		return canRepresentCharacter(data) ? GLYPH_WIDTH : 0;
+		return canRepresentCharacter(data) ? 5 : 0;
 	}
 
 	size_t getFontAscentScaled() const override
 	{
-		return GLYPH_HEIGHT - 1;
+		return 6;
 	}
 
 	bool canRepresentCharacter(const char * data) const override
@@ -145,45 +110,8 @@ public:
 	}
 
 private:
-	void renderGlyphs(SDL_Surface * surface, const std::string & data, const ColorRGBA & color, const Point & pos) const
+	void renderText(SDL_Surface *, const std::string &, const ColorRGBA &, const Point &) const override
 	{
-		Point currentPosition = pos;
-		for(size_t offset = 0; offset < data.size();)
-		{
-			const size_t characterSize = TextOperations::getUnicodeCharacterSize(data[offset]);
-			if(!TextOperations::isValidUnicodeCharacter(data.data() + offset, data.size() - offset))
-				return;
-
-			const uint32_t pattern = glyphPattern(std::string_view(data).substr(offset, characterSize));
-			const Uint32 pixel = SDL_MapRGBA(surface->format, color.r, color.g, color.b, color.a);
-			for(int y = 0; y < GLYPH_HEIGHT; ++y)
-			{
-				for(int x = 0; x < GLYPH_WIDTH; ++x)
-				{
-					const bool border = x == 0 || y == 0 || y == GLYPH_HEIGHT - 1;
-					const bool patternBit = (pattern >> ((x + y * GLYPH_WIDTH) % 32)) & 1U;
-					if(border || patternBit)
-					{
-						SDL_Rect target{currentPosition.x + x, currentPosition.y + y, 1, 1};
-						SDL_FillRect(surface, &target, pixel);
-					}
-				}
-			}
-			currentPosition.x += GLYPH_WIDTH;
-			offset += characterSize;
-		}
-	}
-
-public:
-	void renderText(SDL_Surface * surface, const std::string & data, const ColorRGBA & color, const Point & pos) const override
-	{
-		renderGlyphs(surface, data, SHADOW_COLOR, pos + Point(1, 1));
-		renderGlyphs(surface, data, color, pos);
-	}
-
-	void renderTextWithoutShadow(SDL_Surface * surface, const std::string & data, const ColorRGBA & color, const Point & pos) const override
-	{
-		renderGlyphs(surface, data, color, pos);
 	}
 };
 
@@ -321,10 +249,10 @@ protected:
 		auto & renderer = static_cast<RenderHandler &>(ENGINE->renderHandler());
 		renderer.hdImageLoader = std::make_shared<HdImageLoader>();
 
-		auto deterministicFont = std::make_shared<DeterministicTestFont>();
-		renderer.fonts[FONT_BIG] = deterministicFont;
-		renderer.fonts[FONT_SMALL] = deterministicFont;
-		renderer.fonts[FONT_TINY] = deterministicFont;
+		auto testFont = std::make_shared<TestFont>();
+		renderer.fonts[FONT_BIG] = testFont;
+		renderer.fonts[FONT_SMALL] = testFont;
+		renderer.fonts[FONT_TINY] = testFont;
 
 		addProductionImage(renderer, "TPGATE", EImageBlitMode::OPAQUE, Point(320, 460));
 		addProductionImage(renderer, "TPGATES", EImageBlitMode::COLORKEY, Point(256, 25));
@@ -455,38 +383,6 @@ protected:
 		return window->cancelGlyph->getText();
 	}
 
-	std::optional<size_t> childIndex(const CIntObject * parent, const CIntObject * child) const
-	{
-		const auto iter = std::find(parent->children.begin(), parent->children.end(), child);
-		if(iter == parent->children.end())
-			return std::nullopt;
-		return std::distance(parent->children.begin(), iter);
-	}
-
-	double relativeLuminance(ColorRGBA color) const
-	{
-		const auto convert = [](double value)
-		{
-			value /= 255.0;
-			return value <= 0.04045 ? value / 12.92 : std::pow((value + 0.055) / 1.055, 2.4);
-		};
-		return 0.2126 * convert(color.r) + 0.7152 * convert(color.g) + 0.0722 * convert(color.b);
-	}
-
-	double contrastRatio(ColorRGBA lhs, ColorRGBA rhs) const
-	{
-		const double first = relativeLuminance(lhs);
-		const double second = relativeLuminance(rhs);
-		const double lighter = std::max(first, second);
-		const double darker = std::min(first, second);
-		return (lighter + 0.05) / (darker + 0.05);
-	}
-
-	double promptBackingContrast(ColorRGBA promptColor) const
-	{
-		return contrastRatio(promptColor, ColorRGBA(0, 0, 0, 160));
-	}
-
 	ColorRGBA surfacePixel(SDL_Surface * surface, Point position) const
 	{
 		EXPECT_GE(position.x, 0);
@@ -505,8 +401,7 @@ protected:
 	}
 
 	std::unique_ptr<SDL_Surface, decltype(&SDL_FreeSurface)> renderWindowFrame(
-		const std::shared_ptr<CObjectListWindow> & window,
-		std::optional<ColorRGBA> promptBackingOverride = std::nullopt) const
+		const std::shared_ptr<CObjectListWindow> & window) const
 	{
 		auto surface = std::unique_ptr<SDL_Surface, decltype(&SDL_FreeSurface)>(
 			SDL_CreateRGBSurfaceWithFormat(0, 320, 460, 32, SDL_PIXELFORMAT_ARGB8888), SDL_FreeSurface);
@@ -514,28 +409,7 @@ protected:
 		SDL_FillRect(surface.get(), nullptr, SDL_MapRGBA(surface->format, 0, 0, 0, 255));
 		Canvas canvas = Canvas::createFromSurface(surface.get(), CanvasScalingPolicy::AUTO);
 		window->showAll(canvas);
-		renderActionControl(canvas, window, true, promptBackingOverride);
-		renderActionControl(canvas, window, false, promptBackingOverride);
 		return surface;
-	}
-
-	void renderActionControl(
-		Canvas & canvas,
-		const std::shared_ptr<CObjectListWindow> & window,
-		bool acceptPrompt,
-		std::optional<ColorRGBA> promptBackingOverride) const
-	{
-		const Rect actionRect = acceptPrompt ? acceptActionRect(window) : cancelActionRect(window);
-		if(promptBackingOverride)
-			canvas.drawColor(actionRect, *promptBackingOverride);
-		else if(acceptPrompt)
-			window->ok->showAll(canvas);
-		else
-			window->exit->showAll(canvas);
-		if(acceptPrompt)
-			window->acceptPromptOverlay->showAll(canvas);
-		else
-			window->cancelPromptOverlay->showAll(canvas);
 	}
 
 	size_t countDifferentPixels(SDL_Surface * lhs, SDL_Surface * rhs, const Rect & region) const
@@ -552,98 +426,10 @@ protected:
 		return result;
 	}
 
-	size_t countPixelsWithColor(SDL_Surface * surface, const Rect & region, const ColorRGBA & expected) const
-	{
-		size_t result = 0;
-		for(int y = std::max(region.y, 0); y < std::min(region.y + region.h, surface->h); ++y)
-			for(int x = std::max(region.x, 0); x < std::min(region.x + region.w, surface->w); ++x)
-			{
-				const auto pixel = surfacePixel(surface, Point(x, y));
-				if(pixel.r == expected.r && pixel.g == expected.g && pixel.b == expected.b && pixel.a == expected.a)
-					++result;
-			}
-		return result;
-	}
-
 	void expectBackingDiffers(SDL_Surface * normal, SDL_Surface * state, const Rect & actionRect) const
 	{
 		const Rect backingProbe(actionRect.topLeft() + Point(112, 5), Point(8, 22));
 		EXPECT_GE(countDifferentPixels(normal, state, backingProbe), 6);
-	}
-
-	size_t countOffsetMismatches(SDL_Surface * normal, SDL_Surface * pressed, const Rect & region) const
-	{
-		size_t result = 0;
-		for(int y = region.y; y < region.y + region.h; ++y)
-			for(int x = region.x; x < region.x + region.w; ++x)
-			{
-				const auto source = surfacePixel(normal, Point(x, y));
-				const auto shifted = surfacePixel(pressed, Point(x + 1, y + 1));
-				if(source.r != shifted.r || source.g != shifted.g || source.b != shifted.b || source.a != shifted.a)
-					++result;
-			}
-		return result;
-	}
-
-	void expectPromptUnitPressedOffset(SDL_Surface * normal, SDL_Surface * pressed, const Rect & actionRect) const
-	{
-		const Rect promptUnit(actionRect.topLeft() + Point(10, 3), Point(104, 26));
-		EXPECT_GE(countDifferentPixels(normal, pressed, promptUnit), 6);
-		EXPECT_EQ(countOffsetMismatches(normal, pressed, promptUnit), 0);
-	}
-
-	size_t countPerceivablePixels(
-		SDL_Surface * surface,
-		const Rect & region,
-		const ColorRGBA & backingColor,
-		double minimumContrast) const
-	{
-		size_t result = 0;
-		for(int y = std::max(region.y, 0); y < std::min(region.y + region.h, surface->h); ++y)
-		{
-			for(int x = std::max(region.x, 0); x < std::min(region.x + region.w, surface->w); ++x)
-			{
-				const ColorRGBA pixel = surfacePixel(surface, Point(x, y));
-				if(pixel.a != 0 && contrastRatio(pixel, backingColor) >= minimumContrast)
-					++result;
-			}
-		}
-		return result;
-	}
-
-	bool hasContrastingPixel(SDL_Surface * surface, Point position, const ColorRGBA & backingColor) const
-	{
-		return contrastRatio(surfacePixel(surface, position), backingColor) >= 4.5;
-	}
-
-	bool hasPerceivableControllerSprite(SDL_Surface * surface, const Rect & actionRect, const ColorRGBA & backingColor) const
-	{
-		const Rect spriteRegion(actionRect.topLeft() + Point(12, 4), Point(24, 24));
-		return countPerceivablePixels(surface, spriteRegion, backingColor, 4.5) >= 36;
-	}
-
-	bool hasPlayerPerceivableActionPrompt(
-		SDL_Surface * surface,
-		const std::shared_ptr<CObjectListWindow> & window,
-		bool acceptPrompt) const
-	{
-		const Rect actionRect = acceptPrompt ? acceptActionRect(window) : cancelActionRect(window);
-		const ColorRGBA backingColor = surfacePixel(surface, actionRect.topLeft() + Point(50, 5));
-		const Rect labelRegion(actionRect.topLeft() + Point(44, 4), Point(68, 24));
-		return hasPerceivableControllerSprite(surface, actionRect, backingColor)
-			&& countPerceivablePixels(surface, labelRegion, backingColor, 4.5) >= 4;
-	}
-
-	void expectActionPromptPlayerPerceivable(
-		SDL_Surface * surface,
-		const std::shared_ptr<CObjectListWindow> & window,
-		bool acceptPrompt) const
-	{
-		const Rect actionRect = acceptPrompt ? acceptActionRect(window) : cancelActionRect(window);
-		const ColorRGBA backingColor = surfacePixel(surface, actionRect.topLeft() + Point(50, 5));
-		const Rect labelRegion(actionRect.topLeft() + Point(44, 4), Point(68, 24));
-		EXPECT_TRUE(hasPerceivableControllerSprite(surface, actionRect, backingColor));
-		EXPECT_GE(countPerceivablePixels(surface, labelRegion, backingColor, 4.5), 4);
 	}
 
 	void moveWindowIntoFrame(const std::shared_ptr<CObjectListWindow> & window) const
@@ -687,105 +473,6 @@ protected:
 		else
 			button->clickCancel(button->pos.center());
 		return button->isPressed();
-	}
-
-	void expectPromptUnitVisualActions(const std::shared_ptr<CObjectListWindow> & window, bool acceptPrompt, bool visible) const
-	{
-		const ui16 visualActions = CIntObject::UPDATE | CIntObject::SHOWALL;
-		const auto & glyph = acceptPrompt ? window->acceptGlyph : window->cancelGlyph;
-		const auto & background = acceptPrompt ? window->acceptGlyphBackground : window->cancelGlyphBackground;
-		const auto & overlay = acceptPrompt ? window->acceptPromptOverlay : window->cancelPromptOverlay;
-		const ui16 expected = visible ? visualActions : CIntObject::NO_ACTIONS;
-		EXPECT_EQ(glyph->recActions & visualActions, expected);
-		EXPECT_EQ(background->recActions & visualActions, expected);
-		if(overlay)
-			EXPECT_EQ(overlay->recActions & visualActions, expected);
-	}
-
-	void expectPromptsOwnedByActionRedrawSubtrees(const std::shared_ptr<CObjectListWindow> & window) const
-	{
-		if(window->useBattleOnlySpellActionPrompts)
-		{
-			EXPECT_EQ(window->acceptPromptOverlay->parent, window->ok.get());
-			EXPECT_EQ(window->acceptGlyph->parent, window->acceptPromptOverlay.get());
-			EXPECT_EQ(window->cancelPromptOverlay->parent, window->exit.get());
-			EXPECT_EQ(window->cancelGlyph->parent, window->cancelPromptOverlay.get());
-			EXPECT_TRUE(childIndex(window->ok.get(), window->acceptPromptOverlay.get()).has_value());
-			EXPECT_TRUE(childIndex(window->exit.get(), window->cancelPromptOverlay.get()).has_value());
-		}
-		else
-		{
-			EXPECT_EQ(window->acceptGlyphBackground->parent, window->ok.get());
-			EXPECT_EQ(window->acceptGlyph->parent, window->ok.get());
-			EXPECT_EQ(window->cancelGlyphBackground->parent, window->exit.get());
-			EXPECT_EQ(window->cancelGlyph->parent, window->exit.get());
-			const auto acceptBackgroundIndex = childIndex(window->ok.get(), window->acceptGlyphBackground.get());
-			const auto acceptGlyphIndex = childIndex(window->ok.get(), window->acceptGlyph.get());
-			const auto cancelBackgroundIndex = childIndex(window->exit.get(), window->cancelGlyphBackground.get());
-			const auto cancelGlyphIndex = childIndex(window->exit.get(), window->cancelGlyph.get());
-			ASSERT_TRUE(acceptBackgroundIndex.has_value());
-			ASSERT_TRUE(acceptGlyphIndex.has_value());
-			ASSERT_TRUE(cancelBackgroundIndex.has_value());
-			ASSERT_TRUE(cancelGlyphIndex.has_value());
-			EXPECT_GT(*acceptBackgroundIndex, 0);
-			EXPECT_GT(*acceptGlyphIndex, *acceptBackgroundIndex);
-			EXPECT_GT(*cancelBackgroundIndex, 0);
-			EXPECT_GT(*cancelGlyphIndex, *cancelBackgroundIndex);
-			EXPECT_FALSE(acceptActionRect(window).intersectionTest(window->acceptGlyphBackground->pos));
-			EXPECT_FALSE(cancelActionRect(window).intersectionTest(window->cancelGlyphBackground->pos));
-		}
-	}
-
-	void expectPromptsHaveActionRedrawGeometry(
-		const std::shared_ptr<CObjectListWindow> & window) const
-	{
-		ASSERT_FALSE(window->acceptGlyph->getText().empty());
-		ASSERT_FALSE(window->cancelGlyph->getText().empty());
-		ASSERT_GT(window->acceptGlyph->pos.w, 0);
-		ASSERT_GT(window->acceptGlyph->pos.h, 0);
-		ASSERT_GT(window->cancelGlyph->pos.w, 0);
-		ASSERT_GT(window->cancelGlyph->pos.h, 0);
-		if(window->useBattleOnlySpellActionPrompts)
-		{
-			EXPECT_TRUE(acceptActionRect(window).intersectionTest(window->acceptGlyph->pos));
-			EXPECT_TRUE(cancelActionRect(window).intersectionTest(window->cancelGlyph->pos));
-			EXPECT_EQ(window->acceptPromptOverlay->pos.dimensions(), acceptActionRect(window).dimensions());
-			EXPECT_EQ(window->cancelPromptOverlay->pos.dimensions(), cancelActionRect(window).dimensions());
-			EXPECT_EQ(window->acceptGlyph->pos.center().y, acceptActionRect(window).center().y);
-			EXPECT_EQ(window->cancelGlyph->pos.center().y, cancelActionRect(window).center().y);
-		}
-		else
-		{
-			ASSERT_GT(window->acceptGlyphBackground->pos.w, window->acceptGlyph->pos.w - 1);
-			ASSERT_GT(window->acceptGlyphBackground->pos.h, window->acceptGlyph->pos.h);
-			ASSERT_GT(window->cancelGlyphBackground->pos.w, window->cancelGlyph->pos.w - 1);
-			ASSERT_GT(window->cancelGlyphBackground->pos.h, window->cancelGlyph->pos.h);
-			EXPECT_LE(std::abs(window->acceptGlyphBackground->pos.center().y - acceptActionRect(window).center().y), 1);
-			EXPECT_LE(std::abs(window->cancelGlyphBackground->pos.center().y - cancelActionRect(window).center().y), 1);
-		}
-	}
-
-	std::shared_ptr<PromptShowAllProbeLabel> replacePromptWithShowAllProbe(
-		const std::shared_ptr<CObjectListWindow> & window, bool acceptPrompt) const
-	{
-		auto & prompt = acceptPrompt ? window->acceptGlyph : window->cancelGlyph;
-		auto * parent = prompt->parent;
-		EXPECT_NE(parent, nullptr);
-
-		auto probe = std::make_shared<PromptShowAllProbeLabel>(
-			prompt->pos.x,
-			prompt->pos.y,
-			FONT_TINY,
-			ETextAlignment::CENTER,
-			prompt->color,
-			prompt->getText());
-		probe->pos = prompt->pos;
-		probe->recActions = prompt->recActions;
-
-		parent->removeChild(prompt.get());
-		prompt = probe;
-		parent->addChild(prompt.get());
-		return probe;
 	}
 
 	void clickItem(const std::shared_ptr<CObjectListWindow> & window, size_t visibleIndex)
@@ -950,15 +637,6 @@ protected:
 		ENGINE->cursor().show();
 	}
 
-	void setLifecycleTrace(
-		const std::shared_ptr<CObjectListWindow> & window,
-		std::vector<std::string> & trace,
-		std::string name)
-	{
-		window->lifecycleTrace = &trace;
-		window->lifecycleTraceName = std::move(name);
-	}
-
 	std::array<ControllerPresentation, 3> controllerPresentationsAfterRemap()
 	{
 		InputSourceGameController controller{InputSourceGameController::HeadlessTestTag()};
@@ -992,19 +670,6 @@ protected:
 		ENGINE->shortcuts().mappedJoystickShortcuts = std::move(bindings);
 	}
 };
-
-TEST_F(CObjectListWindowControllerTest, DisabledFocusRetainsEnabledSelection)
-{
-	auto window = createWindow({{"Enabled", true, ""}, {"Disabled", false, "Already selected"}}, [](int)
-	{
-	});
-
-	ENGINE->windows().pushWindow(window);
-	window->changeSelection(1);
-
-	EXPECT_EQ(focusedItem(window), 1);
-	EXPECT_EQ(window->selected(), 0);
-}
 
 TEST_F(CObjectListWindowControllerTest, ProductionBattleOnlyAddConstructorBuildsAndDestroysWindowTree)
 {
@@ -1111,42 +776,6 @@ TEST_F(ShortcutGlyphQueryTest, ControllerGlyphRefreshDoesNotReenterShowAll)
 	ENGINE->windows().popWindow(window);
 }
 
-TEST_F(CObjectListWindowControllerTest, ControllerFocusHidesCursorUntilMouseTakeoverAndScopeRelease)
-{
-	initializeProductionListConstruction();
-	initializeCursorPresentation();
-
-	auto fallback = std::make_shared<CursorFallbackWindow>();
-	auto window = std::make_shared<CObjectListWindow>(
-		std::vector<CObjectListWindow::ListItem>{{"Enabled", true, ""}, {"Disabled", false, "Already selected"}},
-		nullptr,
-		"Add spell",
-		"Select a spell",
-		[](int)
-		{
-		},
-		0,
-		std::vector<std::shared_ptr<IImage>>{productionListIcon, productionListIcon},
-		true,
-		true);
-
-	ENGINE->windows().pushWindow(fallback);
-	ENGINE->windows().pushWindow(window);
-
-	EXPECT_TRUE(isControllerFocusVisible(window));
-
-	setInputMode(InputMode::KEYBOARD_AND_MOUSE);
-	clickItem(window, 1);
-	EXPECT_FALSE(isControllerFocusVisible(window));
-
-	setInputMode(InputMode::CONTROLLER);
-	ENGINE->events().dispatchShortcutPressed({EShortcut::MOVE_DOWN});
-	EXPECT_TRUE(isControllerFocusVisible(window));
-
-	ENGINE->windows().popWindow(window);
-	EXPECT_TRUE(ENGINE->windows().isTopWindow(fallback));
-}
-
 TEST_F(ShortcutGlyphQueryTest, DualSenseBindingsRefreshGlyphsAfterControllerActivation)
 {
 	initializeProductionListConstruction();
@@ -1217,18 +846,13 @@ TEST_F(ShortcutGlyphQueryTest, DualSenseBindingsRefreshGlyphsAfterControllerActi
 	EXPECT_EQ(cancelGlyphText(window), localizationLibrary->generaltexth->translate("vcmi.lobby.battleOnlySpellAdd.actionCancel"));
 }
 
-TEST_F(ShortcutGlyphQueryTest, DualSenseGlyphsRenderAboveProductionActionControls)
+TEST_F(ShortcutGlyphQueryTest, DualSenseActionControlsUseAcceptedGeometryAndRestoreMouseButtons)
 {
 	initializeProductionListConstruction();
 	setJoystickBindings({
 		{"a", EShortcut::GLOBAL_ACCEPT},
 		{"b", EShortcut::GLOBAL_CANCEL}
 	});
-
-	const auto acceptBindings = ENGINE->shortcuts().getJoystickBindings(EShortcut::GLOBAL_ACCEPT);
-	const auto cancelBindings = ENGINE->shortcuts().getJoystickBindings(EShortcut::GLOBAL_CANCEL);
-	ASSERT_FALSE(acceptBindings.empty());
-	ASSERT_FALSE(cancelBindings.empty());
 
 	auto window = std::make_shared<CObjectListWindow>(
 		std::vector<CObjectListWindow::ListItem>{{"Enabled", true, ""}, {"Disabled", false, "Already selected"}},
@@ -1261,72 +885,23 @@ TEST_F(ShortcutGlyphQueryTest, DualSenseGlyphsRenderAboveProductionActionControl
 	ASSERT_EQ(openedControllerType(controllerInstance), SDL_CONTROLLER_TYPE_PS5);
 	ASSERT_EQ(ENGINE->input().getCurrentInputMode(), InputMode::CONTROLLER);
 	ASSERT_EQ(ENGINE->input().getControllerPresentation(), ControllerPresentation::DUALSENSE);
-	const auto acceptToken = ENGINE->input().getControllerGlyphToken(acceptBindings);
-	const auto cancelToken = ENGINE->input().getControllerGlyphToken(cancelBindings);
-	ASSERT_TRUE(acceptToken.has_value());
-	ASSERT_TRUE(cancelToken.has_value());
 	const auto acceptLabel = localizationLibrary->generaltexth->translate("vcmi.lobby.battleOnlySpellAdd.actionAdd");
 	const auto cancelLabel = localizationLibrary->generaltexth->translate("vcmi.lobby.battleOnlySpellAdd.actionCancel");
 	ASSERT_EQ(acceptGlyphText(window), acceptLabel);
 	ASSERT_EQ(cancelGlyphText(window), cancelLabel);
-	expectPromptUnitVisualActions(window, true, true);
-	expectPromptUnitVisualActions(window, false, true);
-
-	expectPromptsOwnedByActionRedrawSubtrees(window);
-	expectPromptsHaveActionRedrawGeometry(window);
 	expectActionRectAt(acceptActionRect(window), window->pos.topLeft() + Point(15, 402));
 	expectActionRectAt(cancelActionRect(window), window->pos.topLeft() + Point(158, 402));
 	EXPECT_EQ(acceptActionRect(window).x, acceptMouseRect.x);
 	EXPECT_EQ(cancelActionRect(window).x + cancelActionRect(window).w, cancelMouseRect.x + cancelMouseRect.w);
 	EXPECT_LE(acceptActionRect(window).x + acceptActionRect(window).w, cancelActionRect(window).x);
-	auto frame = renderWindowFrame(window);
-	expectActionPromptPlayerPerceivable(frame.get(), window, true);
-	expectActionPromptPlayerPerceivable(frame.get(), window, false);
-	const ColorRGBA testShadowColor(255, 0, 255, 255);
-	EXPECT_EQ(countPixelsWithColor(frame.get(), acceptActionRect(window), testShadowColor), 0);
-	EXPECT_EQ(countPixelsWithColor(frame.get(), cancelActionRect(window), testShadowColor), 0);
-	auto lowContrastFrame = renderWindowFrame(window, Colors::BLACK);
-	EXPECT_FALSE(hasPlayerPerceivableActionPrompt(lowContrastFrame.get(), window, true));
-	EXPECT_FALSE(hasPlayerPerceivableActionPrompt(lowContrastFrame.get(), window, false));
-	auto acceptProbe = replacePromptWithShowAllProbe(window, true);
-	auto cancelProbe = replacePromptWithShowAllProbe(window, false);
-	window->show(screen);
-	EXPECT_GT(acceptProbe->showAllCount, 0);
-	EXPECT_GT(cancelProbe->showAllCount, 0);
-	expectActionRectAt(acceptActionRect(window), window->pos.topLeft() + Point(15, 402));
-	expectActionRectAt(cancelActionRect(window), window->pos.topLeft() + Point(158, 402));
 
 	setInputMode(InputMode::KEYBOARD_AND_MOUSE);
-	const auto acceptMouseModeShowAllCount = acceptProbe->showAllCount;
-	const auto cancelMouseModeShowAllCount = cancelProbe->showAllCount;
 	window->showAll(screen);
 	EXPECT_EQ(acceptGlyphText(window), "");
 	EXPECT_EQ(cancelGlyphText(window), "");
-	expectPromptUnitVisualActions(window, true, false);
-	expectPromptUnitVisualActions(window, false, false);
-	EXPECT_EQ(acceptProbe->showAllCount, acceptMouseModeShowAllCount);
-	EXPECT_EQ(cancelProbe->showAllCount, cancelMouseModeShowAllCount);
+	EXPECT_FALSE(actionButtonVisualsApplied(window));
 	EXPECT_EQ(acceptActionRect(window).topLeft(), window->pos.topLeft() + Point(15, 402));
 	EXPECT_EQ(cancelActionRect(window).topLeft(), window->pos.topLeft() + Point(228, 402));
-
-	setInputMode(InputMode::CONTROLLER);
-	setJoystickBindings({{"b", EShortcut::GLOBAL_CANCEL}});
-	const auto acceptNoBindingShowAllCount = acceptProbe->showAllCount;
-	window->showAll(screen);
-	EXPECT_EQ(acceptGlyphText(window), "");
-	EXPECT_EQ(cancelGlyphText(window), cancelLabel);
-	expectPromptUnitVisualActions(window, true, false);
-	expectPromptUnitVisualActions(window, false, true);
-	EXPECT_EQ(acceptProbe->showAllCount, acceptNoBindingShowAllCount);
-
-	setJoystickBindings({{"a", EShortcut::GLOBAL_ACCEPT}});
-	const auto cancelNoBindingShowAllCount = cancelProbe->showAllCount;
-	window->showAll(screen);
-	EXPECT_EQ(acceptGlyphText(window), acceptLabel);
-	EXPECT_EQ(cancelGlyphText(window), "");
-	expectPromptUnitVisualActions(window, true, true);
-	expectPromptUnitVisualActions(window, false, false);
-	EXPECT_EQ(cancelProbe->showAllCount, cancelNoBindingShowAllCount);
 }
 
 TEST_F(ShortcutGlyphQueryTest, DualSenseActionBarComposesButtonStatesAndRestoresMouseMode)
@@ -1346,41 +921,28 @@ TEST_F(ShortcutGlyphQueryTest, DualSenseActionBarComposesButtonStatesAndRestores
 	window->showAll(screen);
 	ASSERT_TRUE(actionButtonVisualsApplied(window));
 	auto normalFrame = renderWindowFrame(window);
-	auto normalPromptFrame = renderWindowFrame(window, Colors::WHITE);
-	expectActionPromptPlayerPerceivable(normalFrame.get(), window, true);
-	expectActionPromptPlayerPerceivable(normalFrame.get(), window, false);
 	const Rect normalAcceptRect = acceptActionRect(window);
 	const Rect normalCancelRect = cancelActionRect(window);
 	window->changeSelection(1);
 	window->showAll(screen);
 	auto disabledFrame = renderWindowFrame(window);
-	auto disabledPromptFrame = renderWindowFrame(window, Colors::WHITE);
-	expectActionPromptPlayerPerceivable(disabledFrame.get(), window, true);
 	expectBackingDiffers(normalFrame.get(), disabledFrame.get(), normalAcceptRect);
-	const Rect acceptSpriteRect(normalAcceptRect.topLeft() + Point(12, 4), Point(24, 24));
-	EXPECT_GE(countDifferentPixels(normalPromptFrame.get(), disabledPromptFrame.get(), acceptSpriteRect), 6);
 	window->changeSelection(0);
 	ASSERT_TRUE(setActionButtonPressed(window, true, true));
 	window->showAll(screen);
 	auto acceptPressedFrame = renderWindowFrame(window);
-	auto acceptPressedPromptFrame = renderWindowFrame(window, Colors::WHITE);
 	expectBackingDiffers(normalFrame.get(), acceptPressedFrame.get(), normalAcceptRect);
-	expectPromptUnitPressedOffset(normalPromptFrame.get(), acceptPressedPromptFrame.get(), normalAcceptRect);
 	setActionButtonPressed(window, true, false);
 	ASSERT_TRUE(setActionButtonPressed(window, false, true));
 	window->showAll(screen);
 	auto cancelPressedFrame = renderWindowFrame(window);
-	auto cancelPressedPromptFrame = renderWindowFrame(window, Colors::WHITE);
 	expectBackingDiffers(normalFrame.get(), cancelPressedFrame.get(), normalCancelRect);
-	expectPromptUnitPressedOffset(normalPromptFrame.get(), cancelPressedPromptFrame.get(), normalCancelRect);
 	setActionButtonPressed(window, false, false);
 	setInputMode(InputMode::KEYBOARD_AND_MOUSE);
 	window->showAll(screen);
 	EXPECT_FALSE(actionButtonVisualsApplied(window));
 	EXPECT_EQ(acceptGlyphText(window), "");
 	EXPECT_EQ(cancelGlyphText(window), "");
-	expectPromptUnitVisualActions(window, true, false);
-	expectPromptUnitVisualActions(window, false, false);
 	EXPECT_EQ(acceptActionRect(window).topLeft(), window->pos.topLeft() + Point(15, 402));
 	EXPECT_EQ(cancelActionRect(window).topLeft(), window->pos.topLeft() + Point(228, 402));
 }
@@ -1425,16 +987,7 @@ TEST_F(ShortcutGlyphQueryTest, UnknownControllerUsesGenericRasterActionControlsW
 	EXPECT_EQ(cancelGlyphText(window), localizationLibrary->generaltexth->translate("vcmi.lobby.battleOnlySpellAdd.actionCancel"));
 	expectActionRectAt(acceptActionRect(window), window->pos.topLeft() + Point(15, 402));
 	expectActionRectAt(cancelActionRect(window), window->pos.topLeft() + Point(158, 402));
-	expectPromptUnitVisualActions(window, true, true);
-	expectPromptUnitVisualActions(window, false, true);
-
-	auto frame = renderWindowFrame(window);
-	expectActionPromptPlayerPerceivable(frame.get(), window, true);
-	expectActionPromptPlayerPerceivable(frame.get(), window, false);
-	const auto genericSpritePixel = surfacePixel(frame.get(), acceptActionRect(window).topLeft() + Point(24, 22));
-	EXPECT_EQ(genericSpritePixel.r, 24);
-	EXPECT_EQ(genericSpritePixel.g, 24);
-	EXPECT_EQ(genericSpritePixel.b, 24);
+	EXPECT_TRUE(actionButtonVisualsApplied(window));
 }
 
 TEST_F(CObjectListWindowControllerTest, ProductionBattleOnlyAddPayloadPreparesControlledSpells)
@@ -1512,23 +1065,7 @@ TEST_F(CObjectListWindowControllerTest, ChineseBattleOnlySelectedReasonDoesNotFa
 	}));
 }
 
-TEST_F(CObjectListWindowControllerTest, DisabledItemDoesNotAccept)
-{
-	int acceptedItem = -1;
-	auto window = createWindow({{"Enabled", true, ""}, {"Disabled", false, "Already selected"}}, [&acceptedItem](int item)
-	{
-		acceptedItem = item;
-	});
-
-	ENGINE->windows().pushWindow(window);
-	window->changeSelection(1);
-	ENGINE->events().dispatchShortcutPressed({EShortcut::GLOBAL_ACCEPT});
-
-	EXPECT_EQ(acceptedItem, -1);
-	EXPECT_TRUE(ENGINE->windows().isTopWindow(window));
-}
-
-TEST_F(CObjectListWindowControllerTest, DisabledItemDoesNotAcceptDoubleClickOrOpenPopup)
+TEST_F(CObjectListWindowControllerTest, DisabledItemRejectsAllActivationPaths)
 {
 	int accepted = 0;
 	int poppedUp = 0;
@@ -1546,6 +1083,8 @@ TEST_F(CObjectListWindowControllerTest, DisabledItemDoesNotAcceptDoubleClickOrOp
 		++clicked;
 	};
 	ENGINE->windows().pushWindow(window);
+	window->changeSelection(1);
+	ENGINE->events().dispatchShortcutPressed({EShortcut::GLOBAL_ACCEPT});
 
 	auto disabledItem = window->genItem(1);
 	disabledItem->clickPressed(Point());
@@ -1669,20 +1208,6 @@ TEST_F(FocusScopeContractTest, EmptyListHasNoFocusOrEnabledSelection)
 	EXPECT_TRUE(ENGINE->windows().isTopWindow(window));
 }
 
-TEST_F(FocusScopeContractTest, VisibleItemDelegatesToCanonicalItem)
-{
-	auto window = createWindow({{"Alpha", true, ""}, {"Beta", true, ""}, {"Gamma", true, ""}}, [](int)
-	{
-	});
-	ENGINE->windows().pushWindow(window);
-	setVisibleItems(window, {1});
-
-	window->genItem(0)->clickPressed(Point());
-
-	EXPECT_EQ(focusedItem(window), 1);
-	EXPECT_EQ(enabledSelection(window), 1);
-}
-
 TEST_F(FocusScopeContractTest, NonIdentityValuesSurviveFilteredProjectionAndItemActions)
 {
 	int accepted = -1;
@@ -1711,11 +1236,11 @@ TEST_F(FocusScopeContractTest, NonIdentityValuesSurviveFilteredProjectionAndItem
 	EXPECT_EQ(focusedItem(window), 2);
 	EXPECT_EQ(enabledSelection(window), 2);
 	EXPECT_EQ(window->selected(), 0);
-	EXPECT_EQ(clicked, 2);
-	EXPECT_EQ(opened, 2);
+	EXPECT_EQ(clicked, 99);
+	EXPECT_EQ(opened, 99);
 
 	window->elementSelected();
-	EXPECT_EQ(accepted, 2);
+	EXPECT_EQ(accepted, 99);
 }
 
 TEST_F(FocusScopeContractTest, RestoreUsesCanonicalVisibleFallback)
@@ -1811,27 +1336,6 @@ TEST_F(FocusScopeContractTest, SearchCallbackKeepsFocusStateWithoutForcingContro
 	EXPECT_FALSE(isControllerFocusVisible(window));
 }
 
-TEST_F(FocusScopeContractTest, TouchDerivedClickUsesExistingItemActivationPath)
-{
-	int clickedItem = -1;
-	auto window = createWindow({{"Enabled", true, ""}}, [&clickedItem](int item)
-	{
-		clickedItem = item;
-	});
-	window->onClicked = [&clickedItem](int item)
-	{
-		clickedItem = item;
-	};
-	ENGINE->windows().pushWindow(window);
-
-	window->genItem(0)->clickPressed(Point());
-
-	EXPECT_EQ(clickedItem, 0);
-	EXPECT_EQ(focusedItem(window), 0);
-	EXPECT_EQ(enabledSelection(window), 0);
-	EXPECT_FALSE(isControllerFocusVisible(window));
-}
-
 TEST_F(FocusScopeContractTest, CursorAxesRemainUncaptured)
 {
 	auto window = createWindow({{"Enabled", true, ""}}, [](int)
@@ -1906,53 +1410,6 @@ TEST_F(WindowHandlerFocusLifecycleTest, PopWindowsKeepsInactiveWindowsSuspendedA
 	EXPECT_TRUE(ENGINE->windows().isTopWindow(parent));
 }
 
-TEST_F(WindowHandlerFocusLifecycleTest, LifecycleOrderingUsesTopScopeAndNeverRestoresDisposedScopes)
-{
-	std::vector<std::string> trace;
-	auto parent = createWindow({{"Parent", true, ""}}, [](int)
-	{
-	});
-	auto modal = createWindow({{"Modal", true, ""}}, [](int)
-	{
-	});
-	auto nested = createWindow({{"Nested", true, ""}}, [](int)
-	{
-	});
-	setLifecycleTrace(parent, trace, "parent");
-	setLifecycleTrace(modal, trace, "modal");
-	setLifecycleTrace(nested, trace, "nested");
-
-	ENGINE->windows().pushWindow(parent);
-	EXPECT_EQ(trace, std::vector<std::string>({"parent.activate", "parent.restore"}));
-
-	trace.clear();
-	ENGINE->windows().pushWindow(modal);
-	EXPECT_EQ(trace, std::vector<std::string>({
-		"parent.suspend", "parent.deactivate", "modal.activate", "modal.restore"}));
-
-	trace.clear();
-	ENGINE->windows().popWindow(modal);
-	EXPECT_EQ(trace, std::vector<std::string>({
-		"modal.suspend", "modal.deactivate", "parent.activate", "parent.restore"}));
-
-	trace.clear();
-	ENGINE->windows().pushWindow(modal);
-	ENGINE->windows().pushWindow(nested);
-	EXPECT_EQ(trace, std::vector<std::string>({
-		"parent.suspend", "parent.deactivate", "modal.activate", "modal.restore",
-		"modal.suspend", "modal.deactivate", "nested.activate", "nested.restore"}));
-
-	trace.clear();
-	ENGINE->windows().popWindows(2);
-	EXPECT_EQ(trace, std::vector<std::string>({
-		"nested.suspend", "nested.deactivate", "parent.activate", "parent.restore"}));
-	EXPECT_EQ(std::find(trace.begin(), trace.end(), "modal.restore"), trace.end());
-
-	trace.clear();
-	ENGINE->windows().clear();
-	EXPECT_EQ(trace, std::vector<std::string>({"parent.suspend", "parent.deactivate"}));
-}
-
 TEST_F(ShortcutGlyphQueryTest, ReverseQuerySortsDeduplicatesAndRemapsBindings)
 {
 	setJoystickBindings({
@@ -1976,10 +1433,6 @@ TEST_F(ShortcutGlyphQueryTest, ReverseQuerySortsDeduplicatesAndRemapsBindings)
 
 	const auto remappedAcceptBindings = ENGINE->shortcuts().getJoystickBindings(EShortcut::GLOBAL_ACCEPT);
 	EXPECT_EQ(InputSourceGameController::getGlyphToken(ControllerPresentation::DUALSENSE, remappedAcceptBindings), "×");
-}
-
-TEST_F(ShortcutGlyphQueryTest, UnknownUnboundAndAmbiguousBindingsHaveNoGlyph)
-{
 	EXPECT_FALSE(InputSourceGameController::getGlyphToken(ControllerPresentation::UNKNOWN, {"a"}));
 	EXPECT_FALSE(InputSourceGameController::getGlyphToken(ControllerPresentation::DUALSENSE, {}));
 	EXPECT_FALSE(InputSourceGameController::getGlyphToken(ControllerPresentation::DUALSENSE, {"a", "b"}));

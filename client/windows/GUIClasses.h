@@ -243,8 +243,6 @@ private:
 	bool acceptControllerButtonVisual = false;
 	bool cancelControllerButtonVisual = false;
 	bool applyingActionButtonVisuals = false;
-	std::vector<std::string> * lifecycleTrace = nullptr;
-	std::string lifecycleTraceName;
 
 	void init(std::shared_ptr<CIntObject> titleWidget_, std::string _title, std::string _descr, bool searchBoxEnabled, bool blue);
 	void trimTextIfTooWide(std::string & text, bool preserveCountSuffix) const; // trim item's text to fit within window's width
@@ -266,7 +264,6 @@ private:
 	std::optional<std::string> controllerGlyphToken(EShortcut shortcut) const;
 	void setActionButtonVisuals(bool acceptVisible, bool cancelVisible);
 	void updateControllerGlyphs();
-	void recordLifecycleEvent(const std::string & event);
 	void inputModeChanged(InputMode modi) override;
 	CObjectListWindow(
 		HeadlessTestTag,
@@ -304,8 +301,6 @@ public:
 	void elementSelected();//call callback and close this window
 	void changeSelection(size_t which);
 	size_t selected() const;
-	void activate() override;
-	void deactivate() override;
 	void show(Canvas & to) override;
 	void showAll(Canvas & to) override;
 	bool captureThisKey(EShortcut key) override;
