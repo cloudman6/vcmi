@@ -485,6 +485,37 @@ protected:
 		return button->isPressed();
 	}
 
+	bool acceptActionPressed(const std::shared_ptr<CObjectListWindow> & window) const
+	{
+		return window->ok->isPressed();
+	}
+
+	bool acceptActionBlocked(const std::shared_ptr<CObjectListWindow> & window) const
+	{
+		return window->ok->isBlocked();
+	}
+
+	bool cancelActionPressed(const std::shared_ptr<CObjectListWindow> & window) const
+	{
+		return window->exit->isPressed();
+	}
+
+	std::string acceptPromptSpriteName(const std::shared_ptr<CObjectListWindow> & window) const
+	{
+		return window->acceptControllerPromptSprite ? window->acceptControllerPromptSprite->getOriginalName() : "";
+	}
+
+	void blockAcceptAction(const std::shared_ptr<CObjectListWindow> & window) const
+	{
+		window->ok->block(true);
+	}
+
+	void silenceActionButtons(const std::shared_ptr<CObjectListWindow> & window) const
+	{
+		window->ok->setSoundDisabled(true);
+		window->exit->setSoundDisabled(true);
+	}
+
 	void clickItem(const std::shared_ptr<CObjectListWindow> & window, size_t visibleIndex)
 	{
 		window->genItem(visibleIndex)->clickPressed(Point());
@@ -1195,25 +1226,37 @@ TEST_F(CObjectListWindowControllerTest, EnabledAcceptAndCancelKeepExistingCloseP
 {
 	int accepted = 0;
 	int exited = 0;
-	auto acceptedWindow = createWindow({{"Enabled", true, ""}}, [&accepted](int)
+	initializeProductionListConstruction();
+	auto makeProductionWindow = [this](std::function<void(int)> callback)
+	{
+		auto window = std::make_shared<CObjectListWindow>(
+			std::vector<CObjectListWindow::ListItem>{{"Magic Arrow", true, ""}},
+			nullptr, "Add spell", "Select a spell", std::move(callback), 0,
+			std::vector<std::shared_ptr<IImage>>{productionListIcon}, true, true);
+		ENGINE->windows().pushWindow(window);
+		silenceActionButtons(window);
+		return window;
+	};
+
+	auto acceptedWindow = makeProductionWindow([&accepted](int)
 	{
 		++accepted;
 	});
-	ENGINE->windows().pushWindow(acceptedWindow);
 	ENGINE->events().dispatchShortcutPressed({EShortcut::GLOBAL_ACCEPT});
+	ENGINE->events().dispatchShortcutReleased({EShortcut::GLOBAL_ACCEPT});
 
 	EXPECT_EQ(accepted, 1);
 	EXPECT_FALSE(ENGINE->windows().isTopWindow(acceptedWindow));
 
-	auto canceledWindow = createWindow({{"Enabled", true, ""}}, [](int)
+	auto canceledWindow = makeProductionWindow([](int)
 	{
 	});
 	canceledWindow->onExit = [&exited]
 	{
 		++exited;
 	};
-	ENGINE->windows().pushWindow(canceledWindow);
 	ENGINE->events().dispatchShortcutPressed({EShortcut::GLOBAL_CANCEL});
+	ENGINE->events().dispatchShortcutReleased({EShortcut::GLOBAL_CANCEL});
 
 	EXPECT_EQ(exited, 1);
 	EXPECT_FALSE(ENGINE->windows().isTopWindow(canceledWindow));
@@ -1532,4 +1575,136 @@ TEST_F(ShortcutGlyphQueryTest, ControllerRemapInvalidatesActivePresentation)
 	EXPECT_EQ(presentations[0], ControllerPresentation::PLAYSTATION);
 	EXPECT_EQ(presentations[1], ControllerPresentation::UNKNOWN);
 	EXPECT_EQ(presentations[2], ControllerPresentation::UNKNOWN);
+}
+
+TEST_F(ShortcutGlyphQueryTest, ControllerAcceptDefersExecutionUntilButtonRelease)
+{
+	int accepted = 0;
+	initializeProductionListConstruction();
+	setJoystickBindings({{"a", EShortcut::GLOBAL_ACCEPT}, {"b", EShortcut::GLOBAL_CANCEL}});
+	auto window = std::make_shared<CObjectListWindow>(
+		std::vector<CObjectListWindow::ListItem>{{"Magic Arrow", true, ""}},
+		nullptr, "Add spell", "Select a spell", [&accepted](int)
+		{
+			++accepted;
+		}, 0,
+		std::vector<std::shared_ptr<IImage>>{productionListIcon}, true, true);
+	ENGINE->windows().pushWindow(window);
+	setControllerPresentation(ControllerPresentation::PLAYSTATION);
+	setInputMode(InputMode::CONTROLLER);
+	silenceActionButtons(window);
+
+	ENGINE->events().dispatchShortcutPressed({EShortcut::GLOBAL_ACCEPT});
+
+	EXPECT_EQ(accepted, 0);
+	EXPECT_TRUE(ENGINE->windows().isTopWindow(window));
+	EXPECT_TRUE(acceptActionPressed(window));
+
+	ENGINE->events().dispatchShortcutReleased({EShortcut::GLOBAL_ACCEPT});
+
+	EXPECT_EQ(accepted, 1);
+	EXPECT_FALSE(ENGINE->windows().isTopWindow(window));
+}
+
+TEST_F(ShortcutGlyphQueryTest, ControllerCancelDefersExecutionUntilButtonRelease)
+{
+	int exited = 0;
+	initializeProductionListConstruction();
+	setJoystickBindings({{"a", EShortcut::GLOBAL_ACCEPT}, {"b", EShortcut::GLOBAL_CANCEL}});
+	auto window = std::make_shared<CObjectListWindow>(
+		std::vector<CObjectListWindow::ListItem>{{"Magic Arrow", true, ""}},
+		nullptr, "Remove spell", "Select a spell", [](int)
+		{
+		}, 0,
+		std::vector<std::shared_ptr<IImage>>{productionListIcon}, true, true);
+	window->onExit = [&exited]
+	{
+		++exited;
+	};
+	ENGINE->windows().pushWindow(window);
+	setControllerPresentation(ControllerPresentation::PLAYSTATION);
+	setInputMode(InputMode::CONTROLLER);
+	silenceActionButtons(window);
+
+	ENGINE->events().dispatchShortcutPressed({EShortcut::GLOBAL_CANCEL});
+
+	EXPECT_EQ(exited, 0);
+	EXPECT_TRUE(ENGINE->windows().isTopWindow(window));
+	EXPECT_TRUE(cancelActionPressed(window));
+
+	ENGINE->events().dispatchShortcutReleased({EShortcut::GLOBAL_CANCEL});
+
+	EXPECT_EQ(exited, 1);
+	EXPECT_FALSE(ENGINE->windows().isTopWindow(window));
+}
+
+TEST_F(ShortcutGlyphQueryTest, ControllerAcceptShowsUnifiedPressedVisualWhileHeld)
+{
+	initializeProductionListConstruction();
+	setJoystickBindings({{"a", EShortcut::GLOBAL_ACCEPT}, {"b", EShortcut::GLOBAL_CANCEL}});
+	auto window = std::make_shared<CObjectListWindow>(
+		std::vector<CObjectListWindow::ListItem>{{"Magic Arrow", true, ""}},
+		nullptr, "Add spell", "Select a spell", [](int){}, 0,
+		std::vector<std::shared_ptr<IImage>>{productionListIcon}, true, true);
+	window->setBattleOnlySpellActionPrompts();
+	ENGINE->windows().pushWindow(window);
+	setControllerPresentation(ControllerPresentation::PLAYSTATION);
+	setInputMode(InputMode::CONTROLLER);
+	silenceActionButtons(window);
+
+	ASSERT_NE(acceptPromptSpriteName(window).find("-normal"), std::string::npos);
+
+	ENGINE->events().dispatchShortcutPressed({EShortcut::GLOBAL_ACCEPT});
+
+	EXPECT_TRUE(acceptActionPressed(window));
+	EXPECT_NE(acceptPromptSpriteName(window).find("-pressed"), std::string::npos);
+
+	ENGINE->events().dispatchShortcutReleased({EShortcut::GLOBAL_ACCEPT});
+
+	EXPECT_FALSE(ENGINE->windows().isTopWindow(window));
+}
+
+TEST_F(CObjectListWindowControllerTest, KeyboardAcceptStillExecutesOnPress)
+{
+	int accepted = 0;
+	setInputMode(InputMode::KEYBOARD_AND_MOUSE);
+	auto window = createWindow({{"Enabled", true, ""}}, [&accepted](int)
+	{
+		++accepted;
+	});
+	ENGINE->windows().pushWindow(window);
+
+	ENGINE->events().dispatchShortcutPressed({EShortcut::GLOBAL_ACCEPT});
+
+	EXPECT_EQ(accepted, 1);
+	EXPECT_FALSE(ENGINE->windows().isTopWindow(window));
+}
+
+TEST_F(ShortcutGlyphQueryTest, BlockedAcceptStaysInactiveThroughPressAndRelease)
+{
+	int accepted = 0;
+	initializeProductionListConstruction();
+	setJoystickBindings({{"a", EShortcut::GLOBAL_ACCEPT}, {"b", EShortcut::GLOBAL_CANCEL}});
+	auto window = std::make_shared<CObjectListWindow>(
+		std::vector<CObjectListWindow::ListItem>{{"Magic Arrow", true, ""}},
+		nullptr, "Add spell", "Select a spell", [&accepted](int)
+		{
+			++accepted;
+		}, 0,
+		std::vector<std::shared_ptr<IImage>>{productionListIcon}, true, true);
+	ENGINE->windows().pushWindow(window);
+	setControllerPresentation(ControllerPresentation::PLAYSTATION);
+	setInputMode(InputMode::CONTROLLER);
+	silenceActionButtons(window);
+	blockAcceptAction(window);
+	ASSERT_TRUE(acceptActionBlocked(window));
+
+	ENGINE->events().dispatchShortcutPressed({EShortcut::GLOBAL_ACCEPT});
+
+	EXPECT_FALSE(acceptActionPressed(window));
+
+	ENGINE->events().dispatchShortcutReleased({EShortcut::GLOBAL_ACCEPT});
+
+	EXPECT_EQ(accepted, 0);
+	EXPECT_TRUE(ENGINE->windows().isTopWindow(window));
 }

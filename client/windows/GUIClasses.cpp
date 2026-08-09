@@ -2524,6 +2524,8 @@ void CObjectListWindow::updateControllerGlyphs()
 		const auto cancelSprite = controllerInput ? controllerActionPromptSprite(EShortcut::GLOBAL_CANCEL, cancelState) : std::nullopt;
 		const bool acceptVisible = acceptSprite.has_value();
 		const bool cancelVisible = cancelSprite.has_value();
+		acceptControllerPromptSprite = acceptVisible ? acceptSprite : std::nullopt;
+		cancelControllerPromptSprite = cancelVisible ? cancelSprite : std::nullopt;
 		setActionButtonVisuals(acceptVisible, cancelVisible);
 
 		const auto & acceptKey = battleOnlySpellAcceptActionKey.empty() ? battleOnlySpellActionAddKey : battleOnlySpellAcceptActionKey;
@@ -2645,16 +2647,31 @@ bool CObjectListWindow::captureThisKey(EShortcut key)
 
 void CObjectListWindow::keyPressed(EShortcut key)
 {
-	if(ENGINE->input().getCurrentInputMode() == InputMode::CONTROLLER)
+	const bool controllerInput = ENGINE->input().getCurrentInputMode() == InputMode::CONTROLLER;
+	if(controllerInput)
 		updateControllerGlyphs();
 
 	if(key == EShortcut::GLOBAL_ACCEPT)
 	{
+		if(controllerInput && ok)
+		{
+			// Controller convention: show the pressed state while held and execute
+			// the action on button release (keyReleased -> clickReleased).
+			ok->clickPressed(ok->pos.center());
+			updateControllerGlyphs();
+			return;
+		}
 		elementSelected();
 		return;
 	}
 	if(key == EShortcut::GLOBAL_CANCEL)
 	{
+		if(controllerInput && exit)
+		{
+			exit->clickPressed(exit->pos.center());
+			updateControllerGlyphs();
+			return;
+		}
 		exitPressed();
 		return;
 	}
@@ -2662,7 +2679,6 @@ void CObjectListWindow::keyPressed(EShortcut key)
 	if(itemsVisible.empty())
 		return;
 
-	const bool controllerInput = ENGINE->input().getCurrentInputMode() == InputMode::CONTROLLER;
 	if(!controllerFocusVisible && controllerInput)
 	{
 		if(selectedItem && isItemVisible(*selectedItem))
@@ -2707,6 +2723,22 @@ void CObjectListWindow::keyPressed(EShortcut key)
 	vstd::abetween<int>(sel, 0, static_cast<int>(itemsVisible.size() - 1));
 	list->scrollTo(sel);
 	changeSelection(itemsVisible[sel]);
+}
+
+void CObjectListWindow::keyReleased(EShortcut key)
+{
+	if(key == EShortcut::GLOBAL_ACCEPT)
+	{
+		if(ok && ok->isPressed())
+			ok->clickReleased(ok->pos.center());
+		return;
+	}
+	if(key == EShortcut::GLOBAL_CANCEL)
+	{
+		if(exit && exit->isPressed())
+			exit->clickReleased(exit->pos.center());
+		return;
+	}
 }
 
 VideoWindow::VideoWindow(const VideoPath & video, const ImagePath & rim, bool showBackground, float scaleFactor, const std::function<void(bool skipped)> & closeCb)

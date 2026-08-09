@@ -222,6 +222,8 @@ private:
 	std::shared_ptr<TransparentFilledRectangle> cancelGlyphBackground;
 	std::shared_ptr<CIntObject> acceptPromptOverlay;
 	std::shared_ptr<CIntObject> cancelPromptOverlay;
+	std::optional<ImagePath> acceptControllerPromptSprite;
+	std::optional<ImagePath> cancelControllerPromptSprite;
 	std::shared_ptr<CLabel> acceptGlyph;
 	std::shared_ptr<CLabel> cancelGlyph;
 	std::shared_ptr<CButton> ok;
@@ -306,6 +308,7 @@ public:
 	void showAll(Canvas & to) override;
 	bool captureThisKey(EShortcut key) override;
 	void keyPressed(EShortcut key) override;
+	void keyReleased(EShortcut key) override;
 	void setBattleOnlySpellActionPrompts(const std::string & acceptActionKey = {});
 	IFocusScope * getFocusScope() override { return this; }
 	void suspendFocus() override;
