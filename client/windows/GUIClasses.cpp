@@ -2420,8 +2420,9 @@ void CObjectListWindow::configureBattleOnlySpellActionPrompts()
 	updateControllerGlyphs();
 }
 
-void CObjectListWindow::setBattleOnlySpellActionPrompts()
+void CObjectListWindow::setBattleOnlySpellActionPrompts(const std::string & acceptActionKey)
 {
+	battleOnlySpellAcceptActionKey = acceptActionKey;
 	configureBattleOnlySpellActionPrompts();
 }
 
@@ -2525,7 +2526,8 @@ void CObjectListWindow::updateControllerGlyphs()
 		const bool cancelVisible = cancelSprite.has_value();
 		setActionButtonVisuals(acceptVisible, cancelVisible);
 
-		const auto acceptText = acceptVisible ? LIBRARY->generaltexth->translate(battleOnlySpellActionAddKey) : "";
+		const auto & acceptKey = battleOnlySpellAcceptActionKey.empty() ? battleOnlySpellActionAddKey : battleOnlySpellAcceptActionKey;
+		const auto acceptText = acceptVisible ? LIBRARY->generaltexth->translate(acceptKey) : "";
 		const auto cancelText = cancelVisible ? LIBRARY->generaltexth->translate(battleOnlySpellActionCancelKey) : "";
 		if(acceptGlyph->getText() != acceptText)
 			acceptGlyph->setText(acceptText);

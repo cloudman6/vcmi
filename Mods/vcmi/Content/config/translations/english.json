@@ -838,6 +838,7 @@
 	"vcmi.lobby.battleOnlySpellAdd.actionCancel": "Cancel",
 	"vcmi.lobby.battleOnlySpellAlreadySelected": "Already selected",
 	"vcmi.lobby.battleOnlySpellRemove": "Remove spell",
+	"vcmi.lobby.battleOnlySpellRemove.actionRemove": "Remove",
 	"vcmi.lobby.battleOnlySpellSelect": "Add spells to spellbook",
 	"vcmi.lobby.battleOnlySpellSelectCurrent": "Add or remove spells from spellbook\n\nCurrent spells:",
 	"vcmi.lobby.channel.add": "Add Channel",

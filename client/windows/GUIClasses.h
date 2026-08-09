@@ -240,6 +240,7 @@ private:
 	bool headless = false;
 	bool blueTheme = false;
 	bool useBattleOnlySpellActionPrompts = false;
+	std::string battleOnlySpellAcceptActionKey;
 	bool acceptControllerButtonVisual = false;
 	bool cancelControllerButtonVisual = false;
 	bool applyingActionButtonVisuals = false;
@@ -305,7 +306,7 @@ public:
 	void showAll(Canvas & to) override;
 	bool captureThisKey(EShortcut key) override;
 	void keyPressed(EShortcut key) override;
-	void setBattleOnlySpellActionPrompts();
+	void setBattleOnlySpellActionPrompts(const std::string & acceptActionKey = {});
 	IFocusScope * getFocusScope() override { return this; }
 	void suspendFocus() override;
 	void restoreFocus() override;

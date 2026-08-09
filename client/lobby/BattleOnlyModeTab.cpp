@@ -488,6 +488,7 @@ void BattleOnlyModeHeroSelector::manageSpells()
 			parent.onChange();
 			manageSpells();
 		}, 0, images, true, true);
+		window->setBattleOnlySpellActionPrompts("vcmi.lobby.battleOnlySpellRemove.actionRemove");
 		window->onPopup = [list](int index) {
 			std::shared_ptr<CComponent> comp = std::make_shared<CComponent>(ComponentType::SPELL, list[index]);
 			CRClickPopup::createAndPush(list[index].toSpell()->getDescriptionTranslated(0), CInfoWindow::TCompsInfo(1, comp));

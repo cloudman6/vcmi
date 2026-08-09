@@ -782,6 +782,7 @@
 	"vcmi.lobby.battleOnlySpellAdd.actionCancel": "取消",
 	"vcmi.lobby.battleOnlySpellAlreadySelected": "已选择",
 	"vcmi.lobby.battleOnlySpellRemove": "移除法术",
+	"vcmi.lobby.battleOnlySpellRemove.actionRemove": "移除",
 	"vcmi.lobby.battleOnlySpellSelect": "向魔法书添加法术",
 	"vcmi.lobby.battleOnlySpellSelectCurrent": "向魔法书添加或移除法术\n\n当前法术：",
 	"vcmi.lobby.channel.add": "添加频道",

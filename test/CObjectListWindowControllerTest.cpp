@@ -1014,6 +1014,25 @@ TEST_F(ShortcutGlyphQueryTest, DualSenseActionBarComposesButtonStatesAndRestores
 	EXPECT_EQ(cancelActionRect(window).topLeft(), window->pos.topLeft() + Point(228, 402));
 }
 
+TEST_F(ShortcutGlyphQueryTest, RemoveSpellPromptsUseParameterizedAcceptLabel)
+{
+	initializeProductionListConstruction();
+	setJoystickBindings({{"a", EShortcut::GLOBAL_ACCEPT}, {"b", EShortcut::GLOBAL_CANCEL}});
+	auto window = std::make_shared<CObjectListWindow>(
+		std::vector<CObjectListWindow::ListItem>{{"Magic Arrow", true, ""}},
+		nullptr, "Remove spell", "Select a spell", [](int){}, 0,
+		std::vector<std::shared_ptr<IImage>>{productionListIcon}, true, true);
+	window->setBattleOnlySpellActionPrompts("vcmi.lobby.battleOnlySpellRemove.actionRemove");
+	ENGINE->windows().pushWindow(window);
+	setControllerPresentation(ControllerPresentation::PLAYSTATION);
+	setInputMode(InputMode::CONTROLLER);
+	EXPECT_EQ(acceptGlyphText(window), "Remove");
+	EXPECT_EQ(cancelGlyphText(window), "Cancel");
+	setInputMode(InputMode::KEYBOARD_AND_MOUSE);
+	EXPECT_EQ(acceptGlyphText(window), "");
+	EXPECT_EQ(cancelGlyphText(window), "");
+}
+
 TEST_F(ShortcutGlyphQueryTest, UnknownControllerUsesGenericRasterActionControlsWithoutPublicGlyphToken)
 {
 	initializeProductionListConstruction();
