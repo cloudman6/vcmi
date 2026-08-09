@@ -85,7 +85,6 @@ const Point battleOnlySpellCancelMousePosition(228, 402);
 const Point battleOnlySpellAcceptControllerPosition(15, 402);
 const Point battleOnlySpellControllerActionSize(124, 32);
 const Point battleOnlySpellControllerSpritePosition(12, 4);
-const Point battleOnlySpellControllerSpriteSize(24, 24);
 const int battleOnlySpellControllerLabelX = 44;
 const int battleOnlySpellControllerLabelWidth = 68;
 
@@ -125,7 +124,6 @@ public:
 		if(currentSprite)
 		{
 			sprite = std::make_shared<CPicture>(*currentSprite, pos.topLeft() + battleOnlySpellControllerSpritePosition, EImageBlitMode::COLORKEY);
-			sprite->scaleTo(battleOnlySpellControllerSpriteSize);
 			addChild(sprite.get());
 			if(label->parent == this)
 			{

@@ -42,6 +42,7 @@
 #include "../lib/modding/ModScope.h"
 #include "../lib/spells/CSpellHandler.h"
 #include "../lib/spells/SpellSchoolHandler.h"
+#include "../lib/texts/Languages.h"
 #include "../lib/texts/CGeneralTextHandler.h"
 #include "../lib/texts/TextOperations.h"
 
@@ -138,6 +139,14 @@ protected:
 	{
 		auto & testSettings = const_cast<JsonNode &>(settings.toJsonNode());
 		testSettings["general"]["language"].String() = "english";
+		// Production startup populates session language/encoding through
+		// CGeneralTextHandler detection; the headless fixture must provide the
+		// same session state or Debug assertions in getInstalledLanguage fire
+		testSettings["session"]["language"].String() = "english";
+		testSettings["session"]["languageDeviation"].Float() = 1.0;
+		testSettings["session"]["encoding"].String() = Languages::getLanguageOptions("english").encoding;
+		// CursorHandler asserts the software cursor contract in Debug builds
+		testSettings["video"]["cursor"].String() = "software";
 		testSettings["input"]["enableMouse"].Bool() = true;
 		ENGINE = std::unique_ptr<GameEngine>(new GameEngine(GameEngine::HeadlessTestTag()));
 		ENGINE->input().setCurrentInputMode(InputMode::CONTROLLER);
@@ -205,7 +214,7 @@ protected:
 						renderer,
 							"controllerActionBar/" + std::string(family) + "-" + action + "-" + state + ".png",
 							EImageBlitMode::COLORKEY,
-							Point(48, 48),
+							Point(24, 24),
 							std::string(family) == "playstation"
 								? (std::string(state) == "disabled" ? ColorRGBA(24, 24, 24, 255) : Colors::BLACK)
 								: ColorRGBA(24, 24, 24, 255));
@@ -498,6 +507,18 @@ protected:
 	void searchItems(const std::shared_ptr<CObjectListWindow> & window, const std::string & text)
 	{
 		window->itemsSearchCallback(text);
+	}
+
+	/// TextOperations locale resolution dereferences LIBRARY->generaltexth on
+	/// first use; headless fixtures without production startup must provide it
+	void ensureLocalizationLibrary()
+	{
+		if(LIBRARY)
+			return;
+		localizationLibrary = std::make_unique<GameLibrary>();
+		LIBRARY = localizationLibrary.get();
+		localizationLibrary->generaltexth = std::unique_ptr<CGeneralTextHandler>(
+			new CGeneralTextHandler(CGeneralTextHandler::TestConstructionTag()));
 	}
 
 	void setInputMode(InputMode mode)
@@ -1328,6 +1349,7 @@ TEST_F(FocusScopeContractTest, SearchCallbackKeepsFocusStateWithoutForcingContro
 	window->changeSelection(2);
 	setInputMode(InputMode::KEYBOARD_AND_MOUSE);
 
+	ensureLocalizationLibrary();
 	searchItems(window, "beta");
 
 	EXPECT_EQ(visibleItems(window), std::vector<size_t>({1, 2}));
