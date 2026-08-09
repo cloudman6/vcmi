@@ -44,6 +44,7 @@
 #include "../lib/spells/SpellSchoolHandler.h"
 #include "../lib/texts/Languages.h"
 #include "../lib/texts/CGeneralTextHandler.h"
+#include "../lib/texts/Languages.h"
 #include "../lib/texts/TextOperations.h"
 
 #include <gtest/gtest.h>
@@ -545,6 +546,7 @@ protected:
 		if(initializedSdlSubsystems && SDL_InitSubSystem(initializedSdlSubsystems) != 0)
 			throw std::runtime_error(SDL_GetError());
 
+#if SDL_VERSION_ATLEAST(2, 24, 0)
 		SDL_VirtualJoystickDesc descriptor{};
 		descriptor.version = SDL_VIRTUAL_JOYSTICK_DESC_VERSION;
 		descriptor.type = SDL_JOYSTICK_TYPE_GAMECONTROLLER;
@@ -554,6 +556,18 @@ protected:
 		descriptor.name = "VCMI test DualSense";
 
 		const int deviceIndex = SDL_JoystickAttachVirtualEx(&descriptor);
+#else
+		// SDL < 2.24 cannot attach virtual devices with vendor/product identity;
+		// use the 2.0.14 API plus an explicit GameController mapping instead.
+		// Note: the SDL 2.0.14 - 2.23 implementation consumes the counts in
+		// (naxes, nbuttons) order; this was fixed in 2.24 together with
+		// SDL_JoystickAttachVirtualEx, so the arguments are passed swapped here.
+		const int deviceIndex = SDL_JoystickAttachVirtual(
+			SDL_JOYSTICK_TYPE_GAMECONTROLLER,
+			SDL_CONTROLLER_AXIS_MAX,
+			SDL_CONTROLLER_BUTTON_MAX,
+			0);
+#endif
 		if(deviceIndex < 0)
 			throw std::runtime_error(SDL_GetError());
 		virtualControllerDeviceIndices.push_back(deviceIndex);
@@ -561,7 +575,7 @@ protected:
 		char guid[33]{};
 		SDL_JoystickGetGUIDString(SDL_JoystickGetDeviceGUID(deviceIndex), guid, sizeof(guid));
 		const std::string mapping = std::string(guid)
-			+ ",VCMI test DualSense,a:b0,b:b1,dpup:b11,dpdown:b12,platform:Mac OS X,type:ps5";
+			+ ",VCMI test DualSense,a:b0,b:b1,dpup:b11,dpdown:b12,platform:" + SDL_GetPlatform() + ",type:ps5";
 		if(SDL_GameControllerAddMapping(mapping.c_str()) < 0)
 			throw std::runtime_error(SDL_GetError());
 		if(!SDL_IsGameController(deviceIndex))
@@ -650,6 +664,30 @@ protected:
 		if(found == controllers.end())
 			return SDL_CONTROLLER_TYPE_UNKNOWN;
 		return SDL_GameControllerGetType(found->second.get());
+	}
+
+	/// SDL >= 2.24 attaches virtual devices with vendor/product identity, so SDL
+	/// classifies them as PlayStation controllers. Older SDL cannot expose that
+	/// identity, so identity oracles verify the generic opened-device contract
+	/// there instead of fabricating a classification.
+	static constexpr bool virtualControllerHasIdentity = SDL_VERSION_ATLEAST(2, 24, 0);
+
+	void expectAttachedDualSenseIdentity(SDL_JoystickID instanceId) const
+	{
+#if SDL_VERSION_ATLEAST(2, 24, 0)
+		ASSERT_EQ(openedControllerType(instanceId), SDL_CONTROLLER_TYPE_PS5);
+#else
+		ASSERT_EQ(ENGINE->input().gameControllerHandler->gameControllerMap.count(instanceId), 1);
+#endif
+	}
+
+	ControllerPresentation expectedAttachedPresentation() const
+	{
+#if SDL_VERSION_ATLEAST(2, 24, 0)
+		return ControllerPresentation::PLAYSTATION;
+#else
+		return ControllerPresentation::UNKNOWN;
+#endif
 	}
 
 	void initializeCursorPresentation()
@@ -780,7 +818,7 @@ TEST_F(ShortcutGlyphQueryTest, ControllerGlyphRefreshDoesNotReenterShowAll)
 	const SDL_JoystickID controllerInstance = attachVirtualDualSense();
 	dispatchVirtualControllerButton(controllerInstance, SDL_CONTROLLER_BUTTON_DPAD_DOWN);
 	ASSERT_EQ(ENGINE->input().getCurrentInputMode(), InputMode::CONTROLLER);
-	ASSERT_EQ(ENGINE->input().getControllerPresentation(), ControllerPresentation::PLAYSTATION);
+	ASSERT_EQ(ENGINE->input().getControllerPresentation(), expectedAttachedPresentation());
 
 	window->showAll(canvas);
 
@@ -837,13 +875,21 @@ TEST_F(ShortcutGlyphQueryTest, DualSenseBindingsRefreshGlyphsAfterControllerActi
 
 	dispatchVirtualControllerButton(controllerInstance, SDL_CONTROLLER_BUTTON_DPAD_DOWN);
 
-	ASSERT_EQ(openedControllerType(controllerInstance), SDL_CONTROLLER_TYPE_PS5);
+	expectAttachedDualSenseIdentity(controllerInstance);
 	ASSERT_EQ(ENGINE->input().getCurrentInputMode(), InputMode::CONTROLLER);
-	ASSERT_EQ(ENGINE->input().getControllerPresentation(), ControllerPresentation::PLAYSTATION);
+	ASSERT_EQ(ENGINE->input().getControllerPresentation(), expectedAttachedPresentation());
 	const auto acceptToken = ENGINE->input().getControllerGlyphToken(acceptBindings);
 	const auto cancelToken = ENGINE->input().getControllerGlyphToken(cancelBindings);
-	ASSERT_TRUE(acceptToken.has_value());
-	ASSERT_TRUE(cancelToken.has_value());
+	if(virtualControllerHasIdentity)
+	{
+		ASSERT_TRUE(acceptToken.has_value());
+		ASSERT_TRUE(cancelToken.has_value());
+	}
+	else
+	{
+		EXPECT_FALSE(acceptToken.has_value());
+		EXPECT_FALSE(cancelToken.has_value());
+	}
 
 	EXPECT_EQ(acceptGlyphText(window), localizationLibrary->generaltexth->translate("vcmi.lobby.battleOnlySpellAdd.actionAdd"));
 	EXPECT_EQ(cancelGlyphText(window), localizationLibrary->generaltexth->translate("vcmi.lobby.battleOnlySpellAdd.actionCancel"));
@@ -903,9 +949,9 @@ TEST_F(ShortcutGlyphQueryTest, DualSenseActionControlsUseAcceptedGeometryAndRest
 	const SDL_JoystickID controllerInstance = attachVirtualDualSense();
 	dispatchVirtualControllerButton(controllerInstance, SDL_CONTROLLER_BUTTON_DPAD_DOWN);
 
-	ASSERT_EQ(openedControllerType(controllerInstance), SDL_CONTROLLER_TYPE_PS5);
+	expectAttachedDualSenseIdentity(controllerInstance);
 	ASSERT_EQ(ENGINE->input().getCurrentInputMode(), InputMode::CONTROLLER);
-	ASSERT_EQ(ENGINE->input().getControllerPresentation(), ControllerPresentation::PLAYSTATION);
+	ASSERT_EQ(ENGINE->input().getControllerPresentation(), expectedAttachedPresentation());
 	const auto acceptLabel = localizationLibrary->generaltexth->translate("vcmi.lobby.battleOnlySpellAdd.actionAdd");
 	const auto cancelLabel = localizationLibrary->generaltexth->translate("vcmi.lobby.battleOnlySpellAdd.actionCancel");
 	ASSERT_EQ(acceptGlyphText(window), acceptLabel);
