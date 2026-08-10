@@ -639,12 +639,16 @@ protected:
 
 	void dispatchVirtualControllerButton(SDL_JoystickID instanceId, SDL_GameControllerButton button)
 	{
+		// Assemble the concrete event struct, then copy it into the event union:
+		// SDL event structs share the type/timestamp prefix with SDL_Event, and
+		// this form keeps static analyzers away from union member access.
+		SDL_ControllerButtonEvent payload{};
+		payload.type = SDL_CONTROLLERBUTTONDOWN;
+		payload.which = instanceId;
+		payload.button = static_cast<Uint8>(button);
+		payload.state = SDL_PRESSED;
 		SDL_Event event{};
-		event.type = SDL_CONTROLLERBUTTONDOWN;
-		event.cbutton.type = SDL_CONTROLLERBUTTONDOWN;
-		event.cbutton.which = instanceId;
-		event.cbutton.button = static_cast<Uint8>(button);
-		event.cbutton.state = SDL_PRESSED;
+		std::memcpy(&event, &payload, sizeof(payload));
 		if(SDL_PushEvent(&event) != 1)
 			throw std::runtime_error(SDL_GetError());
 
@@ -654,12 +658,13 @@ protected:
 
 	void dispatchVirtualControllerAxis(SDL_JoystickID instanceId, SDL_GameControllerAxis axis, Sint16 value)
 	{
+		SDL_ControllerAxisEvent payload{};
+		payload.type = SDL_CONTROLLERAXISMOTION;
+		payload.which = instanceId;
+		payload.axis = static_cast<Uint8>(axis);
+		payload.value = value;
 		SDL_Event event{};
-		event.type = SDL_CONTROLLERAXISMOTION;
-		event.caxis.type = SDL_CONTROLLERAXISMOTION;
-		event.caxis.which = instanceId;
-		event.caxis.axis = static_cast<Uint8>(axis);
-		event.caxis.value = value;
+		std::memcpy(&event, &payload, sizeof(payload));
 		if(SDL_PushEvent(&event) != 1)
 			throw std::runtime_error(SDL_GetError());
 
@@ -669,11 +674,12 @@ protected:
 
 	void dispatchMouseMotion(const Point & position)
 	{
+		SDL_MouseMotionEvent payload{};
+		payload.type = SDL_MOUSEMOTION;
+		payload.x = position.x * ENGINE->screenHandler().getScalingFactor();
+		payload.y = position.y * ENGINE->screenHandler().getScalingFactor();
 		SDL_Event event{};
-		event.type = SDL_MOUSEMOTION;
-		event.motion.type = SDL_MOUSEMOTION;
-		event.motion.x = position.x * ENGINE->screenHandler().getScalingFactor();
-		event.motion.y = position.y * ENGINE->screenHandler().getScalingFactor();
+		std::memcpy(&event, &payload, sizeof(payload));
 		if(SDL_PushEvent(&event) != 1)
 			throw std::runtime_error(SDL_GetError());
 
@@ -683,13 +689,14 @@ protected:
 
 	void dispatchMouseButtonDown(const Point & position)
 	{
+		SDL_MouseButtonEvent payload{};
+		payload.type = SDL_MOUSEBUTTONDOWN;
+		payload.button = SDL_BUTTON_LEFT;
+		payload.state = SDL_PRESSED;
+		payload.x = position.x * ENGINE->screenHandler().getScalingFactor();
+		payload.y = position.y * ENGINE->screenHandler().getScalingFactor();
 		SDL_Event event{};
-		event.type = SDL_MOUSEBUTTONDOWN;
-		event.button.type = SDL_MOUSEBUTTONDOWN;
-		event.button.button = SDL_BUTTON_LEFT;
-		event.button.state = SDL_PRESSED;
-		event.button.x = position.x * ENGINE->screenHandler().getScalingFactor();
-		event.button.y = position.y * ENGINE->screenHandler().getScalingFactor();
+		std::memcpy(&event, &payload, sizeof(payload));
 		if(SDL_PushEvent(&event) != 1)
 			throw std::runtime_error(SDL_GetError());
 

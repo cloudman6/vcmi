@@ -210,7 +210,9 @@ void InputSourceGameController::dispatchAxisShortcuts(const std::vector<EShortcu
 
 bool InputSourceGameController::isAxisMotionActive(const SDL_ControllerAxisEvent & axis) const
 {
-	return getRealAxisValue(axis.value) != 0;
+	// Tolerant comparison: getRealAxisValue returns exactly zero inside the dead
+	// zone and quantized magnitudes of at least 1/32767 outside of it.
+	return std::fabs(getRealAxisValue(axis.value)) > 1e-9;
 }
 
 void InputSourceGameController::handleEventAxisMotion(const SDL_ControllerAxisEvent & axis)
