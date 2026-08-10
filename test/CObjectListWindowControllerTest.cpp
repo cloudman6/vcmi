@@ -500,6 +500,15 @@ protected:
 		return window->exit->isPressed();
 	}
 
+	bool itemBorderVisible(const std::shared_ptr<CObjectListWindow> & window, size_t visibleIndex) const
+	{
+		auto generated = window->genItem(visibleIndex);
+		auto * item = dynamic_cast<CObjectListWindow::CItem *>(generated.get());
+		if(!item)
+			return false;
+		return item->isBorderVisible();
+	}
+
 	std::string acceptPromptSpriteName(const std::shared_ptr<CObjectListWindow> & window) const
 	{
 		return window->acceptControllerPromptSprite ? window->acceptControllerPromptSprite->getOriginalName() : "";
@@ -1707,4 +1716,43 @@ TEST_F(ShortcutGlyphQueryTest, BlockedAcceptStaysInactiveThroughPressAndRelease)
 
 	EXPECT_EQ(accepted, 0);
 	EXPECT_TRUE(ENGINE->windows().isTopWindow(window));
+}
+
+TEST_F(ShortcutGlyphQueryTest, MouseModeClickKeepsRowHighlight)
+{
+	initializeProductionListConstruction();
+	setJoystickBindings({{"a", EShortcut::GLOBAL_ACCEPT}, {"b", EShortcut::GLOBAL_CANCEL}});
+	auto window = std::make_shared<CObjectListWindow>(
+		std::vector<CObjectListWindow::ListItem>{{"Magic Arrow", true, ""}, {"Haste", true, ""}, {"Bless", true, ""}},
+		nullptr, "Add spell", "Select a spell", [](int){}, 0,
+		std::vector<std::shared_ptr<IImage>>{productionListIcon, productionListIcon, productionListIcon}, true, true);
+	ENGINE->windows().pushWindow(window);
+	setInputMode(InputMode::KEYBOARD_AND_MOUSE);
+
+	clickItem(window, 1);
+
+	EXPECT_TRUE(itemBorderVisible(window, 1));
+	EXPECT_FALSE(itemBorderVisible(window, 0));
+	EXPECT_FALSE(itemBorderVisible(window, 2));
+}
+
+TEST_F(ShortcutGlyphQueryTest, ControllerModeFocusBorderFollowsDpadWithoutClick)
+{
+	initializeProductionListConstruction();
+	setJoystickBindings({{"a", EShortcut::GLOBAL_ACCEPT}, {"b", EShortcut::GLOBAL_CANCEL}});
+	auto window = std::make_shared<CObjectListWindow>(
+		std::vector<CObjectListWindow::ListItem>{{"Magic Arrow", true, ""}, {"Haste", true, ""}},
+		nullptr, "Add spell", "Select a spell", [](int){}, 0,
+		std::vector<std::shared_ptr<IImage>>{productionListIcon, productionListIcon}, true, true);
+	ENGINE->windows().pushWindow(window);
+	setControllerPresentation(ControllerPresentation::PLAYSTATION);
+	setInputMode(InputMode::CONTROLLER);
+
+	EXPECT_TRUE(itemBorderVisible(window, 0));
+	EXPECT_FALSE(itemBorderVisible(window, 1));
+
+	ENGINE->events().dispatchShortcutPressed({EShortcut::MOVE_DOWN});
+
+	EXPECT_FALSE(itemBorderVisible(window, 0));
+	EXPECT_TRUE(itemBorderVisible(window, 1));
 }

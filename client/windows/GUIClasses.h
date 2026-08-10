@@ -206,6 +206,7 @@ private:
 
 		void select(bool on);
 		void setSelected(bool on);
+		bool isBorderVisible() const;
 		void clickPressed(const Point & cursorPosition) override;
 		void clickDouble(const Point & cursorPosition) override;
 		void showPopupWindow(const Point & cursorPosition) override;

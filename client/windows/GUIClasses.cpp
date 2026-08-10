@@ -1860,7 +1860,9 @@ CObjectListWindow::CItem::CItem(CObjectListWindow * _parent, size_t _id, std::st
 			Colors::WHITE,
 			item.disabledReason,
 			256);
-	select(parent->controllerFocusVisible && parent->focusedItem == index);
+	// Row highlight follows the attentive row in every input mode: the D-pad focus
+	// in controller mode, the clicked/selected row in mouse mode (upstream parity).
+	select(parent->focusedItem && *parent->focusedItem == index);
 	setSelected(parent->selectedItem == index);
 }
 
@@ -1883,6 +1885,11 @@ void CObjectListWindow::CItem::setSelected(bool on)
 		return;
 
 	text->setColor(on ? Colors::YELLOW : Colors::WHITE);
+}
+
+bool CObjectListWindow::CItem::isBorderVisible() const
+{
+	return border && (border->recActions & SHOWALL) == SHOWALL;
 }
 
 void CObjectListWindow::CItem::clickPressed(const Point & cursorPosition)
@@ -2364,7 +2371,7 @@ void CObjectListWindow::refreshFocusPresentation()
 	{
 		if(auto * item = dynamic_cast<CItem *>(element.get()))
 		{
-			item->select(controllerFocusVisible && focusedItem && item->index == *focusedItem);
+			item->select(focusedItem && item->index == *focusedItem);
 			item->setSelected(selectedItem && item->index == *selectedItem);
 		}
 	}
