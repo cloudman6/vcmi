@@ -780,7 +780,6 @@
 	"vcmi.lobby.battleOnlySpellAdd": "添加法术",
 	"vcmi.lobby.battleOnlySpellAdd.actionAdd": "添加",
 	"vcmi.lobby.battleOnlySpellAdd.actionCancel": "取消",
-	"vcmi.lobby.battleOnlySpellAlreadySelected": "已选择",
 	"vcmi.lobby.battleOnlySpellRemove": "移除法术",
 	"vcmi.lobby.battleOnlySpellRemove.actionRemove": "移除",
 	"vcmi.lobby.battleOnlySpellSelect": "向魔法书添加法术",

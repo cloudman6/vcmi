@@ -382,17 +382,23 @@ BattleOnlyModeHeroSelector::SpellListPayload BattleOnlyModeHeroSelector::prepare
 	const std::vector<SpellID> & currentSpells)
 {
 	SpellListPayload result;
-	result.values = std::make_shared<const std::vector<SpellID>>(allSpells);
+	// Upstream parity: spells that are already in the hero's list are filtered
+	// out of the add list instead of being shown as disabled entries.
+	auto filtered = std::make_shared<std::vector<SpellID>>();
+	filtered->reserve(allSpells.size());
+	for(const auto & spell : allSpells)
+		if(!vstd::contains(currentSpells, spell))
+			filtered->push_back(spell);
+	result.values = filtered;
 	result.items.reserve(result.values->size());
 	result.images.reserve(result.values->size());
 
 	for(const auto & spell : *result.values)
 	{
-		const bool alreadySelected = vstd::contains(currentSpells, spell);
 		result.items.push_back({
 			spell.toSpell()->getNameTranslated(),
-			!alreadySelected,
-			alreadySelected ? LIBRARY->generaltexth->translate("vcmi.lobby.battleOnlySpellAlreadySelected") : ""
+			true,
+			""
 		});
 
 		auto image = ENGINE->renderHandler().loadImage(

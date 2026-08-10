@@ -779,9 +779,7 @@ TEST_F(CObjectListWindowControllerTest, ProductionBattleOnlyAddConstructorBuilds
 	std::vector<std::shared_ptr<IImage>> images;
 	items.reserve(combatSpellCount);
 	images.reserve(combatSpellCount);
-	const auto disabledReason = localizationLibrary->generaltexth->translate(
-		"vcmi.lobby.battleOnlySpellAlreadySelected");
-	ASSERT_FALSE(disabledReason.empty());
+	const std::string disabledReason = "Already selected";
 
 	for(size_t index = 0; index < combatSpellCount; ++index)
 	{
@@ -1128,68 +1126,35 @@ TEST_F(CObjectListWindowControllerTest, ProductionBattleOnlyAddPayloadPreparesCo
 	const auto allowedSpells = localizationLibrary->spellh->getDefaultAllowed();
 	const std::vector<SpellID> allSpells(allowedSpells.begin(), allowedSpells.end());
 	auto payload = observeBattleOnlyAddPayload(allSpells, selectedSpells);
-	const auto disabledReason = localizationLibrary->generaltexth->translate(
-		"vcmi.lobby.battleOnlySpellAlreadySelected");
 
-	ASSERT_FALSE(disabledReason.empty());
 	ASSERT_NE(payload.callbackValues, nullptr);
 	ASSERT_NE(payload.callbackCaptureIdentity, nullptr);
 	EXPECT_EQ(payload.callbackValues.get(), payload.callbackCaptureIdentity);
-	EXPECT_EQ(payload.callbackValues->size(), GameConstants::SPELLS_QUANTITY);
+	// Upstream parity: already-selected spells are filtered out of the add list,
+	// not shown as disabled entries.
+	EXPECT_EQ(payload.callbackValues->size(), GameConstants::SPELLS_QUANTITY - selectedSpells.size());
 	EXPECT_EQ(payload.items.size(), payload.callbackValues->size());
 	EXPECT_EQ(payload.images.size(), payload.callbackValues->size());
 	EXPECT_TRUE(payload.searchBoxEnabled);
 	EXPECT_TRUE(payload.blue);
 
-	const auto disabledCount = std::count_if(payload.items.begin(), payload.items.end(), [](const auto & item)
-	{
-		return !item.enabled;
-	});
-	EXPECT_EQ(disabledCount, selectedSpells.size());
-	EXPECT_EQ(payload.items.size() - disabledCount, 56);
-
 	for(size_t index = 0; index < payload.items.size(); ++index)
 	{
 		const auto spell = payload.callbackValues->at(index);
-		const bool selected = vstd::contains(selectedSpells, spell);
+		EXPECT_FALSE(vstd::contains(selectedSpells, spell));
 		EXPECT_EQ(payload.items[index].text, spell.toSpell()->getNameTranslated());
-		EXPECT_EQ(payload.items[index].enabled, !selected);
-		EXPECT_EQ(payload.items[index].disabledReason, selected ? disabledReason : "");
+		EXPECT_TRUE(payload.items[index].enabled);
+		EXPECT_EQ(payload.items[index].disabledReason, "");
 		EXPECT_NE(payload.images[index], nullptr);
 	}
 
 	auto callbackValues = payload.callbackValues;
-	const auto capturedSpell = callbackValues->at(4);
+	const auto capturedSpell = callbackValues->at(0);
 	payload = {};
-	EXPECT_EQ(callbackValues->size(), GameConstants::SPELLS_QUANTITY);
-	EXPECT_EQ(callbackValues->at(4), capturedSpell);
+	EXPECT_EQ(callbackValues->size(), GameConstants::SPELLS_QUANTITY - selectedSpells.size());
+	EXPECT_EQ(callbackValues->at(0), capturedSpell);
 }
 
-TEST_F(CObjectListWindowControllerTest, ChineseBattleOnlySelectedReasonDoesNotFallBackToEnglish)
-{
-	auto & testSettings = const_cast<JsonNode &>(settings.toJsonNode());
-	testSettings["general"]["language"].String() = "chinese";
-	initializeProductionListConstruction();
-	initializeProductionSpellData();
-
-	std::vector<SpellID> selectedSpells;
-	for(size_t index = 4; index < GameConstants::SPELLS_QUANTITY; index += 5)
-		selectedSpells.emplace_back(static_cast<si32>(index));
-
-	const auto allowedSpells = localizationLibrary->spellh->getDefaultAllowed();
-	const std::vector<SpellID> allSpells(allowedSpells.begin(), allowedSpells.end());
-	const auto payload = observeBattleOnlyAddPayload(allSpells, selectedSpells);
-	const auto disabledReason = localizationLibrary->generaltexth->translate(
-		"vcmi.lobby.battleOnlySpellAlreadySelected");
-
-	ASSERT_EQ(disabledReason, "已选择");
-	ASSERT_NE(disabledReason, "Already selected");
-	ASSERT_FALSE(payload.items.empty());
-	EXPECT_TRUE(std::any_of(payload.items.begin(), payload.items.end(), [&](const auto & item)
-	{
-		return !item.enabled && item.disabledReason == disabledReason;
-	}));
-}
 
 TEST_F(CObjectListWindowControllerTest, DisabledItemRejectsAllActivationPaths)
 {
