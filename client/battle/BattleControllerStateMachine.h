@@ -28,6 +28,14 @@ public:
 		COMMIT
 	};
 
+	/// Outcome of a cancel request, decided without mutating the stack.
+	enum class CancelDecision
+	{
+		POP_LAYER,       ///< one interaction layer is popped, stay in battle
+		CANCEL_SPELL,    ///< run the pre-existing spell cancel path
+		OPEN_PARENT_LAYER ///< idle in controller mode, return to parent layer
+	};
+
 	State top() const;
 	size_t depth() const;
 
@@ -45,6 +53,12 @@ public:
 	void reset();
 
 	static bool canEnter(State from, State to);
+
+	/// Pure cancel contract: controller mode pops a layer first when one is
+	/// left; otherwise the pre-existing GLOBAL_CANCEL spell cancel path runs
+	/// in every input mode; only an idle controller-mode cancel returns to
+	/// the parent layer.
+	static CancelDecision decideCancel(bool controllerMode, bool canPopLayer, bool castingSpell);
 
 private:
 	std::vector<State> stack = {State::BROWSE};

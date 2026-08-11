@@ -316,19 +316,21 @@ void BattleInterface::handleFocusNavigationShortcut(EShortcut shortcut)
 void BattleInterface::handleControllerCancel()
 {
 	const bool controllerMode = ENGINE->input().getCurrentInputMode() == InputMode::CONTROLLER;
+	const bool canPopLayer = controllerStates.depth() > 1;
 
-	if(controllerMode && controllerStates.cancel())
-		return; // one interaction layer popped, stay in battle
-
-	if(actionsController->isCastingSpell())
+	switch(BattleControllerStateMachine::decideCancel(controllerMode, canPopLayer, actionsController->isCastingSpell()))
 	{
-		actionsController->endCastingSpell();
-		return;
+		case BattleControllerStateMachine::CancelDecision::POP_LAYER:
+			controllerStates.cancel();
+			return;
+		case BattleControllerStateMachine::CancelDecision::CANCEL_SPELL:
+			// pre-existing GLOBAL_CANCEL behavior, kept in every input mode
+			actionsController->endCastingSpell();
+			return;
+		case BattleControllerStateMachine::CancelDecision::OPEN_PARENT_LAYER:
+			windowObject->openOptionsWindow();
+			return;
 	}
-
-	// idle in controller mode: B returns to the parent layer
-	if(controllerMode)
-		windowObject->openOptionsWindow();
 }
 
 void BattleInterface::sendCommand(BattleAction command, const CStack * actor)

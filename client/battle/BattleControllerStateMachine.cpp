@@ -53,6 +53,17 @@ bool BattleControllerStateMachine::enter(State state)
 	return true;
 }
 
+BattleControllerStateMachine::CancelDecision BattleControllerStateMachine::decideCancel(bool controllerMode, bool canPopLayer, bool castingSpell)
+{
+	if(controllerMode && canPopLayer)
+		return CancelDecision::POP_LAYER;
+
+	if(castingSpell || !controllerMode)
+		return CancelDecision::CANCEL_SPELL;
+
+	return CancelDecision::OPEN_PARENT_LAYER;
+}
+
 bool BattleControllerStateMachine::cancel()
 {
 	if(stack.size() <= 1)

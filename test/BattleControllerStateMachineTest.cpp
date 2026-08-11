@@ -126,3 +126,26 @@ TEST(BattleControllerStateMachineTest, resetReturnsToBrowse)
 	EXPECT_EQ(machine.depth(), 1);
 	ASSERT_TRUE(machine.enter(State::PREVIEW));
 }
+
+using Decision = BattleControllerStateMachine::CancelDecision;
+
+TEST(BattleControllerStateMachineTest, cancelDecisionPopsLayerFirstInControllerMode)
+{
+	EXPECT_EQ(BattleControllerStateMachine::decideCancel(true, true, true), Decision::POP_LAYER);
+	EXPECT_EQ(BattleControllerStateMachine::decideCancel(true, true, false), Decision::POP_LAYER);
+}
+
+TEST(BattleControllerStateMachineTest, cancelDecisionPreservesSpellCancelInEveryMode)
+{
+	// pre-existing GLOBAL_CANCEL contract: cancel always reaches the spell
+	// cancel path, in keyboard/mouse mode unconditionally
+	EXPECT_EQ(BattleControllerStateMachine::decideCancel(false, false, true), Decision::CANCEL_SPELL);
+	EXPECT_EQ(BattleControllerStateMachine::decideCancel(false, false, false), Decision::CANCEL_SPELL);
+	EXPECT_EQ(BattleControllerStateMachine::decideCancel(true, false, true), Decision::CANCEL_SPELL);
+}
+
+TEST(BattleControllerStateMachineTest, cancelDecisionOpensParentLayerOnlyWhenIdleInControllerMode)
+{
+	EXPECT_EQ(BattleControllerStateMachine::decideCancel(true, false, false), Decision::OPEN_PARENT_LAYER);
+	EXPECT_EQ(BattleControllerStateMachine::decideCancel(false, true, false), Decision::CANCEL_SPELL);
+}
