@@ -44,6 +44,7 @@ private:
 	friend class WindowHandler;
 	friend class CObjectListWindow;
 	friend class CObjectListWindowControllerTest;
+	friend class BattleFocusTierFrameTest;
 
 	/// Fake no-op version status bar, for use in windows that have no status bar
 	std::shared_ptr<IStatusBar> fakeStatusBar;

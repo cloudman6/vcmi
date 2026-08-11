@@ -24,6 +24,7 @@ class CObjectListWindowControllerTest;
 class RenderHandler final : public IRenderHandler
 {
 	friend class CObjectListWindowControllerTest;
+	friend class BattleFocusTierFrameTest;
 
 	using AnimationLayoutMap = std::map<size_t, std::vector<ImageLocator>>;
 

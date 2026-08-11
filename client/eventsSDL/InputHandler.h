@@ -55,6 +55,7 @@ class InputHandler
 
 	friend class GameEngine;
 	friend class CObjectListWindowControllerTest;
+	friend class BattleFocusTierFrameTest;
 
 	std::vector<SDL_Event> eventsQueue;
 	tbb::concurrent_queue<std::unique_ptr<std::function<void()>>> dispatchedTasks;

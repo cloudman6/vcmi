@@ -230,6 +230,20 @@ if(ENABLE_CLIENT)
 	)
 	gtest_discover_tests(vcmi_cobject_list_window_controller_test)
 	vcmi_set_output_dir(vcmi_cobject_list_window_controller_test "")
+
+	# Frame evidence tests create a real SDL window and compose on installed
+	# H3 assets; running them in a separate binary keeps their platform
+	# window-system state away from the headless fixtures above.
+	add_executable(vcmi_battle_focus_tier_frame_test
+		BattleFocusTierFrameTest.cpp
+	)
+	target_link_libraries(vcmi_battle_focus_tier_frame_test PRIVATE gtest_main vcmiclientcommon)
+	target_include_directories(vcmi_battle_focus_tier_frame_test
+		PRIVATE ${GTestSrc}
+		PRIVATE ${GTestSrc}/include
+	)
+	gtest_discover_tests(vcmi_battle_focus_tier_frame_test)
+	vcmi_set_output_dir(vcmi_battle_focus_tier_frame_test "")
 endif()
 
 add_executable(vcmitest ${test_SRCS} ${test_HEADERS} ${mock_HEADERS})
