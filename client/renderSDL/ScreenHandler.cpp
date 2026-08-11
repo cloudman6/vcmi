@@ -63,6 +63,10 @@ std::tuple<int, int> ScreenHandler::getSupportedScalingRange() const
 	double maximalScalingHeight = 100.0 * availableResolution.y / minResolution.y;
 	double maximalScaling = std::min(maximalScalingWidth, maximalScalingHeight);
 
+	// Degenerate render resolutions (e.g. headless environments without a live
+	// renderer) would invert the range below and violate std::clamp preconditions.
+	maximalScaling = std::max(maximalScaling, minimalScaling);
+
 	return { minimalScaling, maximalScaling };
 }
 

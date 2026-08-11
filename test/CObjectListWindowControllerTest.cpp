@@ -1728,3 +1728,14 @@ TEST_F(ShortcutGlyphQueryTest, ControllerModeFocusBorderFollowsDpadWithoutClick)
 	EXPECT_FALSE(itemBorderVisible(window, 0));
 	EXPECT_TRUE(itemBorderVisible(window, 1));
 }
+
+TEST_F(CObjectListWindowControllerTest, HeadlessScreenHandlerYieldsValidInterfaceScaling)
+{
+	initializeProductionListConstruction();
+
+	// Without a live renderer the render resolution degenerates to zero, which
+	// used to produce an inverted scaling range and abort std::clamp on
+	// libstdc++ assertion builds (Linux CI). The percentage must stay within a
+	// sane lower bound instead.
+	EXPECT_GE(ENGINE->screenHandler().getInterfaceScalingPercentage(), 50);
+}
