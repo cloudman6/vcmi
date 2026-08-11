@@ -12,6 +12,7 @@
 
 #include "BattleActionsController.h"
 #include "BattleAnimationClasses.h"
+#include "BattleAttackDirection.h"
 #include "BattleConsole.h"
 #include "BattleEffectsController.h"
 #include "BattleFieldController.h"
@@ -313,6 +314,16 @@ void BattleInterface::giveCommand(EActionType action, const std::vector<BattleHe
 
 void BattleInterface::handleFocusNavigationShortcut(EShortcut shortcut)
 {
+	// D3: while choosing the melee approach, left/right cycle the origin
+	// hex instead of moving the focus
+	if(ENGINE->input().getCurrentInputMode() == InputMode::CONTROLLER
+		&& controllerStates.top() == BattleControllerStateMachine::State::ATTACK_DIRECTION
+		&& (shortcut == EShortcut::MOVE_LEFT || shortcut == EShortcut::MOVE_RIGHT))
+	{
+		controllerAttackFromHex = BattleAttackDirection::cycle(meleeAttackCandidates(), controllerAttackFromHex, shortcut == EShortcut::MOVE_RIGHT);
+		return;
+	}
+
 	focusNavigation->handleShortcut(shortcut, ENGINE->input().getCurrentInputMode());
 
 	// keep the official hover feedback in sync with the focus while the
@@ -390,6 +401,44 @@ bool BattleInterface::trySwitchStack(bool forward)
 	return focusModel.setFocus(entry.headHex);
 }
 
+std::vector<BattleHex> BattleInterface::meleeAttackCandidates() const
+{
+	std::vector<BattleHex> candidates;
+
+	const CStack * activeStack = stacksController->getActiveStack();
+	if(!activeStack || !focusModel.hasFocus())
+		return candidates;
+
+	const auto battle = getBattle();
+	if(!battle)
+		return candidates;
+
+	const BattleHex focusHex = focusModel.getFocusedHex();
+	const CStack * targetStack = battle->battleGetStackByPos(focusHex, true);
+	if(!targetStack || targetStack->unitSide() == activeStack->unitSide())
+		return candidates;
+
+	if(!battle->battleCanAttackUnit(activeStack, targetStack))
+		return candidates;
+
+	// same direction scan order as findAttackFromHex fallback
+	for(int direction = 0; direction < 8; ++direction)
+	{
+		const BattleHex origin = battle->fromWhichHexAttack(activeStack, focusHex, static_cast<BattleHex::EDir>(direction), false);
+		if(!origin.isValid())
+			continue;
+
+		bool duplicate = false;
+		for(const auto & candidate : candidates)
+			duplicate |= candidate == origin;
+
+		if(!duplicate)
+			candidates.push_back(origin);
+	}
+
+	return candidates;
+}
+
 void BattleInterface::handleControllerAccept()
 {
 	if(ENGINE->input().getCurrentInputMode() != InputMode::CONTROLLER)
@@ -401,6 +450,42 @@ void BattleInterface::handleControllerAccept()
 		&& focusModel.hasFocus()
 		&& focusModel.getFocusedHex() != activeStack->getPosition()
 		&& fieldController->getAvailableHexes().contains(focusModel.getFocusedHex());
+
+	// melee attack takes priority: an enemy focus is never a movement
+	// destination, so both contracts can only compete on empty overlap
+	const auto meleeOrigins = meleeAttackCandidates();
+	const bool attackable = !meleeOrigins.empty();
+
+	switch(BattleAttackDirection::decideAccept(controllerStates.top(), attackable))
+	{
+		case BattleAttackDirection::MeleeOutcome::START_ACTION:
+			controllerStates.enter(BattleControllerStateMachine::State::ACTION);
+			controllerAttackFromHex = BattleAttackDirection::recommend(meleeOrigins);
+			actionsController->onHexHovered(focusModel.getFocusedHex());
+			return;
+		case BattleAttackDirection::MeleeOutcome::OPEN_DIRECTION:
+			controllerStates.enter(BattleControllerStateMachine::State::ATTACK_DIRECTION);
+			return;
+		case BattleAttackDirection::MeleeOutcome::COMMIT:
+		{
+			controllerStates.enter(BattleControllerStateMachine::State::COMMIT);
+			BattleHex attackFrom = controllerAttackFromHex;
+			bool stillValid = false;
+			for(const auto & origin : meleeOrigins)
+				stillValid |= origin == attackFrom;
+			if(!stillValid)
+				attackFrom = meleeOrigins.front(); // chosen origin vanished, fall back to the recommendation
+			const auto command = BattleAction::makeMeleeAttack(activeStack, focusModel.getFocusedHex(), attackFrom, false);
+			sendCommand(command, activeStack);
+			controllerStates.reset();
+			return;
+		}
+		case BattleAttackDirection::MeleeOutcome::CANCEL_LAYER:
+			controllerStates.cancel();
+			return;
+		case BattleAttackDirection::MeleeOutcome::NONE:
+			break;
+	}
 
 	switch(BattleMovementPreview::decideAccept(controllerStates.top(), focusedReachable))
 	{

@@ -11,6 +11,8 @@
 #include "BattleFieldController.h"
 
 #include "BattleActionsController.h"
+#include "BattleAttackDirection.h"
+#include "BattleDirectionArrow.h"
 #include "BattleEffectsController.h"
 #include "BattleFocusHighlights.h"
 #include "BattleFocusTier.h"
@@ -307,6 +309,7 @@ void BattleFieldController::showBackground(Canvas & canvas)
 
 	showHighlightedHexes(canvas);
 	showControllerFocusHex(canvas);
+	showControllerMeleeAssist(canvas);
 }
 
 void BattleFieldController::showBackgroundImage(Canvas & canvas)
@@ -730,6 +733,44 @@ void BattleFieldController::showControllerFocusHex(Canvas & canvas)
 	canvas.draw(render.highlight, hexPos);
 	if(render.borderOverlay)
 		canvas.draw(cellBorder, hexPos);
+}
+
+void BattleFieldController::showControllerMeleeAssist(Canvas & canvas)
+{
+	if(ENGINE->input().getCurrentInputMode() != InputMode::CONTROLLER)
+		return;
+
+	const auto top = owner.controllerStates.top();
+	if(top != BattleControllerStateMachine::State::ACTION && top != BattleControllerStateMachine::State::ATTACK_DIRECTION)
+		return;
+
+	const auto origins = owner.meleeAttackCandidates();
+	if(origins.empty())
+		return;
+
+	// mark every approach hex with the attackable tier render
+	const auto render = BattleFocusHighlights::loadTierRender(BattleFocusTier::Tier::ATTACKABLE);
+	for(const auto & origin : origins)
+	{
+		const Point originPos = hexPositionLocal(origin).topLeft();
+		if(render.shadeOverlay)
+			canvas.draw(cellShade, originPos);
+		canvas.draw(render.highlight, originPos);
+		if(render.borderOverlay)
+			canvas.draw(cellBorder, originPos);
+	}
+
+	// direction arrow from the chosen approach hex toward the target
+	BattleHex chosenOrigin = owner.controllerAttackFromHex;
+	bool chosenValid = false;
+	for(const auto & origin : origins)
+		chosenValid |= origin == chosenOrigin;
+	if(!chosenValid)
+		chosenOrigin = origins.front();
+
+	const Point from = hexPositionLocal(chosenOrigin).center();
+	const Point to = hexPositionLocal(owner.focusModel.getFocusedHex()).center();
+	BattleDirectionArrow::draw(canvas, from, to, ColorRGBA(255, 255, 255, 255));
 }
 
 Rect BattleFieldController::hexPositionLocal(const BattleHex & hex) const

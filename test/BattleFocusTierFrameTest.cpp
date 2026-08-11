@@ -9,6 +9,8 @@
  */
 #include "../client/StdInc.h"
 
+#include "../client/battle/BattleAttackDirection.h"
+#include "../client/battle/BattleDirectionArrow.h"
 #include "../client/battle/BattleFocusHighlights.h"
 #include "../client/battle/BattleFocusTier.h"
 #include "../client/GameEngine.h"
@@ -30,6 +32,7 @@
 
 #include <gtest/gtest.h>
 
+#include <cmath>
 #include <cstdlib>
 #include <SDL.h>
 #include <SDL_surface.h>
@@ -357,4 +360,104 @@ TEST_F(BattleFocusTierFrameTest, WideUnitMovePreviewLandingShadowCoversBothHexes
 		+ std::abs(headPixel.g - tailPixel.g)
 		+ std::abs(headPixel.b - tailPixel.b);
 	EXPECT_GT(headTailDistance, 24);
+}
+
+/// Composes the D3 melee approach choice through the same production
+/// primitives the battlefield uses (ATTACKABLE tier render on every
+/// approach hex, white BattleDirectionArrow from the chosen origin to the
+/// target focus) and exports evidence.
+TEST_F(BattleFocusTierFrameTest, MeleeDirectionArrowPointsAtTheFocusedTarget)
+{
+	auto & renderer = ENGINE->renderHandler();
+
+	auto background = renderer.loadImage(ImagePath::builtin("CMBKDES.BMP"), EImageBlitMode::OPAQUE);
+	auto cellBorder = renderer.loadImage(ImagePath::builtin("CCELLGRD.BMP"), EImageBlitMode::COLORKEY);
+	auto cellShade = renderer.loadImage(ImagePath::builtin("CCELLSHD.BMP"), EImageBlitMode::SIMPLE);
+
+	ASSERT_GT(background->width(), 0);
+	ASSERT_GT(background->height(), 0);
+
+	SDL_Surface * surface = SDL_CreateRGBSurfaceWithFormat(
+		0, background->width(), background->height(), 32, SDL_PIXELFORMAT_ARGB8888);
+	ASSERT_NE(surface, nullptr);
+	std::unique_ptr<SDL_Surface, decltype(&SDL_FreeSurface)> surfaceOwner(surface, SDL_FreeSurface);
+
+	Canvas canvas = Canvas::createFromSurface(surface, CanvasScalingPolicy::IGNORE);
+	canvas.draw(background, Point(0, 0));
+
+	for(int hex = 0; hex < GameConstants::BFIELD_SIZE; ++hex)
+	{
+		if(hex % GameConstants::BFIELD_WIDTH == 0)
+			continue;
+		if(hex % GameConstants::BFIELD_WIDTH == GameConstants::BFIELD_WIDTH - 1)
+			continue;
+		canvas.draw(cellBorder, hexTopLeft(hex));
+	}
+
+	// enemy target focus on the right, own stack approaches from the left;
+	// two alternative approach hexes flank the chosen one above and below
+	const BattleHex targetHex(7, 5);
+	const BattleHex chosenOrigin(5, 5);
+	const std::vector<BattleHex> origins = {chosenOrigin, BattleHex(6, 4), BattleHex(5, 6)};
+
+	// ATTACKABLE tier render marks every approach hex
+	const auto render = BattleFocusHighlights::loadTierRender(BattleFocusTier::Tier::ATTACKABLE);
+	for(const auto & origin : origins)
+	{
+		const Point originPos = hexTopLeft(origin);
+		if(render.shadeOverlay)
+			canvas.draw(cellShade, originPos);
+		canvas.draw(render.highlight, originPos);
+		if(render.borderOverlay)
+			canvas.draw(cellBorder, originPos);
+	}
+
+	// direction arrow from the chosen origin center toward the target center
+	const Point from = hexTopLeft(chosenOrigin) + Point(22, 22);
+	const Point to = hexTopLeft(targetHex) + Point(22, 22);
+	BattleDirectionArrow::draw(canvas, from, to, ColorRGBA(255, 255, 255, 255));
+
+	// recommendation contract sanity used by the wiring
+	ASSERT_EQ(BattleAttackDirection::recommend(origins), chosenOrigin);
+
+	const auto outputDir = captureDir().parent_path() / "m3-1-attack-direction";
+	boost::filesystem::create_directories(outputDir);
+
+	SDLImageShared frame(surface);
+	frame.exportBitmap(outputDir / "attack-direction-full.png", nullptr);
+
+	// crop spans from the chosen origin through the target hex
+	SDL_Surface * crop = SDL_CreateRGBSurfaceWithFormat(
+		0, (targetHex.getX() - chosenOrigin.getX()) * 44 + 45, 60, 32, SDL_PIXELFORMAT_ARGB8888);
+	ASSERT_NE(crop, nullptr);
+	SDL_Rect cropSource{hexTopLeft(chosenOrigin).x, hexTopLeft(chosenOrigin).y - 4, crop->w, crop->h};
+	SDL_BlitSurface(surface, &cropSource, crop, nullptr);
+	SDLImageShared cropImage(crop);
+	cropImage.exportBitmap(outputDir / "attack-direction-crop.png", nullptr);
+
+	// shaft midpoint sits inside the empty hex between origin and target
+	const auto shaftPixel = pixelAt(surface, Point((from.x + to.x) / 2, (from.y + to.y) / 2));
+	// lower wing tip computed with the exact production geometry
+	const double wingAngle = std::atan2(static_cast<double>(from.y - to.y), static_cast<double>(from.x - to.x)) - 0.5;
+	const Point wingTip(to.x + static_cast<int>(std::cos(wingAngle) * 9), to.y + static_cast<int>(std::sin(wingAngle) * 9));
+	const auto wingPixel = pixelAt(surface, wingTip);
+	const auto untouchedPixel = pixelAt(surface, hexTopLeft(BattleHex(12, 5)) + Point(22, 22));
+
+	logGlobal->info(
+		"attack direction frame evidence at %s: shaft=(%d,%d,%d) wing=(%d,%d,%d) background=(%d,%d,%d)",
+		outputDir.string(),
+		shaftPixel.r, shaftPixel.g, shaftPixel.b,
+		wingPixel.r, wingPixel.g, wingPixel.b,
+		untouchedPixel.r, untouchedPixel.g, untouchedPixel.b);
+
+	// the arrow is white and clearly brighter than the battlefield it crosses
+	EXPECT_GT(luminance(shaftPixel), luminance(untouchedPixel));
+	EXPECT_GT(luminance(shaftPixel), 200);
+	EXPECT_GT(luminance(wingPixel), 200);
+
+	// approach hexes carry the frozen red attackable tint; sample the flank
+	// origin because the arrow shaft crosses the chosen origin's center
+	const auto originPixel = pixelAt(surface, hexTopLeft(BattleHex(6, 4)) + Point(22, 22));
+	EXPECT_GT(originPixel.r, originPixel.g);
+	EXPECT_GT(originPixel.r, originPixel.b);
 }

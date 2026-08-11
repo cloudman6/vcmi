@@ -15,8 +15,10 @@ set(vcmiclientcommon_SRCS
 
 	battle/BattleActionsController.cpp
 	battle/BattleAnimationClasses.cpp
+	battle/BattleAttackDirection.cpp
 	battle/BattleConsole.cpp
 	battle/BattleControllerStateMachine.cpp
+	battle/BattleDirectionArrow.cpp
 	battle/BattleEffectsController.cpp
 	battle/BattleFieldController.cpp
 	battle/BattleFocusHighlights.cpp
@@ -247,8 +249,10 @@ set(vcmiclientcommon_HEADERS
 
 	battle/BattleActionsController.h
 	battle/BattleAnimationClasses.h
+	battle/BattleAttackDirection.h
 	battle/BattleConsole.h
 	battle/BattleControllerStateMachine.h
+	battle/BattleDirectionArrow.h
 	battle/BattleEffectsController.h
 	battle/BattleFieldController.h
 	battle/BattleFocusHighlights.h

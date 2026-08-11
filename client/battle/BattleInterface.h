@@ -154,6 +154,8 @@ public:
 	std::unique_ptr<BattleFocusNavigation> focusNavigation;
 	/// controller interaction state stack (Browse/Action/Target/AttackDirection/Preview/Commit)
 	BattleControllerStateMachine controllerStates;
+	/// D3: currently chosen melee approach hex for the focused enemy target
+	BattleHex controllerAttackFromHex;
 
 	std::shared_ptr<BattleHero> attackingHero;
 	std::shared_ptr<BattleHero> defendingHero;
@@ -192,6 +194,10 @@ public:
 	/// on a reachable focus, commit the move on a second press, back out when
 	/// the focus stopped being reachable. No-op outside controller mode.
 	void handleControllerAccept();
+
+	/// D3: hexes the active stack can attack the focused enemy unit from,
+	/// in direction scan order; empty when the focus is not attackable.
+	std::vector<BattleHex> meleeAttackCandidates() const;
 
 	void sendCommand(BattleAction command, const CStack * actor = nullptr);
 
