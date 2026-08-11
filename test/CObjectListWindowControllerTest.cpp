@@ -254,6 +254,13 @@ protected:
 			const JsonNode selectedTranslation(JsonPath::builtin("config/translations/" + preferredLanguage + ".json"));
 			localizationLibrary->generaltexth->loadTranslationOverrides("vcmi", preferredLanguage, selectedTranslation);
 		}
+		// The headless test engine has no AsyncRunner; pin the upscaling
+		// filter through the production settings path so image construction
+		// never enters the async xbrz path even when a preceding fixture
+		// leaves the platform in a state where ScreenHandler manages to
+		// create a real window and autoselection would pick XBRZ_2.
+		auto & testSettings = const_cast<JsonNode &>(settings.toJsonNode());
+		testSettings["video"]["upscalingFilter"].String() = "none";
 		ENGINE->screenHandlerInstance = std::make_unique<ScreenHandler>();
 		ENGINE->renderHandlerInstance = std::make_unique<RenderHandler>();
 		auto & renderer = static_cast<RenderHandler &>(ENGINE->renderHandler());
