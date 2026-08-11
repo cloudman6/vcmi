@@ -30,8 +30,8 @@
 namespace
 {
 /// Same M2 sprite recipe as CObjectListWindow's controllerActionPromptSprite:
-/// only the accept/cancel bindings have raster glyphs; every other shortcut
-/// (LB/RB unit switch, D-pad direction adjust) renders as text only.
+/// the accept/cancel and shoulder bindings have raster glyphs; every other
+/// shortcut (D-pad direction adjust) renders as text only.
 std::optional<ImagePath> hintGlyphSprite(EShortcut shortcut, bool acceptPressed)
 {
 	const auto bindings = ENGINE->shortcuts().getJoystickBindings(shortcut);
@@ -40,12 +40,14 @@ std::optional<ImagePath> hintGlyphSprite(EShortcut shortcut, bool acceptPressed)
 
 	const bool accept = shortcut == EShortcut::GLOBAL_ACCEPT && bindings.front() == "a";
 	const bool cancel = shortcut == EShortcut::GLOBAL_CANCEL && bindings.front() == "b";
-	if(!accept && !cancel)
+	const bool leftShoulder = shortcut == EShortcut::BATTLE_DEFEND && bindings.front() == "leftshoulder";
+	const bool rightShoulder = shortcut == EShortcut::BATTLE_WAIT && bindings.front() == "rightshoulder";
+	if(!accept && !cancel && !leftShoulder && !rightShoulder)
 		return std::nullopt;
 
 	const auto presentation = ENGINE->input().getControllerPresentation();
 	const std::string family = presentation == ControllerPresentation::PLAYSTATION ? "playstation" : "generic";
-	const std::string action = accept ? "add" : "cancel";
+	const std::string action = accept ? "add" : cancel ? "cancel" : leftShoulder ? "lb" : "rb";
 	const std::string stateName = accept && acceptPressed ? "pressed" : "normal";
 	return ImagePath::builtin("controllerActionBar/" + family + "-" + action + "-" + stateName + ".png");
 }
