@@ -44,6 +44,11 @@ bool BattleControllerStateMachine::canEnter(State from, State to)
 	return false;
 }
 
+bool BattleControllerStateMachine::canSwitchStacks() const
+{
+	return top() == State::BROWSE;
+}
+
 bool BattleControllerStateMachine::enter(State state)
 {
 	if(!canEnter(top(), state))

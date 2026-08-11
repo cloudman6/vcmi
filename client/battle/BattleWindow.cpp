@@ -95,8 +95,10 @@ BattleWindow::BattleWindow(BattleInterface & Owner)
 	addShortcut(EShortcut::BATTLE_AUTOCOMBAT, std::bind(&BattleWindow::bAutofightf, this));
 	addShortcut(EShortcut::BATTLE_END_WITH_AUTOCOMBAT, std::bind(&BattleWindow::endWithAutocombat, this));
 	addShortcut(EShortcut::BATTLE_CAST_SPELL, std::bind(&BattleWindow::bSpellf, this));
-	addShortcut(EShortcut::BATTLE_WAIT, std::bind(&BattleWindow::bWaitf, this));
-	addShortcut(EShortcut::BATTLE_DEFEND, std::bind(&BattleWindow::bDefencef, this));
+	// D7: in controller mode LB/RB cycle the own stacks while browsing and
+	// fall back to the pre-existing defend/wait behavior otherwise
+	addShortcut(EShortcut::BATTLE_WAIT, [this](){ if(!owner.trySwitchStack(true)) bWaitf(); });
+	addShortcut(EShortcut::BATTLE_DEFEND, [this](){ if(!owner.trySwitchStack(false)) bDefencef(); });
 	addShortcut(EShortcut::BATTLE_CONSOLE_UP, std::bind(&BattleWindow::bConsoleUpf, this));
 	addShortcut(EShortcut::BATTLE_CONSOLE_DOWN, std::bind(&BattleWindow::bConsoleDownf, this));
 

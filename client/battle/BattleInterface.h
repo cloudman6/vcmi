@@ -182,6 +182,12 @@ public:
 	/// controller B contract: pop one state layer, fall back to spell cancel, open options when idle
 	void handleControllerCancel();
 
+	/// D7: LB/RB move the controller focus to the next or previous own stack
+	/// in turn order, only while browsing with controller input active.
+	/// Returns false when no switch happened so the caller falls back to the
+	/// pre-existing wait/defend shortcut behavior.
+	bool trySwitchStack(bool forward);
+
 	void sendCommand(BattleAction command, const CStack * actor = nullptr);
 
 	const CGHeroInstance *getActiveHero(); //returns hero that can currently cast a spell

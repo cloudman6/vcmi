@@ -31,6 +31,7 @@ set(vcmiclientcommon_SRCS
 	battle/BattleRenderer.cpp
 	battle/BattleResultWindow.cpp
 	battle/BattleSiegeController.cpp
+	battle/BattleStackSwitching.cpp
 	battle/BattleStacksController.cpp
 	battle/BattleWindow.cpp
 	battle/CreatureAnimation.cpp
@@ -261,6 +262,7 @@ set(vcmiclientcommon_HEADERS
 	battle/BattleRenderer.h
 	battle/BattleResultWindow.h
 	battle/BattleSiegeController.h
+	battle/BattleStackSwitching.h
 	battle/BattleStacksController.h
 	battle/BattleWindow.h
 	battle/CreatureAnimation.h

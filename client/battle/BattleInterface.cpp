@@ -21,6 +21,7 @@
 #include "BattleRenderer.h"
 #include "BattleResultWindow.h"
 #include "BattleSiegeController.h"
+#include "BattleStackSwitching.h"
 #include "BattleStacksController.h"
 #include "BattleWindow.h"
 #include "CreatureAnimation.h"
@@ -36,6 +37,7 @@
 #include "../render/Canvas.h"
 #include "../windows/CTutorialWindow.h"
 
+#include "../../lib/battle/CBattleInfoCallback.h"
 #include "../../lib/BattleFieldHandler.h"
 #include "../../lib/CConfigHandler.h"
 #include "../../lib/CStack.h"
@@ -331,6 +333,53 @@ void BattleInterface::handleControllerCancel()
 			windowObject->openOptionsWindow();
 			return;
 	}
+}
+
+bool BattleInterface::trySwitchStack(bool forward)
+{
+	if(ENGINE->input().getCurrentInputMode() != InputMode::CONTROLLER)
+		return false;
+
+	if(!controllerStates.canSwitchStacks())
+		return false;
+
+	const auto battle = getBattle();
+	if(!battle)
+		return false;
+
+	const auto * activeUnit = battle->battleActiveUnit();
+	if(!activeUnit)
+		return false;
+
+	const BattleSide ownSide = activeUnit->unitSide();
+
+	// current-round turn queue; own alive units become switch candidates
+	std::vector<battle::Units> turnOrder;
+	battle->battleGetTurnOrder(turnOrder, GameConstants::ARMY_SIZE * 2, 1);
+
+	std::vector<BattleStackSwitchEntry> candidates;
+	for(const auto & turn : turnOrder)
+	{
+		for(const auto * unit : turn)
+		{
+			if(unit->unitSide() != ownSide || !unit->alive())
+				continue;
+
+			const auto unitId = static_cast<int32_t>(unit->unitId());
+			bool duplicate = false;
+			for(const auto & entry : candidates)
+				duplicate |= entry.unitId == unitId;
+
+			if(!duplicate)
+				candidates.push_back({unitId, unit->getPosition(), unit->occupiedHex()});
+		}
+	}
+
+	const auto entry = BattleStackSwitching::select(candidates, focusModel.getFocusedHex(), forward);
+	if(entry.unitId < 0)
+		return false;
+
+	return focusModel.setFocus(entry.headHex);
 }
 
 void BattleInterface::sendCommand(BattleAction command, const CStack * actor)

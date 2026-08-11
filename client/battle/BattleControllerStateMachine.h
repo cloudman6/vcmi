@@ -43,6 +43,10 @@ public:
 	/// by the contract, otherwise keeps the stack unchanged.
 	bool enter(State state);
 
+	/// D7: LB/RB may switch the focused own stack only while browsing; every
+	/// deeper interaction layer keeps the current selection untouched.
+	bool canSwitchStacks() const;
+
 	/// Cancel contract: pops one layer at a time. Returns false when Browse
 	/// is the only remaining layer; the caller then returns to the parent
 	/// layer (for example the battle options window).

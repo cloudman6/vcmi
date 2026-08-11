@@ -221,6 +221,7 @@ if(ENABLE_CLIENT)
 		BattleFocusModelTest.cpp
 		BattleFocusNavigationTest.cpp
 		BattleFocusTierTest.cpp
+		BattleStackSwitchingTest.cpp
 		CObjectListWindowControllerTest.cpp
 	)
 	target_link_libraries(vcmi_cobject_list_window_controller_test PRIVATE gtest_main vcmiclientcommon)

@@ -149,3 +149,20 @@ TEST(BattleControllerStateMachineTest, cancelDecisionOpensParentLayerOnlyWhenIdl
 	EXPECT_EQ(BattleControllerStateMachine::decideCancel(true, false, false), Decision::OPEN_PARENT_LAYER);
 	EXPECT_EQ(BattleControllerStateMachine::decideCancel(false, true, false), Decision::CANCEL_SPELL);
 }
+
+TEST(BattleControllerStateMachineTest, stackSwitchingAllowedOnlyFromBrowse)
+{
+	// D7: LB/RB switch the focused own stack only while browsing; every
+	// deeper interaction layer keeps the current selection untouched.
+	BattleControllerStateMachine machine;
+	EXPECT_TRUE(machine.canSwitchStacks());
+
+	ASSERT_TRUE(machine.enter(State::ACTION));
+	EXPECT_FALSE(machine.canSwitchStacks());
+
+	ASSERT_TRUE(machine.enter(State::TARGET));
+	EXPECT_FALSE(machine.canSwitchStacks());
+
+	machine.reset();
+	EXPECT_TRUE(machine.canSwitchStacks());
+}
