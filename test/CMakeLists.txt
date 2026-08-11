@@ -39,6 +39,7 @@ set(test_SRCS
 		game/HeroRecruitmentTest.cpp
 		game/HeroSecondarySkillsTest.cpp
 
+		json/ControllerTriggerThresholdSettingsTest.cpp
 		json/JsonTests.cpp
 
 		map/CMapEditManagerTest.cpp
