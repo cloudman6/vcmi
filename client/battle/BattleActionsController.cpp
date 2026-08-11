@@ -232,6 +232,11 @@ void BattleActionsController::endCastingSpell()
 	ENGINE->fakeMouseMove();
 }
 
+bool BattleActionsController::isCastingSpell() const
+{
+	return heroSpellToCast != nullptr || monsterCaster != nullptr;
+}
+
 bool BattleActionsController::isActiveStackSpellcaster() const
 {
 	const CStack * casterStack = owner.stacksController->getActiveStack();

@@ -313,6 +313,24 @@ void BattleInterface::handleFocusNavigationShortcut(EShortcut shortcut)
 	focusNavigation->handleShortcut(shortcut, ENGINE->input().getCurrentInputMode());
 }
 
+void BattleInterface::handleControllerCancel()
+{
+	const bool controllerMode = ENGINE->input().getCurrentInputMode() == InputMode::CONTROLLER;
+
+	if(controllerMode && controllerStates.cancel())
+		return; // one interaction layer popped, stay in battle
+
+	if(actionsController->isCastingSpell())
+	{
+		actionsController->endCastingSpell();
+		return;
+	}
+
+	// idle in controller mode: B returns to the parent layer
+	if(controllerMode)
+		windowObject->openOptionsWindow();
+}
+
 void BattleInterface::sendCommand(BattleAction command, const CStack * actor)
 {
 	command.stackNumber = actor ? actor->unitId() : ((command.side == BattleSide::ATTACKER) ? -1 : -2);

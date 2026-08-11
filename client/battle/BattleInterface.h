@@ -10,6 +10,7 @@
 #pragma once
 
 #include "BattleConstants.h"
+#include "BattleControllerStateMachine.h"
 #include "BattleFocusModel.h"
 #include "BattleFocusNavigation.h"
 
@@ -151,6 +152,8 @@ public:
 	BattleFocusModel focusModel;
 	/// routes controller navigation shortcuts onto the focus model
 	std::unique_ptr<BattleFocusNavigation> focusNavigation;
+	/// controller interaction state stack (Browse/Action/Target/AttackDirection/Preview/Commit)
+	BattleControllerStateMachine controllerStates;
 
 	std::shared_ptr<BattleHero> attackingHero;
 	std::shared_ptr<BattleHero> defendingHero;
@@ -175,6 +178,9 @@ public:
 
 	/// forwards navigation shortcuts to the focus model when controller input mode is active
 	void handleFocusNavigationShortcut(EShortcut shortcut);
+
+	/// controller B contract: pop one state layer, fall back to spell cancel, open options when idle
+	void handleControllerCancel();
 
 	void sendCommand(BattleAction command, const CStack * actor = nullptr);
 

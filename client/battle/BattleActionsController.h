@@ -109,6 +109,9 @@ public:
 	/// ends casting spell (eg. when spell has been cast or canceled)
 	void endCastingSpell();
 
+	/// true while a hero or creature spell is awaiting target selection
+	bool isCastingSpell() const;
+
 	/// update cursor and status bar according to new active hex
 	void onHexHovered(const BattleHex & hoveredHex);
 

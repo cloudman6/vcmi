@@ -103,6 +103,9 @@ public:
 	/// Closes window once battle finished
 	void close();
 
+	/// Opens the battle options window; used by the controller idle-cancel contract
+	void openOptionsWindow();
+
 	/// Toggle StackQueue visibility
 	void hideQueue();
 	void showQueue();

@@ -118,7 +118,7 @@ BattleWindow::BattleWindow(BattleInterface & Owner)
 	addShortcut(EShortcut::BATTLE_TOGGLE_QUEUE, [this](){ this->toggleQueueVisibility();});
 	addShortcut(EShortcut::BATTLE_TOGGLE_HEROES_STATS, [this](){ this->toggleStickyHeroWindowsVisibility();});
 	addShortcut(EShortcut::BATTLE_USE_CREATURE_SPELL, [this](){ this->owner.actionsController->enterCreatureCastingMode(); });
-	addShortcut(EShortcut::GLOBAL_CANCEL, [this](){ this->owner.actionsController->endCastingSpell(); });
+	addShortcut(EShortcut::GLOBAL_CANCEL, [this](){ this->owner.handleControllerCancel(); });
 	addShortcut(EShortcut::ADVENTURE_QUICK_LOAD, [this](){
 		//allow quick load only on player turn while no animations are ongoing
 		if (!this->owner.hasAnimations() && this->owner.stacksController->getActiveStack())
@@ -592,6 +592,11 @@ void BattleWindow::bOptionsf()
 	ENGINE->cursor().set(Cursor::Map::POINTER);
 
 	ENGINE->windows().createAndPushWindow<SettingsMainWindow>(&owner);
+}
+
+void BattleWindow::openOptionsWindow()
+{
+	bOptionsf();
 }
 
 void BattleWindow::bSurrenderf()
