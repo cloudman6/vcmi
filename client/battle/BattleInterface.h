@@ -10,6 +10,8 @@
 #pragma once
 
 #include "BattleConstants.h"
+#include "BattleFocusModel.h"
+#include "BattleFocusNavigation.h"
 
 #include "../gui/CIntObject.h"
 
@@ -145,6 +147,11 @@ public:
 	std::unique_ptr<BattleActionsController> actionsController;
 	std::unique_ptr<BattleEffectsController> effectsController;
 
+	/// persistent controller focus position on the battlefield
+	BattleFocusModel focusModel;
+	/// routes controller navigation shortcuts onto the focus model
+	std::unique_ptr<BattleFocusNavigation> focusNavigation;
+
 	std::shared_ptr<BattleHero> attackingHero;
 	std::shared_ptr<BattleHero> defendingHero;
 
@@ -165,6 +172,9 @@ public:
 
 	void giveCommand(EActionType action, const BattleHex & tile = BattleHex(), SpellID spell = SpellID::NONE);
 	void giveCommand(EActionType action, const std::vector<BattleHex> & tiles, SpellID spell = SpellID::NONE);
+
+	/// forwards navigation shortcuts to the focus model when controller input mode is active
+	void handleFocusNavigationShortcut(EShortcut shortcut);
 
 	void sendCommand(BattleAction command, const CStack * actor = nullptr);
 

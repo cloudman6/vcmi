@@ -218,6 +218,7 @@ add_subdirectory_with_folder("3rdparty" googletest EXCLUDE_FROM_ALL)
 if(ENABLE_CLIENT)
 	add_executable(vcmi_cobject_list_window_controller_test
 		BattleFocusModelTest.cpp
+		BattleFocusNavigationTest.cpp
 		CObjectListWindowControllerTest.cpp
 	)
 	target_link_libraries(vcmi_cobject_list_window_controller_test PRIVATE gtest_main vcmiclientcommon)

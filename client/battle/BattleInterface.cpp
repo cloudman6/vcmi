@@ -64,6 +64,7 @@ BattleInterface::BattleInterface(const BattleID & battleID, const CCreatureSet *
 	, battleID(battleID)
 	, battleOpeningDelayActive(true)
 	, round(0)
+	, focusNavigation(std::make_unique<BattleFocusNavigation>(focusModel))
 {
 	if(spectatorInt)
 	{
@@ -305,6 +306,11 @@ void BattleInterface::giveCommand(EActionType action, const std::vector<BattleHe
 	ba.spell = spell;
 
 	sendCommand(ba, actor);
+}
+
+void BattleInterface::handleFocusNavigationShortcut(EShortcut shortcut)
+{
+	focusNavigation->handleShortcut(shortcut, ENGINE->input().getCurrentInputMode());
 }
 
 void BattleInterface::sendCommand(BattleAction command, const CStack * actor)

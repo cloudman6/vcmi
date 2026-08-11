@@ -99,6 +99,12 @@ BattleWindow::BattleWindow(BattleInterface & Owner)
 	addShortcut(EShortcut::BATTLE_DEFEND, std::bind(&BattleWindow::bDefencef, this));
 	addShortcut(EShortcut::BATTLE_CONSOLE_UP, std::bind(&BattleWindow::bConsoleUpf, this));
 	addShortcut(EShortcut::BATTLE_CONSOLE_DOWN, std::bind(&BattleWindow::bConsoleDownf, this));
+
+	// controller D-pad focus navigation, consumed only in controller input mode
+	addShortcut(EShortcut::MOVE_UP, [this](){ owner.handleFocusNavigationShortcut(EShortcut::MOVE_UP); });
+	addShortcut(EShortcut::MOVE_DOWN, [this](){ owner.handleFocusNavigationShortcut(EShortcut::MOVE_DOWN); });
+	addShortcut(EShortcut::MOVE_LEFT, [this](){ owner.handleFocusNavigationShortcut(EShortcut::MOVE_LEFT); });
+	addShortcut(EShortcut::MOVE_RIGHT, [this](){ owner.handleFocusNavigationShortcut(EShortcut::MOVE_RIGHT); });
 	addShortcut(EShortcut::BATTLE_TACTICS_NEXT, std::bind(&BattleWindow::bTacticNextStack, this));
 	addShortcut(EShortcut::BATTLE_TACTICS_END, std::bind(&BattleWindow::bTacticPhaseEnd, this));
 	addShortcut(EShortcut::BATTLE_OPEN_ACTIVE_UNIT, std::bind(&BattleWindow::bOpenActiveUnit, this));
