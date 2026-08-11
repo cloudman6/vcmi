@@ -45,6 +45,7 @@ set(test_SRCS
 		game/HeroSecondarySkillsTest.cpp
 		game/MovementCostTest.cpp
 
+		json/ControllerTriggerThresholdSettingsTest.cpp
 		json/JsonTests.cpp
 
 		map/CMapEditManagerTest.cpp
