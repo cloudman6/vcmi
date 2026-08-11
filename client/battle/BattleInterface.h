@@ -188,6 +188,11 @@ public:
 	/// pre-existing wait/defend shortcut behavior.
 	bool trySwitchStack(bool forward);
 
+	/// D2: controller A contract for the movement preview - start previewing
+	/// on a reachable focus, commit the move on a second press, back out when
+	/// the focus stopped being reachable. No-op outside controller mode.
+	void handleControllerAccept();
+
 	void sendCommand(BattleAction command, const CStack * actor = nullptr);
 
 	const CGHeroInstance *getActiveHero(); //returns hero that can currently cast a spell

@@ -107,6 +107,7 @@ BattleWindow::BattleWindow(BattleInterface & Owner)
 	addShortcut(EShortcut::MOVE_DOWN, [this](){ owner.handleFocusNavigationShortcut(EShortcut::MOVE_DOWN); });
 	addShortcut(EShortcut::MOVE_LEFT, [this](){ owner.handleFocusNavigationShortcut(EShortcut::MOVE_LEFT); });
 	addShortcut(EShortcut::MOVE_RIGHT, [this](){ owner.handleFocusNavigationShortcut(EShortcut::MOVE_RIGHT); });
+	addShortcut(EShortcut::GLOBAL_ACCEPT, [this](){ owner.handleControllerAccept(); });
 	addShortcut(EShortcut::BATTLE_TACTICS_NEXT, std::bind(&BattleWindow::bTacticNextStack, this));
 	addShortcut(EShortcut::BATTLE_TACTICS_END, std::bind(&BattleWindow::bTacticPhaseEnd, this));
 	addShortcut(EShortcut::BATTLE_OPEN_ACTIVE_UNIT, std::bind(&BattleWindow::bOpenActiveUnit, this));

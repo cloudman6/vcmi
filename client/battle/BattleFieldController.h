@@ -123,6 +123,10 @@ public:
 	/// Returns ID of currently hovered hex or BattleHex::INVALID if none
 	BattleHex getHoveredHex();
 
+	/// hexes to which the active stack can move (for double-wide units only
+	/// the head hex is listed); empty until the background is redrawn
+	const BattleHexArray & getAvailableHexes() const;
+
 	/// Returns the currently hovered stack
 	const CStack* getHoveredStack();
 

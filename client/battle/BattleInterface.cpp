@@ -16,6 +16,7 @@
 #include "BattleEffectsController.h"
 #include "BattleFieldController.h"
 #include "BattleHero.h"
+#include "BattleMovementPreview.h"
 #include "BattleObstacleController.h"
 #include "BattleProjectileController.h"
 #include "BattleRenderer.h"
@@ -313,6 +314,13 @@ void BattleInterface::giveCommand(EActionType action, const std::vector<BattleHe
 void BattleInterface::handleFocusNavigationShortcut(EShortcut shortcut)
 {
 	focusNavigation->handleShortcut(shortcut, ENGINE->input().getCurrentInputMode());
+
+	// keep the official hover feedback in sync with the focus while the
+	// controller movement preview is open
+	if(ENGINE->input().getCurrentInputMode() == InputMode::CONTROLLER
+		&& controllerStates.top() == BattleControllerStateMachine::State::PREVIEW
+		&& focusModel.hasFocus())
+		actionsController->onHexHovered(focusModel.getFocusedHex());
 }
 
 void BattleInterface::handleControllerCancel()
@@ -380,6 +388,42 @@ bool BattleInterface::trySwitchStack(bool forward)
 		return false;
 
 	return focusModel.setFocus(entry.headHex);
+}
+
+void BattleInterface::handleControllerAccept()
+{
+	if(ENGINE->input().getCurrentInputMode() != InputMode::CONTROLLER)
+		return;
+
+	// the own stack's current position is never a movement destination
+	const CStack * activeStack = stacksController->getActiveStack();
+	const bool focusedReachable = activeStack != nullptr
+		&& focusModel.hasFocus()
+		&& focusModel.getFocusedHex() != activeStack->getPosition()
+		&& fieldController->getAvailableHexes().contains(focusModel.getFocusedHex());
+
+	switch(BattleMovementPreview::decideAccept(controllerStates.top(), focusedReachable))
+	{
+		case BattleMovementPreview::Outcome::START_PREVIEW:
+			controllerStates.enter(BattleControllerStateMachine::State::PREVIEW);
+			actionsController->onHexHovered(focusModel.getFocusedHex());
+			return;
+		case BattleMovementPreview::Outcome::COMMIT:
+		{
+			controllerStates.enter(BattleControllerStateMachine::State::COMMIT);
+			// same destination resolution as the mouse MOVE_STACK path
+			const auto toHex = getBattle()->toWhichHexMove(activeStack, focusModel.getFocusedHex());
+			if(toHex.isValid())
+				giveCommand(EActionType::WALK, toHex);
+			controllerStates.reset();
+			return;
+		}
+		case BattleMovementPreview::Outcome::CANCEL_PREVIEW:
+			controllerStates.cancel();
+			return;
+		case BattleMovementPreview::Outcome::NONE:
+			return;
+	}
 }
 
 void BattleInterface::sendCommand(BattleAction command, const CStack * actor)

@@ -408,6 +408,12 @@ BattleHexArray BattleFieldController::getMovementRangeForHoveredStack()
 	if (!owner.stacksController->getActiveStack())
 		return BattleHexArray();
 
+	// D2: the controller movement preview always shows the active stack
+	// movement range, independent of the hover-only display setting
+	if (ENGINE->input().getCurrentInputMode() == InputMode::CONTROLLER
+		&& owner.controllerStates.top() == BattleControllerStateMachine::State::PREVIEW)
+		return owner.getBattle()->battleGetOccupiableHexes(owner.stacksController->getActiveStack(), true);
+
 	if (!settings["battle"]["movementHighlightOnHover"].Bool() && !ENGINE->isKeyboardShiftDown())
 		return BattleHexArray();
 
@@ -747,6 +753,14 @@ bool BattleFieldController::isPixelInHex(Point const & position)
 
 BattleHex BattleFieldController::getHoveredHex()
 {
+	// D2: during the controller movement preview the focused hex plays the
+	// role of the hovered hex, so the official hover feedback set (target
+	// shading and landing shadow) follows the focus
+	if(ENGINE->input().getCurrentInputMode() == InputMode::CONTROLLER
+		&& owner.controllerStates.top() == BattleControllerStateMachine::State::PREVIEW
+		&& owner.focusModel.hasFocus())
+		return owner.focusModel.getFocusedHex();
+
 	// if mouse is not over the battlefield itself but over a stack in the battle queue,
 	// treat the position of that stack as the hovered hex so that pointing at the queue
 	// is equivalent to pointing at the stack on the battlefield
@@ -757,6 +771,11 @@ BattleHex BattleFieldController::getHoveredHex()
 	}
 
 	return hoveredHex;
+}
+
+const BattleHexArray & BattleFieldController::getAvailableHexes() const
+{
+	return availableHexes;
 }
 
 const CStack* BattleFieldController::getQueueHoveredStack() const

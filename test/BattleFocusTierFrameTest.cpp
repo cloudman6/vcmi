@@ -254,3 +254,107 @@ TEST_F(BattleFocusTierFrameTest, FourTierMarkersComposeOnRealBattlefield)
 		EXPECT_GT(distance, 48);
 	}
 }
+
+/// Composes the D2 controller movement preview for an attacker-side
+/// double-wide stack through the same production primitives the battlefield
+/// uses (UnitMovementHighlight range, CCELLSHD landing shadow with dark
+/// border, MOVABLE tier focus marker on the head hex) and exports evidence.
+TEST_F(BattleFocusTierFrameTest, WideUnitMovePreviewLandingShadowCoversBothHexes)
+{
+	auto & renderer = ENGINE->renderHandler();
+
+	auto background = renderer.loadImage(ImagePath::builtin("CMBKDES.BMP"), EImageBlitMode::OPAQUE);
+	auto cellBorder = renderer.loadImage(ImagePath::builtin("CCELLGRD.BMP"), EImageBlitMode::COLORKEY);
+	auto cellShade = renderer.loadImage(ImagePath::builtin("CCELLSHD.BMP"), EImageBlitMode::SIMPLE);
+	auto movementHighlight = renderer.loadImage(ImagePath::builtin("UnitMovementHighlight.PNG"), EImageBlitMode::COLORKEY);
+
+	ASSERT_GT(background->width(), 0);
+	ASSERT_GT(background->height(), 0);
+
+	SDL_Surface * surface = SDL_CreateRGBSurfaceWithFormat(
+		0, background->width(), background->height(), 32, SDL_PIXELFORMAT_ARGB8888);
+	ASSERT_NE(surface, nullptr);
+	std::unique_ptr<SDL_Surface, decltype(&SDL_FreeSurface)> surfaceOwner(surface, SDL_FreeSurface);
+
+	Canvas canvas = Canvas::createFromSurface(surface, CanvasScalingPolicy::IGNORE);
+	canvas.draw(background, Point(0, 0));
+
+	for(int hex = 0; hex < GameConstants::BFIELD_SIZE; ++hex)
+	{
+		if(hex % GameConstants::BFIELD_WIDTH == 0)
+			continue;
+		if(hex % GameConstants::BFIELD_WIDTH == GameConstants::BFIELD_WIDTH - 1)
+			continue;
+		canvas.draw(cellBorder, hexTopLeft(hex));
+	}
+
+	// attacker-side double-wide landing: the head hex plus the tail hex one
+	// column to the left, exactly as battle::Unit::occupiedHex computes it
+	const BattleHex headHex(7, 5);
+	const BattleHex tailHex(headHex.toInt() - 1);
+	ASSERT_EQ(tailHex, BattleHex(6, 5));
+
+	// movement range highlight on a few representative reachable hexes
+	for(const BattleHex & hex : {BattleHex(4, 5), BattleHex(5, 4), BattleHex(9, 5)})
+		canvas.draw(movementHighlight, hexTopLeft(hex));
+
+	// landing shadow with dark border on both occupied hexes, mirroring the
+	// official mouse-shadow path (cellShade drawn with darkBorder = true)
+	for(const BattleHex & hex : {headHex, tailHex})
+	{
+		canvas.draw(cellShade, hexTopLeft(hex));
+		canvas.draw(cellBorder, hexTopLeft(hex));
+	}
+
+	// controller focus marker sits on the head hex only (D8)
+	const auto render = BattleFocusHighlights::loadTierRender(BattleFocusTier::Tier::MOVABLE);
+	if(render.shadeOverlay)
+		canvas.draw(cellShade, hexTopLeft(headHex));
+	canvas.draw(render.highlight, hexTopLeft(headHex));
+	if(render.borderOverlay)
+		canvas.draw(cellBorder, hexTopLeft(headHex));
+
+	const auto outputDir = captureDir().parent_path() / "m3-1-move-preview";
+	boost::filesystem::create_directories(outputDir);
+
+	SDLImageShared frame(surface);
+	frame.exportBitmap(outputDir / "move-preview-full.png", nullptr);
+
+	SDL_Surface * crop = SDL_CreateRGBSurfaceWithFormat(0, 2 * 44 + 45, 60, 32, SDL_PIXELFORMAT_ARGB8888);
+	ASSERT_NE(crop, nullptr);
+	SDL_Rect cropSource{hexTopLeft(tailHex).x, hexTopLeft(tailHex).y - 4, crop->w, crop->h};
+	SDL_BlitSurface(surface, &cropSource, crop, nullptr);
+	SDLImageShared cropImage(crop);
+	cropImage.exportBitmap(outputDir / "move-preview-crop.png", nullptr);
+
+	auto interiorPixel = [&](const BattleHex & hex)
+	{
+		return pixelAt(surface, hexTopLeft(hex) + Point(22, 22));
+	};
+
+	const auto headPixel = interiorPixel(headHex);
+	const auto tailPixel = interiorPixel(tailHex);
+	const auto backgroundPixel = interiorPixel(BattleHex(12, 5));
+	const auto unshadedNeighborPixel = interiorPixel(BattleHex(8, 5));
+
+	logGlobal->info(
+		"move preview frame evidence at %s: head=(%d,%d,%d) tail=(%d,%d,%d) background=(%d,%d,%d)",
+		outputDir.string(),
+		headPixel.r, headPixel.g, headPixel.b,
+		tailPixel.r, tailPixel.g, tailPixel.b,
+		backgroundPixel.r, backgroundPixel.g, backgroundPixel.b);
+
+	// head hex carries the frozen green movable focus marker
+	EXPECT_GT(headPixel.g, headPixel.r);
+	EXPECT_GT(headPixel.g, headPixel.b);
+
+	// both landing hexes are shaded darker than the unshaded background
+	EXPECT_LT(luminance(tailPixel), luminance(backgroundPixel));
+	EXPECT_LT(luminance(tailPixel), luminance(unshadedNeighborPixel));
+
+	// tail and head must not look identical: only the head has the marker
+	const int headTailDistance = std::abs(headPixel.r - tailPixel.r)
+		+ std::abs(headPixel.g - tailPixel.g)
+		+ std::abs(headPixel.b - tailPixel.b);
+	EXPECT_GT(headTailDistance, 24);
+}
