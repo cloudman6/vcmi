@@ -469,22 +469,42 @@ BattleRangedShooting::DisabledReason BattleInterface::shootingDisabledReason() c
 		battle->battleCanShoot(activeStack, focusHex));
 }
 
+BattleHintBar::Context BattleInterface::buildHintContext() const
+{
+	BattleHintBar::Context context;
+
+	const CStack * activeStack = stacksController->getActiveStack();
+	// the own stack's current position is never a movement destination
+	context.focusedReachable = activeStack != nullptr
+		&& focusModel.hasFocus()
+		&& focusModel.getFocusedHex() != activeStack->getPosition()
+		&& fieldController->getAvailableHexes().contains(focusModel.getFocusedHex());
+
+	context.attackable = !meleeAttackCandidates().empty();
+
+	const CStack * targetStack = activeStack != nullptr && focusModel.hasFocus()
+		? getBattle()->battleGetStackByPos(focusModel.getFocusedHex(), true)
+		: nullptr;
+	const bool enemyFocus = targetStack != nullptr && targetStack->unitSide() != activeStack->unitSide();
+	context.shootable = enemyFocus && getBattle()->battleCanShoot(activeStack, focusModel.getFocusedHex());
+	context.shootingDisabled = shootingDisabledReason();
+	return context;
+}
+
 void BattleInterface::handleControllerAccept()
 {
 	if(ENGINE->input().getCurrentInputMode() != InputMode::CONTROLLER)
 		return;
 
-	// the own stack's current position is never a movement destination
+	// D6: the hint bar and the accept dispatch derive their view of the
+	// focus from one shared context so prompts and actions always agree
+	const auto hintContext = buildHintContext();
 	const CStack * activeStack = stacksController->getActiveStack();
-	const bool focusedReachable = activeStack != nullptr
-		&& focusModel.hasFocus()
-		&& focusModel.getFocusedHex() != activeStack->getPosition()
-		&& fieldController->getAvailableHexes().contains(focusModel.getFocusedHex());
 
 	// melee attack takes priority: an enemy focus is never a movement
 	// destination, so both contracts can only compete on empty overlap
 	const auto meleeOrigins = meleeAttackCandidates();
-	const bool attackable = !meleeOrigins.empty();
+	const bool attackable = hintContext.attackable;
 
 	switch(BattleAttackDirection::decideAccept(controllerStates.top(), attackable))
 	{
@@ -519,13 +539,7 @@ void BattleInterface::handleControllerAccept()
 
 	// D4: shooting takes priority over movement for the same reason - an
 	// enemy focus is never a movement destination
-	const CStack * targetStack = activeStack != nullptr && focusModel.hasFocus()
-		? getBattle()->battleGetStackByPos(focusModel.getFocusedHex(), true)
-		: nullptr;
-	const bool enemyFocus = targetStack != nullptr && targetStack->unitSide() != activeStack->unitSide();
-	const bool shootable = enemyFocus && getBattle()->battleCanShoot(activeStack, focusModel.getFocusedHex());
-
-	switch(BattleRangedShooting::decideAccept(controllerStates.top(), shootable))
+	switch(BattleRangedShooting::decideAccept(controllerStates.top(), hintContext.shootable))
 	{
 		case BattleRangedShooting::Outcome::START_ACTION:
 			controllerStates.enter(BattleControllerStateMachine::State::ACTION);
@@ -543,7 +557,7 @@ void BattleInterface::handleControllerAccept()
 			break;
 	}
 
-	switch(BattleMovementPreview::decideAccept(controllerStates.top(), focusedReachable))
+	switch(BattleMovementPreview::decideAccept(controllerStates.top(), hintContext.focusedReachable))
 	{
 		case BattleMovementPreview::Outcome::START_PREVIEW:
 			controllerStates.enter(BattleControllerStateMachine::State::PREVIEW);

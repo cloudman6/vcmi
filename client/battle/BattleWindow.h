@@ -20,6 +20,7 @@ class CGTownInstance;
 class CButton;
 class BattleInterface;
 class BattleConsole;
+class BattleHintBarWidget;
 class BattleRenderer;
 class StackQueue;
 class TurnTimerWidget;
@@ -35,6 +36,8 @@ class BattleWindow : public InterfaceObjectConfigurable
 
 	std::shared_ptr<StackQueue> queue;
 	std::shared_ptr<BattleConsole> console;
+	/// D6: contextual controller hint bar overlay
+	std::shared_ptr<BattleHintBarWidget> hintBar;
 	std::shared_ptr<HeroInfoBasicPanel> attackerHeroWindow;
 	std::shared_ptr<HeroInfoBasicPanel> defenderHeroWindow;
 	std::shared_ptr<StackInfoBasicPanel> attackerStackWindow;
@@ -142,6 +145,7 @@ public:
 	void activate() override;
 	void deactivate() override;
 	void keyPressed(EShortcut key) override;
+	void keyReleased(EShortcut key) override;
 	bool captureThisKey(EShortcut key) override;
 	void clickPressed(const Point & cursorPosition) override;
 	void show(Canvas & to) override;

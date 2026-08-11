@@ -13,6 +13,7 @@
 #include "BattleActionsController.h"
 #include "BattleConsole.h"
 #include "BattleFieldController.h"
+#include "BattleHintBarPresenter.h"
 #include "BattleInterface.h"
 #include "BattleStacksController.h"
 #include "HeroInfoWindow.h"
@@ -130,8 +131,13 @@ BattleWindow::BattleWindow(BattleInterface & Owner)
 	build(config);
 	
 	console = widget<BattleConsole>("console");
-
+	
 	owner.console = console;
+	
+	// D6: the contextual controller hint bar draws between the embedded turn
+	// queue and the top hex row; created after the other widgets so it blits
+	// on top of them
+	hintBar = std::make_shared<BattleHintBarWidget>(owner);
 
 	owner.fieldController.reset( new BattleFieldController(owner));
 	owner.fieldController->createHeroes();
@@ -538,7 +544,18 @@ void BattleWindow::keyPressed(EShortcut key)
 		owner.openingEnd();
 		return;
 	}
+	// M2 pressed convention: the hint bar shows the pressed accept glyph
+	// while the button is held
+	if(key == EShortcut::GLOBAL_ACCEPT)
+		hintBar->setAcceptPressed(true);
 	InterfaceObjectConfigurable::keyPressed(key);
+}
+
+void BattleWindow::keyReleased(EShortcut key)
+{
+	if(key == EShortcut::GLOBAL_ACCEPT)
+		hintBar->setAcceptPressed(false);
+	InterfaceObjectConfigurable::keyReleased(key);
 }
 
 void BattleWindow::clickPressed(const Point & cursorPosition)

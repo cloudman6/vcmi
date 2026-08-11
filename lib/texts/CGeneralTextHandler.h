@@ -14,6 +14,7 @@
 
 class CGeneralTextHandler;
 class CObjectListWindowControllerTest;
+class BattleFocusTierFrameTest;
 
 /// Small wrapper that provides text access API compatible with old code
 class DLL_LINKAGE LegacyTextContainer
@@ -41,6 +42,7 @@ public:
 class DLL_LINKAGE CGeneralTextHandler: public TextLocalizationContainer
 {
 	friend class CObjectListWindowControllerTest;
+	friend class BattleFocusTierFrameTest;
 
 	struct TestConstructionTag {};
 

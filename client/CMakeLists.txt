@@ -28,6 +28,7 @@ set(vcmiclientcommon_SRCS
 	battle/BattleFocusTier.cpp
 	battle/BattleHero.cpp
 	battle/BattleHintBar.cpp
+	battle/BattleHintBarPresenter.cpp
 	battle/BattleInterface.cpp
 	battle/BattleMovementPreview.cpp
 	battle/BattleObstacleController.cpp
@@ -265,6 +266,7 @@ set(vcmiclientcommon_HEADERS
 	battle/BattleFocusTier.h
 	battle/BattleHero.h
 	battle/BattleHintBar.h
+	battle/BattleHintBarPresenter.h
 	battle/BattleInterface.h
 	battle/BattleMovementPreview.h
 	battle/BattleObstacleController.h

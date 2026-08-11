@@ -13,6 +13,8 @@
 #include "../client/battle/BattleDirectionArrow.h"
 #include "../client/battle/BattleFocusHighlights.h"
 #include "../client/battle/BattleFocusTier.h"
+#include "../client/battle/BattleHintBar.h"
+#include "../client/battle/BattleHintBarPresenter.h"
 #include "../client/GameEngine.h"
 #include "../client/eventsSDL/InputHandler.h"
 #include "../client/render/CAnimation.h"
@@ -31,12 +33,14 @@
 #include "../lib/filesystem/CFilesystemLoader.h"
 #include "../lib/filesystem/Filesystem.h"
 #include "../lib/filesystem/ResourcePath.h"
+#include "../lib/texts/CGeneralTextHandler.h"
 
 #include <gtest/gtest.h>
 
 #include <cmath>
 #include <cstdio>
 #include <cstdlib>
+#include <fstream>
 #include <SDL.h>
 #include <SDL_surface.h>
 
@@ -172,7 +176,18 @@ protected:
 			"initial",
 			"battle-frame-repo-sprites",
 			std::make_unique<CFilesystemLoader>("SPRITES/", sourceRoot / "Mods" / "vcmi" / "Content" / "Sprites", 16));
+		// the TrueType replacements for the hint bar texts ship with the core
+		// vcmi mod, not with the H3 archives
+		CResourceHandler::addFilesystem(
+			"initial",
+			"battle-frame-repo-fonts",
+			std::make_unique<CFilesystemLoader>("DATA/", sourceRoot / "Mods" / "vcmi" / "Content" / "Data", 16));
 		library->initializeFilesystem(false, /*useTestPreset*/ false);
+		// the hint bar frame evidence renders translated texts; initializeLibrary
+		// never runs in a bare test binary, so construct the text handler the
+		// same way as the content fixtures
+		library->generaltexth = std::unique_ptr<CGeneralTextHandler>(
+			new CGeneralTextHandler(CGeneralTextHandler::TestConstructionTag()));
 
 		// same probe order as RenderHandler::loadImageFromFileUncached; battle
 		// cell art lives in DATA/ (H3ab_bmp.lod), not SPRITES/
@@ -629,4 +644,117 @@ TEST_F(BattleFocusTierFrameTest, ShooterRangeLimitRingsComposeOnRealBattlefield)
 
 	EXPECT_GT(greenEdgePixels, 200);
 	EXPECT_GT(redEdgePixels, 200);
+}
+
+/// Composes the D6 contextual hint bar through the exact production
+/// presenter over a real battlefield and exports evidence. The bar renders
+/// in the strip between the embedded turn queue and the top hex row, so the
+/// frame also proves it covers no playable hex and leaves the D5 status host
+/// in the bottom panel untouched.
+TEST_F(BattleFocusTierFrameTest, HintBarComposesAboveTheBattlefield)
+{
+	// the bare test binary mounts no mod content, so load the frozen hint
+	// texts straight from the source checkout; the preferred language is
+	// loaded last so it wins, matching the mod loader order
+	const auto sourceRoot = boost::filesystem::path(__FILE__).parent_path().parent_path();
+	const auto translationsDir = sourceRoot / "Mods" / "vcmi" / "Content" / "config" / "translations";
+	const std::string preferredLanguage = CGeneralTextHandler::getPreferredLanguage();
+	for(const std::string & language : {std::string("english"), std::string("chinese"), preferredLanguage})
+	{
+		const auto path = translationsDir / (language + ".json");
+		std::ifstream stream(path.string(), std::ios::binary);
+		ASSERT_TRUE(stream.good()) << path.string();
+		const std::string raw((std::istreambuf_iterator<char>(stream)), std::istreambuf_iterator<char>());
+		LIBRARY->generaltexth->loadTranslationOverrides("vcmi", language, JsonNode(raw.data(), raw.size(), path.string()));
+	}
+
+	auto & renderer = ENGINE->renderHandler();
+
+	auto background = renderer.loadImage(ImagePath::builtin("CMBKDES.BMP"), EImageBlitMode::OPAQUE);
+	auto cellBorder = renderer.loadImage(ImagePath::builtin("CCELLGRD.BMP"), EImageBlitMode::COLORKEY);
+	auto cellShade = renderer.loadImage(ImagePath::builtin("CCELLSHD.BMP"), EImageBlitMode::SIMPLE);
+
+	ASSERT_GT(background->width(), 0);
+	ASSERT_GT(background->height(), 0);
+
+	SDL_Surface * surface = SDL_CreateRGBSurfaceWithFormat(
+		0, background->width(), background->height(), 32, SDL_PIXELFORMAT_ARGB8888);
+	ASSERT_NE(surface, nullptr);
+	std::unique_ptr<SDL_Surface, decltype(&SDL_FreeSurface)> surfaceOwner(surface, SDL_FreeSurface);
+
+	Canvas canvas = Canvas::createFromSurface(surface, CanvasScalingPolicy::IGNORE);
+	canvas.draw(background, Point(0, 0));
+
+	for(int hex = 0; hex < GameConstants::BFIELD_SIZE; ++hex)
+	{
+		if(hex % GameConstants::BFIELD_WIDTH == 0)
+			continue;
+		if(hex % GameConstants::BFIELD_WIDTH == GameConstants::BFIELD_WIDTH - 1)
+			continue;
+		canvas.draw(cellBorder, hexTopLeft(hex));
+	}
+
+	// browsing with an attackable enemy focus: own stack marker plus the
+	// attackable tint on the target, mirroring the live focus presentation
+	const BattleHex ownHex(4, 5);
+	const BattleHex enemyHex(7, 5);
+	const auto movableRender = BattleFocusHighlights::loadTierRender(BattleFocusTier::Tier::MOVABLE);
+	if(movableRender.shadeOverlay)
+		canvas.draw(cellShade, hexTopLeft(ownHex));
+	canvas.draw(movableRender.highlight, hexTopLeft(ownHex));
+	if(movableRender.borderOverlay)
+		canvas.draw(cellBorder, hexTopLeft(ownHex));
+
+	const auto attackableRender = BattleFocusHighlights::loadTierRender(BattleFocusTier::Tier::ATTACKABLE);
+	if(attackableRender.shadeOverlay)
+		canvas.draw(cellShade, hexTopLeft(enemyHex));
+	canvas.draw(attackableRender.highlight, hexTopLeft(enemyHex));
+	if(attackableRender.borderOverlay)
+		canvas.draw(cellBorder, hexTopLeft(enemyHex));
+
+	// same content contract and presenter as production
+	BattleHintBar::Context context;
+	context.attackable = true;
+	const auto entries = BattleHintBar::entries(InputMode::CONTROLLER, BattleControllerStateMachine::State::BROWSE, context);
+	ASSERT_EQ(entries.size(), 4u); // attack + back + RB switch + LB switch while browsing
+	const Rect barRect(0, BattleHintBarLayout::TOP, background->width(), BattleHintBarLayout::HEIGHT);
+	BattleHintBarPresenter::draw(canvas, entries, barRect, false);
+
+	const auto outputDir = captureDir().parent_path() / "m3-1-hint-bar";
+	boost::filesystem::create_directories(outputDir);
+
+	SDLImageShared frame(surface);
+	frame.exportBitmap(outputDir / "hint-bar-full.png", nullptr);
+
+	// strip crop with a few pixels of battlefield context above and below
+	SDL_Surface * crop = SDL_CreateRGBSurfaceWithFormat(0, barRect.w, barRect.h + 16, 32, SDL_PIXELFORMAT_ARGB8888);
+	ASSERT_NE(crop, nullptr);
+	SDL_Rect cropSource{0, barRect.y - 8, crop->w, crop->h};
+	SDL_BlitSurface(surface, &cropSource, crop, nullptr);
+	SDLImageShared cropImage(crop);
+	cropImage.exportBitmap(outputDir / "hint-bar-crop.png", nullptr);
+
+	// the frozen brown fills the strip exactly
+	const auto frozen = BattleHintBarPresenter::backgroundColor();
+	const auto barPixel = pixelAt(surface, Point(20, barRect.y + barRect.h / 2));
+	EXPECT_EQ(barPixel.r, frozen.r);
+	EXPECT_EQ(barPixel.g, frozen.g);
+	EXPECT_EQ(barPixel.b, frozen.b);
+
+	// PLAYER_PERCEIVABLE: the brown must stay dark enough for white text
+	EXPECT_LT(luminance(frozen), 110);
+
+	// prompt content is actually rendered: bright glyph discs and white text
+	// pixels inside the strip, well above the dark brown background
+	int brightStripPixels = 0;
+	for(int y = barRect.y; y < barRect.y + barRect.h; ++y)
+		for(int x = 0; x < barRect.w; ++x)
+			if(luminance(rawPixel(surface, x, y)) > 150)
+				++brightStripPixels;
+
+	logGlobal->info(
+		"hint bar frame evidence at %s: background=(%d,%d,%d) brightStripPixels=%d",
+		outputDir.string(), frozen.r, frozen.g, frozen.b, brightStripPixels);
+
+	EXPECT_GT(brightStripPixels, 100);
 }

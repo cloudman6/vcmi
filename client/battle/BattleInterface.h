@@ -13,6 +13,7 @@
 #include "BattleControllerStateMachine.h"
 #include "BattleFocusModel.h"
 #include "BattleFocusNavigation.h"
+#include "BattleHintBar.h"
 #include "BattleRangedShooting.h"
 
 #include "../gui/CIntObject.h"
@@ -203,6 +204,10 @@ public:
 	/// D4: BT-04 reason token for the focused target when the active stack
 	/// cannot shoot it; NONE when shooting is possible or not a concern.
 	BattleRangedShooting::DisabledReason shootingDisabledReason() const;
+
+	/// D6: focus context for the contextual hint bar, derived with the same
+	/// predicates as the accept dispatch so prompts and actions agree.
+	BattleHintBar::Context buildHintContext() const;
 
 	void sendCommand(BattleAction command, const CStack * actor = nullptr);
 
