@@ -220,6 +220,7 @@ if(ENABLE_CLIENT)
 		BattleControllerStateMachineTest.cpp
 		BattleFocusModelTest.cpp
 		BattleFocusNavigationTest.cpp
+		BattleFocusTierTest.cpp
 		CObjectListWindowControllerTest.cpp
 	)
 	target_link_libraries(vcmi_cobject_list_window_controller_test PRIVATE gtest_main vcmiclientcommon)
