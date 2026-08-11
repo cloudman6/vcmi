@@ -16,6 +16,7 @@
 #include "BattleConsole.h"
 #include "BattleEffectsController.h"
 #include "BattleFieldController.h"
+#include "BattleFocusStatusSync.h"
 #include "BattleHero.h"
 #include "BattleMovementPreview.h"
 #include "BattleObstacleController.h"
@@ -327,12 +328,12 @@ void BattleInterface::handleFocusNavigationShortcut(EShortcut shortcut)
 
 	focusNavigation->handleShortcut(shortcut, ENGINE->input().getCurrentInputMode());
 
-	// keep the official hover feedback in sync with the focus while the
-	// controller movement preview is open
-	if(ENGINE->input().getCurrentInputMode() == InputMode::CONTROLLER
-		&& controllerStates.top() == BattleControllerStateMachine::State::PREVIEW
-		&& focusModel.hasFocus())
-		actionsController->onHexHovered(focusModel.getFocusedHex());
+	// D5: the controller focus owns the official hover status host (damage
+	// and retaliation preview) in every layer, not only while the movement
+	// preview is open, so the focused target stays announced while navigating
+	const BattleHex statusHex = BattleFocusStatusSync::decide(ENGINE->input().getCurrentInputMode(), focusModel);
+	if(statusHex.isValid())
+		actionsController->onHexHovered(statusHex);
 }
 
 void BattleInterface::handleControllerCancel()
@@ -399,7 +400,13 @@ bool BattleInterface::trySwitchStack(bool forward)
 	if(entry.unitId < 0)
 		return false;
 
-	return focusModel.setFocus(entry.headHex);
+	if(!focusModel.setFocus(entry.headHex))
+		return false;
+
+	// same status host as the mouse hover path, so the damage preview
+	// follows the newly focused unit
+	actionsController->onHexHovered(BattleFocusStatusSync::decide(ENGINE->input().getCurrentInputMode(), focusModel));
+	return true;
 }
 
 std::vector<BattleHex> BattleInterface::meleeAttackCandidates() const
