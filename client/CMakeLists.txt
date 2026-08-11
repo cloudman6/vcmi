@@ -31,6 +31,7 @@ set(vcmiclientcommon_SRCS
 	battle/BattleObstacleController.cpp
 	battle/BattleOverlayLogVisualizer.cpp
 	battle/BattleProjectileController.cpp
+	battle/BattleRangedShooting.cpp
 	battle/BattleRenderer.cpp
 	battle/BattleResultWindow.cpp
 	battle/BattleSiegeController.cpp
@@ -265,6 +266,7 @@ set(vcmiclientcommon_HEADERS
 	battle/BattleObstacleController.h
 	battle/BattleOverlayLogVisualizer.h
 	battle/BattleProjectileController.h
+	battle/BattleRangedShooting.h
 	battle/BattleRenderer.h
 	battle/BattleResultWindow.h
 	battle/BattleSiegeController.h

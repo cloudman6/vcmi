@@ -13,6 +13,7 @@
 #include "BattleControllerStateMachine.h"
 #include "BattleFocusModel.h"
 #include "BattleFocusNavigation.h"
+#include "BattleRangedShooting.h"
 
 #include "../gui/CIntObject.h"
 
@@ -198,6 +199,10 @@ public:
 	/// D3: hexes the active stack can attack the focused enemy unit from,
 	/// in direction scan order; empty when the focus is not attackable.
 	std::vector<BattleHex> meleeAttackCandidates() const;
+
+	/// D4: BT-04 reason token for the focused target when the active stack
+	/// cannot shoot it; NONE when shooting is possible or not a concern.
+	BattleRangedShooting::DisabledReason shootingDisabledReason() const;
 
 	void sendCommand(BattleAction command, const CStack * actor = nullptr);
 

@@ -223,6 +223,7 @@ if(ENABLE_CLIENT)
 		BattleFocusNavigationTest.cpp
 		BattleFocusTierTest.cpp
 		BattleMovementPreviewTest.cpp
+		BattleRangedShootingTest.cpp
 		BattleStackSwitchingTest.cpp
 		CObjectListWindowControllerTest.cpp
 	)

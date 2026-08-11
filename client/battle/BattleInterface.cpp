@@ -20,6 +20,7 @@
 #include "BattleMovementPreview.h"
 #include "BattleObstacleController.h"
 #include "BattleProjectileController.h"
+#include "BattleRangedShooting.h"
 #include "BattleRenderer.h"
 #include "BattleResultWindow.h"
 #include "BattleSiegeController.h"
@@ -439,6 +440,28 @@ std::vector<BattleHex> BattleInterface::meleeAttackCandidates() const
 	return candidates;
 }
 
+BattleRangedShooting::DisabledReason BattleInterface::shootingDisabledReason() const
+{
+	const CStack * activeStack = stacksController->getActiveStack();
+	if(!activeStack || !focusModel.hasFocus())
+		return BattleRangedShooting::DisabledReason::NONE;
+
+	const auto battle = getBattle();
+	if(!battle)
+		return BattleRangedShooting::DisabledReason::NONE;
+
+	const BattleHex focusHex = focusModel.getFocusedHex();
+	const CStack * targetStack = battle->battleGetStackByPos(focusHex, true);
+	const bool enemyTarget = targetStack != nullptr && targetStack->unitSide() != activeStack->unitSide();
+
+	// same rule order as battleCanShoot: ammo, adjacent-enemy block, range
+	return BattleRangedShooting::classify(
+		enemyTarget,
+		activeStack->canShoot(),
+		!activeStack->canShootBlocked() && battle->battleIsUnitBlocked(activeStack),
+		battle->battleCanShoot(activeStack, focusHex));
+}
+
 void BattleInterface::handleControllerAccept()
 {
 	if(ENGINE->input().getCurrentInputMode() != InputMode::CONTROLLER)
@@ -484,6 +507,32 @@ void BattleInterface::handleControllerAccept()
 			controllerStates.cancel();
 			return;
 		case BattleAttackDirection::MeleeOutcome::NONE:
+			break;
+	}
+
+	// D4: shooting takes priority over movement for the same reason - an
+	// enemy focus is never a movement destination
+	const CStack * targetStack = activeStack != nullptr && focusModel.hasFocus()
+		? getBattle()->battleGetStackByPos(focusModel.getFocusedHex(), true)
+		: nullptr;
+	const bool enemyFocus = targetStack != nullptr && targetStack->unitSide() != activeStack->unitSide();
+	const bool shootable = enemyFocus && getBattle()->battleCanShoot(activeStack, focusModel.getFocusedHex());
+
+	switch(BattleRangedShooting::decideAccept(controllerStates.top(), shootable))
+	{
+		case BattleRangedShooting::Outcome::START_ACTION:
+			controllerStates.enter(BattleControllerStateMachine::State::ACTION);
+			actionsController->onHexHovered(focusModel.getFocusedHex());
+			return;
+		case BattleRangedShooting::Outcome::COMMIT:
+			controllerStates.enter(BattleControllerStateMachine::State::COMMIT);
+			giveCommand(EActionType::SHOOT, focusModel.getFocusedHex());
+			controllerStates.reset();
+			return;
+		case BattleRangedShooting::Outcome::CANCEL_LAYER:
+			controllerStates.cancel();
+			return;
+		case BattleRangedShooting::Outcome::NONE:
 			break;
 	}
 
