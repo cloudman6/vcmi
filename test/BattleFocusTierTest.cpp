@@ -54,3 +54,53 @@ TEST(BattleFocusTierTest, illegalTargetDominatesEveryAffordance)
 	ASSERT_TRUE(tier.has_value());
 	EXPECT_EQ(*tier, Tier::ILLEGAL);
 }
+
+TEST(BattleFocusTierTest, neutralVisualUsesPlainHighlight)
+{
+	auto visual = BattleFocusTier::visual(Tier::NEUTRAL);
+	EXPECT_FALSE(visual.shadeOverlay);
+	EXPECT_FALSE(visual.borderOverlay);
+	EXPECT_FALSE(visual.dimmedHighlight);
+}
+
+TEST(BattleFocusTierTest, movableVisualAddsShadeOverlay)
+{
+	auto visual = BattleFocusTier::visual(Tier::MOVABLE);
+	EXPECT_TRUE(visual.shadeOverlay);
+	EXPECT_FALSE(visual.borderOverlay);
+	EXPECT_FALSE(visual.dimmedHighlight);
+}
+
+TEST(BattleFocusTierTest, attackableVisualAddsBorderOverlay)
+{
+	auto visual = BattleFocusTier::visual(Tier::ATTACKABLE);
+	EXPECT_FALSE(visual.shadeOverlay);
+	EXPECT_TRUE(visual.borderOverlay);
+	EXPECT_FALSE(visual.dimmedHighlight);
+}
+
+TEST(BattleFocusTierTest, illegalVisualDimsAndShadesHighlight)
+{
+	auto visual = BattleFocusTier::visual(Tier::ILLEGAL);
+	EXPECT_TRUE(visual.shadeOverlay);
+	EXPECT_FALSE(visual.borderOverlay);
+	EXPECT_TRUE(visual.dimmedHighlight);
+}
+
+TEST(BattleFocusTierTest, everyTierPairDiffersWithoutColor)
+{
+	// freeze F-7: neutral/movable/attackable must stay distinguishable
+	// without relying on hue, so each tier pair needs a differing cue
+	auto cues = [](Tier tier)
+	{
+		auto v = BattleFocusTier::visual(tier);
+		return std::make_tuple(v.shadeOverlay, v.borderOverlay, v.dimmedHighlight);
+	};
+
+	EXPECT_NE(cues(Tier::NEUTRAL), cues(Tier::MOVABLE));
+	EXPECT_NE(cues(Tier::NEUTRAL), cues(Tier::ATTACKABLE));
+	EXPECT_NE(cues(Tier::NEUTRAL), cues(Tier::ILLEGAL));
+	EXPECT_NE(cues(Tier::MOVABLE), cues(Tier::ATTACKABLE));
+	EXPECT_NE(cues(Tier::MOVABLE), cues(Tier::ILLEGAL));
+	EXPECT_NE(cues(Tier::ATTACKABLE), cues(Tier::ILLEGAL));
+}

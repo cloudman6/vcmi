@@ -27,3 +27,19 @@ std::optional<BattleFocusTier::Tier> BattleFocusTier::classify(bool hasFocus, bo
 
 	return Tier::NEUTRAL;
 }
+
+BattleFocusTier::FocusVisual BattleFocusTier::visual(Tier tier)
+{
+	switch(tier)
+	{
+		case Tier::NEUTRAL:
+			return FocusVisual{};
+		case Tier::MOVABLE:
+			return FocusVisual{/*shadeOverlay*/ true, /*borderOverlay*/ false, /*dimmedHighlight*/ false};
+		case Tier::ATTACKABLE:
+			return FocusVisual{/*shadeOverlay*/ false, /*borderOverlay*/ true, /*dimmedHighlight*/ false};
+		case Tier::ILLEGAL:
+			return FocusVisual{/*shadeOverlay*/ true, /*borderOverlay*/ false, /*dimmedHighlight*/ true};
+	}
+	return FocusVisual{};
+}

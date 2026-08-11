@@ -12,6 +12,8 @@
 
 #include "BattleActionsController.h"
 #include "BattleEffectsController.h"
+#include "BattleFocusHighlights.h"
+#include "BattleFocusTier.h"
 #include "BattleInterface.h"
 #include "BattleHero.h"
 #include "BattleObstacleController.h"
@@ -23,6 +25,7 @@
 #include "BattleWindow.h"
 
 #include "../CPlayerInterface.h"
+#include "../eventsSDL/InputHandler.h"
 #include "../GameEngine.h"
 #include "../GameInstance.h"
 #include "../adventureMap/CInGameConsole.h"
@@ -35,6 +38,7 @@
 
 #include "../../lib/BattleFieldHandler.h"
 #include "../../lib/CConfigHandler.h"
+#include "../../lib/Color.h"
 #include "../../lib/CStack.h"
 #include "../../lib/battle/CPlayerBattleCallback.h"
 #include "../../lib/spells/ISpellMechanics.h"
@@ -302,6 +306,7 @@ void BattleFieldController::showBackground(Canvas & canvas)
 		showBackgroundImage(canvas);
 
 	showHighlightedHexes(canvas);
+	showControllerFocusHex(canvas);
 }
 
 void BattleFieldController::showBackgroundImage(Canvas & canvas)
@@ -686,6 +691,39 @@ void BattleFieldController::showHighlightedHexes(Canvas & canvas)
 			showHighlightedHex(canvas, shootingRangeLimitHexesHighlights[hexIndexInShootingRangeLimit], hex, false);
 		}
 	}
+}
+
+void BattleFieldController::showControllerFocusHex(Canvas & canvas)
+{
+	if(ENGINE->input().getCurrentInputMode() != InputMode::CONTROLLER)
+		return;
+
+	if(!owner.focusModel.hasFocus())
+		return;
+
+	const BattleHex focusHex = owner.focusModel.getFocusedHex();
+	const CStack * activeStack = owner.stacksController->getActiveStack();
+	const CStack * targetStack = owner.getBattle()->battleGetStackByPos(focusHex, true);
+
+	// affordance flags come from the existing battle legality paths; the
+	// illegal-target flag is wired by the preview/commit tasks
+	const bool movable = activeStack != nullptr && availableHexes.contains(focusHex);
+	const bool attackable = activeStack != nullptr && targetStack != nullptr
+		&& (owner.getBattle()->battleCanAttackUnit(activeStack, targetStack)
+			|| owner.getBattle()->battleCanShoot(activeStack, focusHex));
+
+	auto tier = BattleFocusTier::classify(true, movable, attackable, false);
+	if(!tier.has_value())
+		return;
+
+	const auto render = BattleFocusHighlights::loadTierRender(*tier);
+
+	Point hexPos = hexPositionLocal(focusHex).topLeft();
+	if(render.shadeOverlay)
+		canvas.draw(cellShade, hexPos);
+	canvas.draw(render.highlight, hexPos);
+	if(render.borderOverlay)
+		canvas.draw(cellBorder, hexPos);
 }
 
 Rect BattleFieldController::hexPositionLocal(const BattleHex & hex) const

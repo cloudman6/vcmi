@@ -32,6 +32,7 @@ class BattleFieldController : public CIntObject
 	std::shared_ptr<IImage> cellUnitMovementHighlight;
 	std::shared_ptr<IImage> cellUnitMaxMovementHighlight;
 	std::shared_ptr<IImage> cellShade;
+
 	std::shared_ptr<CAnimation> rangedFullDamageLimitImages;
 	std::shared_ptr<CAnimation> shootingRangeLimitImages;
 
@@ -83,6 +84,7 @@ class BattleFieldController : public CIntObject
 	void showBackgroundImage(Canvas & canvas);
 	void showBackgroundImageWithHexes(Canvas & canvas);
 	void showHighlightedHexes(Canvas & canvas);
+	void showControllerFocusHex(Canvas & canvas);
 	void updateAccessibleHexes();
 
 	BattleHex getHexAtPosition(Point hoverPosition);
