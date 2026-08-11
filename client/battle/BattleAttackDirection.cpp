@@ -49,7 +49,7 @@ BattleAttackDirection::MeleeOutcome BattleAttackDirection::decideAccept(BattleCo
 			return attackable ? MeleeOutcome::START_ACTION : MeleeOutcome::NONE;
 		case State::ACTION:
 			if(!attackable)
-				return MeleeOutcome::CANCEL_LAYER; // BT-07 target lost
+				return MeleeOutcome::NONE; // the shooting layer may own ACTION; dispatch arbitrates
 			return MeleeOutcome::OPEN_DIRECTION;
 		case State::ATTACK_DIRECTION:
 			if(!attackable)

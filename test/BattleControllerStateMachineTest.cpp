@@ -66,7 +66,10 @@ TEST(BattleControllerStateMachineTest, rejectsTransitionsOutsideTheContract)
 	EXPECT_EQ(machine.depth(), 1);
 
 	ASSERT_TRUE(machine.enter(State::ACTION));
-	EXPECT_FALSE(machine.enter(State::COMMIT));
+	// shooting commits straight from the action layer (no direction layer)
+	ASSERT_TRUE(machine.enter(State::COMMIT));
+	machine.reset();
+	ASSERT_TRUE(machine.enter(State::ACTION));
 	EXPECT_FALSE(machine.enter(State::PREVIEW));
 	EXPECT_FALSE(machine.enter(State::BROWSE));
 	EXPECT_EQ(machine.top(), State::ACTION);

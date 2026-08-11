@@ -75,9 +75,11 @@ TEST(BattleAttackDirectionTest, acceptWalksTheMeleeLayersInOrder)
 TEST(BattleAttackDirectionTest, acceptWithoutTargetCancelsDeeperMeleeLayers)
 {
 	// BT-07 target-lost: the enemy stack died or became unreachable while the
-	// player was choosing an approach - back out one layer instead of commit
+	// player was choosing an approach - back out one layer instead of commit.
+	// ACTION is shared with the shooting layer, so a targetless ACTION is
+	// left to the dispatch arbitration (shooting cancels or commits it).
 	EXPECT_EQ(BattleAttackDirection::decideAccept(State::BROWSE, false), Outcome::NONE);
-	EXPECT_EQ(BattleAttackDirection::decideAccept(State::ACTION, false), Outcome::CANCEL_LAYER);
+	EXPECT_EQ(BattleAttackDirection::decideAccept(State::ACTION, false), Outcome::NONE);
 	EXPECT_EQ(BattleAttackDirection::decideAccept(State::ATTACK_DIRECTION, false), Outcome::CANCEL_LAYER);
 }
 

@@ -30,7 +30,9 @@ bool BattleControllerStateMachine::canEnter(State from, State to)
 			// layer hosts melee and target selection
 			return to == State::ACTION || to == State::PREVIEW;
 		case State::ACTION:
-			return to == State::TARGET || to == State::ATTACK_DIRECTION;
+			// shooting commits straight from the action layer (no direction
+			// layer), melee and target selection go deeper first
+			return to == State::TARGET || to == State::ATTACK_DIRECTION || to == State::COMMIT;
 		case State::TARGET:
 			return to == State::PREVIEW;
 		case State::ATTACK_DIRECTION:

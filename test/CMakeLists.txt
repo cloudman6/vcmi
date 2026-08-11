@@ -218,6 +218,7 @@ add_subdirectory_with_folder("3rdparty" googletest EXCLUDE_FROM_ALL)
 if(ENABLE_CLIENT)
 	add_executable(vcmi_cobject_list_window_controller_test
 		BattleAttackDirectionTest.cpp
+		BattleClosedLoopScenarioTest.cpp
 		BattleControllerStateMachineTest.cpp
 		BattleFocusModelTest.cpp
 		BattleFocusNavigationTest.cpp
