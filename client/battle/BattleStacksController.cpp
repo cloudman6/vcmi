@@ -243,6 +243,9 @@ void BattleStacksController::setActiveStack(const CStack *stack)
 
 	owner.windowObject->blockUI(activeStack == nullptr);
 
+	// D8: default focus and restore follow every active stack change
+	owner.onActiveStackChanged(activeStack);
+
 	if (activeStack)
 		stackAmountBoxHidden.clear();
 }

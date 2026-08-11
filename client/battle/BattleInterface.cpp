@@ -16,6 +16,7 @@
 #include "BattleConsole.h"
 #include "BattleEffectsController.h"
 #include "BattleFieldController.h"
+#include "BattleFocusRestore.h"
 #include "BattleFocusStatusSync.h"
 #include "BattleHero.h"
 #include "BattleMovementPreview.h"
@@ -354,6 +355,23 @@ void BattleInterface::handleControllerCancel()
 			windowObject->openOptionsWindow();
 			return;
 	}
+}
+
+void BattleInterface::onActiveStackChanged(const CStack * stack)
+{
+	// CStack::getPosition() is the head hex for wide units, the single-hex
+	// anchor D8 and BT-01 require
+	const BattleHex activeHead = stack != nullptr ? stack->getPosition() : BattleHex::INVALID;
+	const BattleHex restoreHex = BattleFocusRestore::decide(ENGINE->input().getCurrentInputMode(), activeHead);
+	if(!restoreHex.isValid())
+		return;
+
+	if(!focusModel.setFocus(restoreHex))
+		return;
+
+	// same status host as the other focus paths, so the damage preview
+	// follows the restored focus
+	actionsController->onHexHovered(BattleFocusStatusSync::decide(ENGINE->input().getCurrentInputMode(), focusModel));
 }
 
 bool BattleInterface::trySwitchStack(bool forward)

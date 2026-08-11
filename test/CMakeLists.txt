@@ -222,6 +222,7 @@ if(ENABLE_CLIENT)
 		BattleControllerStateMachineTest.cpp
 		BattleFocusModelTest.cpp
 		BattleFocusNavigationTest.cpp
+		BattleFocusRestoreTest.cpp
 		BattleFocusStatusSyncTest.cpp
 		BattleFocusTierTest.cpp
 		BattleHintBarTest.cpp

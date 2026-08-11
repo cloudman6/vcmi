@@ -175,6 +175,11 @@ public:
 
 	void trySetActivePlayer( PlayerColor player ); // if in hotseat, will activate interface of chosen player
 	void activateStack(); //sets activeStack to stackToActivate etc. //FIXME: No, it's not clear at all
+
+	/// D8: default focus and restore - moves the controller focus onto the
+	/// new active stack head hex, or keeps the last valid focus when the
+	/// battle has no active stack. No-op outside controller input mode.
+	void onActiveStackChanged(const CStack * stack);
 	void requestAutofightingAIToTakeAction();
 
 	void giveCommand(EActionType action, const BattleHex & tile = BattleHex(), SpellID spell = SpellID::NONE);
