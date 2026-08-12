@@ -209,6 +209,8 @@ protected:
 		// no AsyncRunner) and never rewrites the player's video settings
 		auto & testSettings = const_cast<JsonNode &>(settings.toJsonNode());
 		testSettings["video"]["upscalingFilter"].String() = "none";
+		if(const char * forcedRenderDriver = std::getenv("VCMI_TEST_RENDER_DRIVER"))
+			testSettings["video"]["driver"].String() = forcedRenderDriver;
 		ENGINE->screenHandlerInstance = std::make_unique<ScreenHandler>();
 		ENGINE->renderHandlerInstance = std::make_unique<RenderHandler>();
 		static_cast<RenderHandler &>(ENGINE->renderHandler()).hdImageLoader = std::make_shared<HdImageLoader>();
