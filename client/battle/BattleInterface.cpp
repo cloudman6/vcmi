@@ -447,11 +447,16 @@ std::vector<BattleHex> BattleInterface::meleeAttackCandidates() const
 	if(!battle->battleCanAttackUnit(activeStack, targetStack))
 		return candidates;
 
+	// same reachability contract as the mouse path (canReach &&
+	// battleCanAttackUnit): an origin hex only becomes an attack option
+	// when the active stack can actually stand there this turn
+	const auto & availableHexes = fieldController->getAvailableHexes();
+
 	// same direction scan order as findAttackFromHex fallback
 	for(int direction = 0; direction < 8; ++direction)
 	{
 		const BattleHex origin = battle->fromWhichHexAttack(activeStack, focusHex, static_cast<BattleHex::EDir>(direction), false);
-		if(!origin.isValid())
+		if(!origin.isValid() || !availableHexes.contains(origin))
 			continue;
 
 		bool duplicate = false;
