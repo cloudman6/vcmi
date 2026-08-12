@@ -958,6 +958,12 @@ void BattleInterface::activateStack()
 	windowObject->blockUI(false);
 	fieldController->redrawBackgroundWithHexes();
 	actionsController->activateStack();
+
+	// D8: default focus and restore follow every active stack change; runs
+	// after the actions controller has computed the new stack's legal actions
+	// so the restored focus status host observes a ready action set
+	onActiveStackChanged(s);
+
 	ENGINE->fakeMouseMove();
 }
 
