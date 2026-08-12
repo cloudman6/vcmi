@@ -616,7 +616,10 @@ std::vector<uint8_t> TinyH3MBuilder::buildAndDump(const std::string & testName)
 	mapName = testName; // so the map identifies its originating test when opened in the editor
 	auto bytes = build();
 
-	const auto dir = VCMIDirs::get().userCachePath() / "testMaps";
+	const auto * outputDir = std::getenv("VCMI_TEST_MAP_OUTPUT_DIR");
+	const auto dir = outputDir
+		? boost::filesystem::path(outputDir)
+		: VCMIDirs::get().userCachePath() / "testMaps";
 	boost::filesystem::create_directories(dir);
 	const auto path = dir / (testName + ".h3m");
 
