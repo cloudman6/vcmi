@@ -1,0 +1,445 @@
+{
+	"schema": "vcmi.controller-e2e/v1",
+	"id": "battle.s6.shoot-preview-commit",
+	"profile": "dualsense",
+	"settingsOverride": {
+		"input": {
+			"enableMouse": false
+		},
+		"ai": {
+			"combatAlliedAI": "StupidAI"
+		},
+		"server": {
+			"seed": 20260812
+		}
+	},
+	"timeout_ms": 90000,
+	"fixture": {
+		"setup": "battle-map-start",
+		"map": "battle-e2e",
+		"autofightPlayers": [
+			"blue"
+		]
+	},
+	"prelude": [
+		{
+			"op": "attach",
+			"device": "pad0",
+			"profile": "dualsense"
+		}
+	],
+	"steps": [
+		{
+			"op": "wait_until",
+			"probe": "runtime",
+			"field": "top_window",
+			"changes": true,
+			"timeout_ms": 60000
+		},
+		{
+			"op": "tap",
+			"device": "pad0",
+			"control": "ps"
+		},
+		{
+			"op": "wait_until",
+			"probe": "runtime",
+			"field": "input_mode",
+			"equals": "controller",
+			"timeout_ms": 10000
+		},
+		{
+			"op": "wait_until",
+			"probe": "battle",
+			"field": "open",
+			"equals": true,
+			"timeout_ms": 20000
+		},
+		{
+			"op": "wait_until",
+			"probe": "battle",
+			"field": "state",
+			"equals": "browse",
+			"timeout_ms": 20000
+		},
+		{
+			"op": "wait_frames",
+			"frames": 30
+		},
+		{
+			"op": "assert",
+			"probe": "battle",
+			"field": "focus_hex",
+			"equals": 36
+		},
+		{
+			"op": "tap",
+			"device": "pad0",
+			"control": "dpad_right"
+		},
+		{
+			"op": "wait_until",
+			"probe": "battle",
+			"field": "focus_hex",
+			"equals": 37,
+			"timeout_ms": 5000
+		},
+		{
+			"op": "tap",
+			"device": "pad0",
+			"control": "dpad_right"
+		},
+		{
+			"op": "wait_until",
+			"probe": "battle",
+			"field": "focus_hex",
+			"equals": 38,
+			"timeout_ms": 5000
+		},
+		{
+			"op": "tap",
+			"device": "pad0",
+			"control": "dpad_right"
+		},
+		{
+			"op": "wait_until",
+			"probe": "battle",
+			"field": "focus_hex",
+			"equals": 39,
+			"timeout_ms": 5000
+		},
+		{
+			"op": "tap",
+			"device": "pad0",
+			"control": "south"
+		},
+		{
+			"op": "wait_until",
+			"probe": "battle",
+			"field": "state",
+			"equals": "preview",
+			"timeout_ms": 5000
+		},
+		{
+			"op": "wait_frames",
+			"frames": 10
+		},
+		{
+			"op": "tap",
+			"device": "pad0",
+			"control": "south"
+		},
+		{
+			"op": "wait_until",
+			"probe": "battle",
+			"field": "commands_sent",
+			"equals": 1,
+			"timeout_ms": 10000
+		},
+		{
+			"op": "wait_until",
+			"probe": "battle",
+			"field": "focus_hex",
+			"equals": 137,
+			"timeout_ms": 30000
+		},
+		{
+			"op": "wait_until",
+			"probe": "battle",
+			"field": "active_stack.type",
+			"equals": "core:marksman",
+			"timeout_ms": 10000
+		},
+		{
+			"op": "wait_until",
+			"probe": "battle",
+			"field": "state",
+			"equals": "browse",
+			"timeout_ms": 10000
+		},
+		{
+			"op": "wait_frames",
+			"frames": 30
+		},
+		{
+			"op": "tap",
+			"device": "pad0",
+			"control": "dpad_right"
+		},
+		{
+			"op": "wait_until",
+			"probe": "battle",
+			"field": "focus_hex",
+			"equals": 138,
+			"timeout_ms": 5000
+		},
+		{
+			"op": "tap",
+			"device": "pad0",
+			"control": "dpad_right"
+		},
+		{
+			"op": "wait_until",
+			"probe": "battle",
+			"field": "focus_hex",
+			"equals": 139,
+			"timeout_ms": 5000
+		},
+		{
+			"op": "tap",
+			"device": "pad0",
+			"control": "dpad_right"
+		},
+		{
+			"op": "wait_until",
+			"probe": "battle",
+			"field": "focus_hex",
+			"equals": 140,
+			"timeout_ms": 5000
+		},
+		{
+			"op": "tap",
+			"device": "pad0",
+			"control": "dpad_right"
+		},
+		{
+			"op": "wait_until",
+			"probe": "battle",
+			"field": "focus_hex",
+			"equals": 141,
+			"timeout_ms": 5000
+		},
+		{
+			"op": "tap",
+			"device": "pad0",
+			"control": "dpad_right"
+		},
+		{
+			"op": "wait_until",
+			"probe": "battle",
+			"field": "focus_hex",
+			"equals": 142,
+			"timeout_ms": 5000
+		},
+		{
+			"op": "tap",
+			"device": "pad0",
+			"control": "dpad_right"
+		},
+		{
+			"op": "wait_until",
+			"probe": "battle",
+			"field": "focus_hex",
+			"equals": 143,
+			"timeout_ms": 5000
+		},
+		{
+			"op": "tap",
+			"device": "pad0",
+			"control": "dpad_right"
+		},
+		{
+			"op": "wait_until",
+			"probe": "battle",
+			"field": "focus_hex",
+			"equals": 144,
+			"timeout_ms": 5000
+		},
+		{
+			"op": "tap",
+			"device": "pad0",
+			"control": "dpad_right"
+		},
+		{
+			"op": "wait_until",
+			"probe": "battle",
+			"field": "focus_hex",
+			"equals": 145,
+			"timeout_ms": 5000
+		},
+		{
+			"op": "tap",
+			"device": "pad0",
+			"control": "dpad_right"
+		},
+		{
+			"op": "wait_until",
+			"probe": "battle",
+			"field": "focus_hex",
+			"equals": 146,
+			"timeout_ms": 5000
+		},
+		{
+			"op": "tap",
+			"device": "pad0",
+			"control": "dpad_right"
+		},
+		{
+			"op": "wait_until",
+			"probe": "battle",
+			"field": "focus_hex",
+			"equals": 147,
+			"timeout_ms": 5000
+		},
+		{
+			"op": "tap",
+			"device": "pad0",
+			"control": "dpad_right"
+		},
+		{
+			"op": "wait_until",
+			"probe": "battle",
+			"field": "focus_hex",
+			"equals": 148,
+			"timeout_ms": 5000
+		},
+		{
+			"op": "tap",
+			"device": "pad0",
+			"control": "dpad_right"
+		},
+		{
+			"op": "wait_until",
+			"probe": "battle",
+			"field": "focus_hex",
+			"equals": 149,
+			"timeout_ms": 5000
+		},
+		{
+			"op": "tap",
+			"device": "pad0",
+			"control": "dpad_right"
+		},
+		{
+			"op": "wait_until",
+			"probe": "battle",
+			"field": "focus_hex",
+			"equals": 150,
+			"timeout_ms": 5000
+		},
+		{
+			"op": "tap",
+			"device": "pad0",
+			"control": "dpad_right"
+		},
+		{
+			"op": "wait_until",
+			"probe": "battle",
+			"field": "focus_hex",
+			"equals": 151,
+			"timeout_ms": 5000
+		},
+		{
+			"op": "tap",
+			"device": "pad0",
+			"control": "dpad_up"
+		},
+		{
+			"op": "wait_until",
+			"probe": "battle",
+			"field": "focus_hex",
+			"equals": 134,
+			"timeout_ms": 5000
+		},
+		{
+			"op": "tap",
+			"device": "pad0",
+			"control": "dpad_up"
+		},
+		{
+			"op": "wait_until",
+			"probe": "battle",
+			"field": "focus_hex",
+			"equals": 117,
+			"timeout_ms": 5000
+		},
+		{
+			"op": "tap",
+			"device": "pad0",
+			"control": "dpad_up"
+		},
+		{
+			"op": "wait_until",
+			"probe": "battle",
+			"field": "focus_hex",
+			"equals": 100,
+			"timeout_ms": 5000
+		},
+		{
+			"op": "assert",
+			"probe": "battle",
+			"field": "shooting_disabled_reason",
+			"equals": "none"
+		},
+		{
+			"op": "assert",
+			"probe": "battle",
+			"field": "hint_entries.0.text_key",
+			"equals": "vcmi.battleWindow.hints.shoot"
+		},
+		{
+			"op": "assert",
+			"probe": "battle",
+			"field": "commands_sent",
+			"equals": 1
+		},
+		{
+			"op": "capture_frame",
+			"name": "s6-shoot-target"
+		},
+		{
+			"op": "tap",
+			"device": "pad0",
+			"control": "south"
+		},
+		{
+			"op": "wait_until",
+			"probe": "battle",
+			"field": "state",
+			"equals": "action",
+			"timeout_ms": 5000
+		},
+		{
+			"op": "assert",
+			"probe": "battle",
+			"field": "commands_sent",
+			"equals": 1
+		},
+		{
+			"op": "assert",
+			"probe": "battle",
+			"field": "shooting_disabled_reason",
+			"equals": "none"
+		},
+		{
+			"op": "capture_frame",
+			"name": "s6-shoot-aim"
+		},
+		{
+			"op": "tap",
+			"device": "pad0",
+			"control": "south"
+		},
+		{
+			"op": "wait_until",
+			"probe": "battle",
+			"field": "commands_sent",
+			"equals": 2,
+			"timeout_ms": 10000
+		},
+		{
+			"op": "capture_frame",
+			"name": "s6-shoot-committed"
+		},
+		{
+			"op": "wait_until",
+			"probe": "battle",
+			"field": "defender_total_health",
+			"equals": 56,
+			"timeout_ms": 30000
+		},
+		{
+			"op": "request_shutdown"
+		}
+	]
+}

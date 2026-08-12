@@ -1,0 +1,140 @@
+{
+	"schema": "vcmi.controller-e2e/v1",
+	"id": "battle.s1.entry",
+	"profile": "dualsense",
+	"settingsOverride": {
+		"input": {
+			"enableMouse": false
+		},
+		"server": {
+			"seed": 20260812
+		}
+	},
+	"timeout_ms": 90000,
+	"fixture": {
+		"setup": "battle-map-start",
+		"map": "battle-e2e",
+		"autofightPlayers": [
+			"blue"
+		]
+	},
+	"prelude": [
+		{
+			"op": "attach",
+			"device": "pad0",
+			"profile": "dualsense"
+		}
+	],
+	"steps": [
+		{
+			"op": "wait_until",
+			"probe": "runtime",
+			"field": "top_window",
+			"changes": true,
+			"timeout_ms": 60000
+		},
+		{
+			"op": "tap",
+			"device": "pad0",
+			"control": "ps"
+		},
+		{
+			"op": "wait_until",
+			"probe": "runtime",
+			"field": "input_mode",
+			"equals": "controller",
+			"timeout_ms": 10000
+		},
+		{
+			"op": "wait_until",
+			"probe": "battle",
+			"field": "open",
+			"equals": true,
+			"timeout_ms": 20000
+		},
+		{
+			"op": "wait_until",
+			"probe": "battle",
+			"field": "state",
+			"equals": "browse",
+			"timeout_ms": 20000
+		},
+		{
+			"op": "wait_frames",
+			"frames": 30
+		},
+		{
+			"op": "assert",
+			"probe": "battle",
+			"field": "state_depth",
+			"equals": 1
+		},
+		{
+			"op": "assert",
+			"probe": "battle",
+			"field": "active_stack.type",
+			"equals": "core:griffin"
+		},
+		{
+			"op": "assert",
+			"probe": "runtime",
+			"field": "input_mode",
+			"equals": "controller"
+		},
+		{
+			"op": "assert",
+			"probe": "battle",
+			"field": "focus_hex",
+			"equals": 36
+		},
+		{
+			"op": "assert",
+			"probe": "battle",
+			"field": "active_stack.position",
+			"equals": 36
+		},
+		{
+			"op": "assert",
+			"probe": "battle",
+			"field": "status_host_follows_focus",
+			"equals": true
+		},
+		{
+			"op": "assert",
+			"probe": "battle",
+			"field": "hint_entries_count",
+			"equals": 3
+		},
+		{
+			"op": "assert",
+			"probe": "battle",
+			"field": "hint_entries.0.text_key",
+			"equals": "vcmi.battleWindow.hints.back"
+		},
+		{
+			"op": "assert",
+			"probe": "battle",
+			"field": "hint_entries.1.text_key",
+			"equals": "vcmi.battleWindow.hints.switchUnit"
+		},
+		{
+			"op": "assert",
+			"probe": "battle",
+			"field": "hint_entries.2.text_key",
+			"equals": "vcmi.battleWindow.hints.switchUnit"
+		},
+		{
+			"op": "assert",
+			"probe": "battle",
+			"field": "commands_sent",
+			"equals": 0
+		},
+		{
+			"op": "capture_frame",
+			"name": "s1-entry"
+		},
+		{
+			"op": "request_shutdown"
+		}
+	]
+}
