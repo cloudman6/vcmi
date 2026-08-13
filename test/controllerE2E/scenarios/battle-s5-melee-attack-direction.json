@@ -447,10 +447,11 @@
 			"control": "r1"
 		},
 		{
-			"op": "assert",
+			"op": "wait_until",
 			"probe": "battle",
 			"field": "attack_from_hex",
-			"equals": 29
+			"equals": 29,
+			"timeout_ms": 5000
 		},
 		{
 			"op": "tap",
@@ -458,10 +459,11 @@
 			"control": "r1"
 		},
 		{
-			"op": "assert",
+			"op": "wait_until",
 			"probe": "battle",
 			"field": "attack_from_hex",
-			"equals": 31
+			"equals": 31,
+			"timeout_ms": 5000
 		},
 		{
 			"op": "tap",
@@ -469,10 +471,11 @@
 			"control": "l1"
 		},
 		{
-			"op": "assert",
+			"op": "wait_until",
 			"probe": "battle",
 			"field": "attack_from_hex",
-			"equals": 29
+			"equals": 29,
+			"timeout_ms": 5000
 		},
 		{
 			"op": "assert",
