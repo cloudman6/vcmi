@@ -136,6 +136,12 @@
 			"equals": true
 		},
 		{
+			"op": "assert",
+			"probe": "battle",
+			"field": "cursor_mode_active_stack_generation",
+			"equals": 0
+		},
+		{
 			"op": "capture_frame",
 			"name": "s7-explicit-cursor-mode"
 		},
@@ -147,9 +153,15 @@
 		{
 			"op": "wait_until",
 			"probe": "battle",
-			"field": "commands_sent",
+			"field": "cursor_mode_active_stack_generation",
 			"equals": 1,
 			"timeout_ms": 10000
+		},
+		{
+			"op": "assert",
+			"probe": "battle",
+			"field": "controller_cursor_mode",
+			"equals": true
 		},
 		{
 			"op": "assert",
@@ -197,6 +209,12 @@
 			"probe": "runtime",
 			"field": "cursor_visible",
 			"equals": false
+		},
+		{
+			"op": "assert",
+			"probe": "battle",
+			"field": "focus_hex",
+			"equals": 37
 		},
 		{
 			"op": "set_axis",

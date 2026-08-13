@@ -415,6 +415,19 @@ void EventDispatcher::dispatchGesturePanningEnded(const Point & initialPosition,
 	}
 }
 
+void EventDispatcher::dispatchGesturePanningCanceled()
+{
+	auto copied = panningInterested;
+
+	for(auto it : copied)
+	{
+		if (!vstd::contains(panningInterested, it))
+			continue;
+
+		it->panningState = false;
+	}
+}
+
 void EventDispatcher::dispatchGesturePanning(const Point & initialPosition, const Point & currentPosition, const Point & lastUpdateDistance)
 {
 	dispatchGesturePanningStarted(initialPosition);

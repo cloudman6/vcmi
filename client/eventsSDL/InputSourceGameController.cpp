@@ -207,6 +207,9 @@ double InputSourceGameController::normalizeAxisValue(int value, double deadZone,
 
 void InputSourceGameController::resetAxisState()
 {
+	if(scrollAxisMoved)
+		ENGINE->events().dispatchGesturePanningCanceled();
+
 	for(const auto & [instanceID, axisID] : pressedAxes)
 	{
 		const std::string axisName = SDL_GameControllerGetStringForAxis(axisID);

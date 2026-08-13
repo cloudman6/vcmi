@@ -116,6 +116,36 @@ public:
 	bool controllerCursorAllowed() const override { return cursorAllowed; }
 };
 
+class PanningCancelProbe final : public CIntObject
+{
+public:
+	PanningCancelProbe()
+		: CIntObject(GESTURE)
+	{
+		pos = Rect(-10000, -10000, 20000, 20000);
+	}
+
+	int gestureStarts = 0;
+	int gestureCompletions = 0;
+	int actions = 0;
+
+	void gesture(bool on, const Point &, const Point & finalPosition) override
+	{
+		if(on)
+			++gestureStarts;
+		else
+		{
+			++gestureCompletions;
+			clickPressed(finalPosition);
+		}
+	}
+
+	void clickPressed(const Point &) override
+	{
+		++actions;
+	}
+};
+
 class TestFont final : public IFont
 {
 public:
@@ -846,6 +876,27 @@ protected:
 			controller.scrollAxisValueY,
 			controller.scrollPlanDisY,
 			controller.pressedAxes.empty() ? 1.0 : 0.0};
+	}
+
+	std::array<int, 5> panningStateAfterAxisLifecycleReset()
+	{
+		InputSourceGameController controller{InputSourceGameController::HeadlessTestTag()};
+		PanningCancelProbe probe;
+		probe.activate();
+		controller.scrollAxisValueX = 1.0;
+		controller.handleScrollUpdate(16);
+		const bool startedGesturing = probe.isGesturing();
+
+		controller.resetAxisState();
+		const bool endedGesturing = probe.isGesturing();
+		probe.deactivate();
+
+		return {
+			startedGesturing ? 1 : 0,
+			endedGesturing ? 1 : 0,
+			probe.gestureStarts,
+			probe.gestureCompletions,
+			probe.actions};
 	}
 
 	void pressAcceptThroughAxis()
@@ -1735,6 +1786,11 @@ TEST_F(ShortcutGlyphQueryTest, AxisLifecycleResetCancelsHeldActionWithoutCommitt
 	EXPECT_TRUE(ENGINE->windows().isTopWindow(window));
 	EXPECT_FALSE(acceptActionPressed(window));
 	EXPECT_TRUE(controllerPressedAxesEmpty());
+}
+
+TEST_F(ShortcutGlyphQueryTest, AxisLifecycleResetCancelsPanningWithoutCompletingGesture)
+{
+	EXPECT_EQ(panningStateAfterAxisLifecycleReset(), (std::array<int, 5>{1, 0, 1, 0, 0}));
 }
 
 TEST_F(ShortcutGlyphQueryTest, NeutralAxisEventReleasesItsOwnInactiveControllerState)
