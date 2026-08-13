@@ -10,43 +10,27 @@
 #include "../client/StdInc.h"
 
 #include "../client/battle/BattleFocusNavigation.h"
+#include "../client/eventsSDL/InputSourceGameController.h"
 
 #include "../lib/GameConstants.h"
 
 #include <gtest/gtest.h>
 
-TEST(BattleFocusNavigationTest, NavigationShortcutsAreRecognized)
+TEST(BattleFocusNavigationTest, DpadShortcutsAreNotBattleNavigation)
 {
-	EXPECT_TRUE(BattleFocusNavigation::isNavigationShortcut(EShortcut::MOVE_UP));
-	EXPECT_TRUE(BattleFocusNavigation::isNavigationShortcut(EShortcut::MOVE_DOWN));
-	EXPECT_TRUE(BattleFocusNavigation::isNavigationShortcut(EShortcut::MOVE_LEFT));
-	EXPECT_TRUE(BattleFocusNavigation::isNavigationShortcut(EShortcut::MOVE_RIGHT));
-
-	EXPECT_FALSE(BattleFocusNavigation::isNavigationShortcut(EShortcut::GLOBAL_ACCEPT));
-	EXPECT_FALSE(BattleFocusNavigation::isNavigationShortcut(EShortcut::GLOBAL_CANCEL));
-	EXPECT_FALSE(BattleFocusNavigation::isNavigationShortcut(EShortcut::BATTLE_CONSOLE_UP));
-	EXPECT_FALSE(BattleFocusNavigation::isNavigationShortcut(EShortcut::MOVE_PAGE_DOWN));
+	for(const auto shortcut : {EShortcut::MOVE_UP, EShortcut::MOVE_DOWN, EShortcut::MOVE_LEFT, EShortcut::MOVE_RIGHT})
+		EXPECT_FALSE(BattleFocusNavigation::isNavigationShortcut(shortcut));
 }
 
-TEST(BattleFocusNavigationTest, ControllerModeNavigationMovesFocus)
+TEST(BattleFocusNavigationTest, ControllerModeDpadLeavesFocusUntouched)
 {
 	BattleFocusModel model;
 	model.setFocus(BattleHex(8, 5));
 	BattleFocusNavigation navigation(model);
 	const BattleHex start = model.getFocusedHex();
 
-	ASSERT_TRUE(navigation.handleShortcut(EShortcut::MOVE_RIGHT, InputMode::CONTROLLER));
-	EXPECT_EQ(model.getFocusedHex(), BattleHex(start.getX() + 1, start.getY()));
-
-	ASSERT_TRUE(navigation.handleShortcut(EShortcut::MOVE_LEFT, InputMode::CONTROLLER));
-	EXPECT_EQ(model.getFocusedHex(), start);
-
-	// odd row: MOVE_UP maps onto the column-preserving TOP_RIGHT diagonal
-	ASSERT_TRUE(navigation.handleShortcut(EShortcut::MOVE_UP, InputMode::CONTROLLER));
-	EXPECT_EQ(model.getFocusedHex().getY(), start.getY() - 1);
-	EXPECT_EQ(model.getFocusedHex().getX(), start.getX());
-
-	ASSERT_TRUE(navigation.handleShortcut(EShortcut::MOVE_DOWN, InputMode::CONTROLLER));
+	for(const auto shortcut : {EShortcut::MOVE_UP, EShortcut::MOVE_DOWN, EShortcut::MOVE_LEFT, EShortcut::MOVE_RIGHT})
+		EXPECT_FALSE(navigation.handleShortcut(shortcut, InputMode::CONTROLLER));
 	EXPECT_EQ(model.getFocusedHex(), start);
 }
 
@@ -80,16 +64,62 @@ TEST(BattleFocusNavigationTest, UnrelatedShortcutsAreNotConsumed)
 	EXPECT_EQ(model.getFocusedHex(), start);
 }
 
-TEST(BattleFocusNavigationTest, BorderAndFocuslessNavigationAreConsumedWithoutMoving)
+TEST(BattleFocusNavigationTest, DpadIsNeverConsumedWithoutFocus)
 {
 	BattleFocusModel model;
 	BattleFocusNavigation navigation(model);
 
-	// no focus yet: navigation is consumed but cannot move anywhere
-	EXPECT_TRUE(navigation.handleShortcut(EShortcut::MOVE_RIGHT, InputMode::CONTROLLER));
+	EXPECT_FALSE(navigation.handleShortcut(EShortcut::MOVE_RIGHT, InputMode::CONTROLLER));
 	EXPECT_FALSE(model.hasFocus());
 
 	model.setFocus(BattleHex(0, 0));
-	EXPECT_TRUE(navigation.handleShortcut(EShortcut::MOVE_LEFT, InputMode::CONTROLLER));
+	EXPECT_FALSE(navigation.handleShortcut(EShortcut::MOVE_LEFT, InputMode::CONTROLLER));
 	EXPECT_EQ(model.getFocusedHex(), BattleHex(0, 0));
+}
+
+TEST(BattleFocusNavigationTest, LeftStickQuantizesAllSixHexDirections)
+{
+	struct Sample { double x; double y; BattleHex::EDir direction; };
+	const std::array<Sample, 6> samples = {{{1, 0, BattleHex::RIGHT}, {0.5, 0.9, BattleHex::BOTTOM_RIGHT},
+		{-0.5, 0.9, BattleHex::BOTTOM_LEFT}, {-1, 0, BattleHex::LEFT},
+		{-0.5, -0.9, BattleHex::TOP_LEFT}, {0.5, -0.9, BattleHex::TOP_RIGHT}}};
+
+	for(const auto & sample : samples)
+	{
+		BattleFocusModel model;
+		model.setFocus(BattleHex(8, 5));
+		BattleFocusNavigation navigation(model);
+		const BattleHex expected = model.getFocusedHex().cloneInDirection(sample.direction, true);
+		navigation.updateAxis(7, true, sample.x);
+		navigation.updateAxis(7, false, sample.y);
+		EXPECT_FALSE(navigation.update(15));
+		EXPECT_TRUE(navigation.update(1));
+		EXPECT_EQ(model.getFocusedHex(), expected);
+	}
+}
+
+TEST(BattleFocusNavigationTest, DeadZoneReleaseAndDeviceChangeResetSampling)
+{
+	BattleFocusModel model;
+	model.setFocus(BattleHex(8, 5));
+	BattleFocusNavigation navigation(model);
+	const BattleHex start = model.getFocusedHex();
+
+	navigation.updateAxis(1, true, 0.3);
+	EXPECT_FALSE(navigation.update(500));
+	EXPECT_EQ(model.getFocusedHex(), start);
+
+	navigation.updateAxis(1, true, 1.0);
+	navigation.updateAxis(2, false, 1.0);
+	EXPECT_TRUE(navigation.update(500));
+	EXPECT_EQ(model.getFocusedHex(), start.cloneInDirection(BattleHex::BOTTOM_LEFT, true));
+}
+
+TEST(BattleFocusNavigationTest, AxisNormalizationIsSymmetric)
+{
+	const double positive = InputSourceGameController::normalizeAxisValue(16384, 0.2, 1.0);
+	const double negative = InputSourceGameController::normalizeAxisValue(-16384, 0.2, 1.0);
+	EXPECT_NEAR(positive, -negative, 0.0001);
+	EXPECT_GT(positive, 0.0);
+	EXPECT_EQ(InputSourceGameController::normalizeAxisValue(3000, 0.2, 1.0), 0.0);
 }

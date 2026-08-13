@@ -34,7 +34,8 @@ namespace
 /// shortcut (D-pad direction adjust) renders as text only.
 std::optional<ImagePath> hintGlyphSprite(EShortcut shortcut, bool acceptPressed)
 {
-	const auto bindings = ENGINE->shortcuts().getJoystickBindings(shortcut);
+	const auto presentation = ENGINE->input().getControllerPresentation();
+	const auto bindings = ENGINE->shortcuts().getJoystickBindings(shortcut, InputSourceGameController::getProfileName(presentation));
 	if(bindings.size() != 1)
 		return std::nullopt;
 
@@ -45,7 +46,6 @@ std::optional<ImagePath> hintGlyphSprite(EShortcut shortcut, bool acceptPressed)
 	if(!accept && !cancel && !leftShoulder && !rightShoulder)
 		return std::nullopt;
 
-	const auto presentation = ENGINE->input().getControllerPresentation();
 	const std::string family = presentation == ControllerPresentation::PLAYSTATION ? "playstation" : "generic";
 	const std::string action = accept ? "add" : cancel ? "cancel" : leftShoulder ? "lb" : "rb";
 	const std::string stateName = accept && acceptPressed ? "pressed" : "normal";
@@ -77,7 +77,7 @@ void BattleHintBarPresenter::draw(Canvas & to, const std::vector<BattleHintEntry
 	for(const auto & entry : entries)
 	{
 		HintCell cell;
-		const auto spritePath = hintGlyphSprite(entry.glyph, acceptPressed);
+		const auto spritePath = entry.showGlyph ? hintGlyphSprite(entry.glyph, acceptPressed) : std::nullopt;
 		if(spritePath)
 			cell.sprite = ENGINE->renderHandler().loadImage(*spritePath, EImageBlitMode::COLORKEY);
 		cell.text = LIBRARY->generaltexth->translate(entry.textKey);
@@ -129,6 +129,11 @@ void BattleHintBarWidget::showAll(Canvas & to)
 	// controller contract
 	if(owner.tacticsMode)
 		return;
+	if(owner.isControllerCursorMode())
+	{
+		BattleHintBarPresenter::draw(to, {{EShortcut::NONE, "vcmi.battleWindow.hints.cursorMode", false}}, Rect(pos.x, pos.y, pos.w, pos.h), false);
+		return;
+	}
 
 	const auto entries = BattleHintBar::entries(
 		ENGINE->input().getCurrentInputMode(),

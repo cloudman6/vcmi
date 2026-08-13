@@ -158,6 +158,8 @@ public:
 	BattleControllerStateMachine controllerStates;
 	/// D3: currently chosen melee approach hex for the focused enemy target
 	BattleHex controllerAttackFromHex;
+	bool controllerCursorMode = false;
+	bool pointerPresentationOwner = false;
 
 	std::shared_ptr<BattleHero> attackingHero;
 	std::shared_ptr<BattleHero> defendingHero;
@@ -187,6 +189,14 @@ public:
 
 	/// forwards navigation shortcuts to the focus model when controller input mode is active
 	void handleFocusNavigationShortcut(EShortcut shortcut);
+	bool handleControllerAxis(const ControllerAxisEvent & event);
+	void updateControllerAxis(uint32_t msPassed);
+	void resetControllerAxis();
+	void toggleControllerCursorMode();
+	bool isControllerNativeMode() const;
+	bool isControllerCursorMode() const { return controllerCursorMode; }
+	bool acceptsPointerPresentation(PointerEventSource source);
+	void controllerInputModeActivated();
 
 	/// controller B contract: pop one state layer, fall back to spell cancel, open options when idle
 	void handleControllerCancel();

@@ -15,8 +15,8 @@
 
 #include <vector>
 
-/// Pure melee approach rules (D3): origin hex recommendation, D-pad cycling
-/// through the legal attack-from hexes and the A-button layer contract.
+/// Pure melee approach rules: origin recommendation, shoulder-button cycling
+/// through legal attack-from hexes and the direct A-button contract.
 /// Battle legality (which origins exist) comes from the caller.
 class BattleAttackDirection
 {

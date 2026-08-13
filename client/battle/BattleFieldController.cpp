@@ -15,6 +15,7 @@
 #include "BattleDirectionArrow.h"
 #include "BattleEffectsController.h"
 #include "BattleFocusHighlights.h"
+#include "BattleHintBarPresenter.h"
 #include "BattleFocusTier.h"
 #include "BattleInterface.h"
 #include "BattleHero.h"
@@ -237,6 +238,8 @@ void BattleFieldController::gesturePanning(const Point & initialPosition, const 
 
 void BattleFieldController::mouseMoved(const Point & cursorPosition, const Point & lastUpdateDistance)
 {
+	if(!owner.acceptsPointerPresentation(ENGINE->input().getPointerEventSource()))
+		return;
 	currentAttackOriginPoint = cursorPosition;
 
 	// hex rects of the bottom rows extend under the command panel, so only treat the cursor as hovering a hex
@@ -298,6 +301,7 @@ void BattleFieldController::renderBattlefield(Canvas & canvas)
 	renderer.execute(clippedCanvas);
 
 	owner.projectilesController->render(clippedCanvas);
+	showControllerActionPrompt(clippedCanvas);
 }
 
 void BattleFieldController::showBackground(Canvas & canvas)
@@ -413,8 +417,7 @@ BattleHexArray BattleFieldController::getMovementRangeForHoveredStack()
 
 	// D2: the controller movement preview always shows the active stack
 	// movement range, independent of the hover-only display setting
-	if (ENGINE->input().getCurrentInputMode() == InputMode::CONTROLLER
-		&& owner.controllerStates.top() == BattleControllerStateMachine::State::PREVIEW)
+	if(owner.isControllerNativeMode() && owner.focusModel.hasFocus())
 		return owner.getBattle()->battleGetOccupiableHexes(owner.stacksController->getActiveStack(), true);
 
 	if (!settings["battle"]["movementHighlightOnHover"].Bool() && !ENGINE->isKeyboardShiftDown())
@@ -727,7 +730,7 @@ void BattleFieldController::showHighlightedHexes(Canvas & canvas)
 
 void BattleFieldController::showControllerFocusHex(Canvas & canvas)
 {
-	if(ENGINE->input().getCurrentInputMode() != InputMode::CONTROLLER)
+	if(!owner.isControllerNativeMode())
 		return;
 
 	if(!owner.focusModel.hasFocus())
@@ -760,11 +763,7 @@ void BattleFieldController::showControllerFocusHex(Canvas & canvas)
 
 void BattleFieldController::showControllerMeleeAssist(Canvas & canvas)
 {
-	if(ENGINE->input().getCurrentInputMode() != InputMode::CONTROLLER)
-		return;
-
-	const auto top = owner.controllerStates.top();
-	if(top != BattleControllerStateMachine::State::ACTION && top != BattleControllerStateMachine::State::ATTACK_DIRECTION)
+	if(!owner.isControllerNativeMode())
 		return;
 
 	const auto origins = owner.meleeAttackCandidates();
@@ -796,6 +795,31 @@ void BattleFieldController::showControllerMeleeAssist(Canvas & canvas)
 	BattleDirectionArrow::draw(canvas, from, to, ColorRGBA(255, 255, 255, 255));
 }
 
+void BattleFieldController::showControllerActionPrompt(Canvas & canvas)
+{
+	if(!owner.isControllerNativeMode() || !owner.focusModel.hasFocus())
+		return;
+	auto entries = BattleHintBar::entries(InputMode::CONTROLLER, BattleControllerStateMachine::State::BROWSE, owner.buildHintContext());
+	auto primary = std::find_if(entries.begin(), entries.end(), [](const BattleHintEntry & entry)
+	{
+		return entry.showGlyph && entry.glyph == EShortcut::GLOBAL_ACCEPT;
+	});
+	if(primary == entries.end())
+		return;
+
+	const Rect hexRect = hexPositionLocal(owner.focusModel.getFocusedHex());
+	constexpr int width = 138;
+	constexpr int height = BattleHintBarLayout::HEIGHT;
+	int x = std::clamp(hexRect.center().x - width / 2, 0, pos.w - width);
+	int y = hexRect.y - height - 3;
+	if(y < BattleHintBarLayout::TOP + BattleHintBarLayout::HEIGHT)
+		y = hexRect.y + hexRect.h + 3;
+	if(y + height > pos.h)
+		y = hexRect.y - height - 3;
+	y = std::clamp(y, 0, pos.h - height);
+	BattleHintBarPresenter::draw(canvas, {*primary}, Rect(x, y, width, height), false);
+}
+
 Rect BattleFieldController::hexPositionLocal(const BattleHex & hex) const
 {
 	int x = 14 + ((hex.getY())%2==0 ? 22 : 0) + 44*hex.getX();
@@ -820,9 +844,7 @@ BattleHex BattleFieldController::getHoveredHex()
 	// D2: during the controller movement preview the focused hex plays the
 	// role of the hovered hex, so the official hover feedback set (target
 	// shading and landing shadow) follows the focus
-	if(ENGINE->input().getCurrentInputMode() == InputMode::CONTROLLER
-		&& owner.controllerStates.top() == BattleControllerStateMachine::State::PREVIEW
-		&& owner.focusModel.hasFocus())
+	if(owner.isControllerNativeMode() && owner.focusModel.hasFocus())
 		return owner.focusModel.getFocusedHex();
 
 	// if mouse is not over the battlefield itself but over a stack in the battle queue,

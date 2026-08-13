@@ -18,7 +18,7 @@ BattleMovementPreview::Outcome BattleMovementPreview::decideAccept(BattleControl
 	switch(top)
 	{
 		case State::BROWSE:
-			return focusedReachable ? Outcome::START_PREVIEW : Outcome::NONE;
+			return focusedReachable ? Outcome::COMMIT : Outcome::NONE;
 		case State::PREVIEW:
 			// invalidation refresh: a destination that stopped being legal
 			// backs out of the preview instead of committing

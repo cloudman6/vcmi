@@ -38,7 +38,7 @@ public:
 	/// Non-enemy focus is never a shooting concern.
 	static DisabledReason classify(bool enemyTarget, bool hasAmmo, bool blockedByNeighbor, bool withinRange);
 
-	/// BROWSE + shootable opens the shooting layer; ACTION commits directly
-	/// (no direction layer); a disabled target cancels the open layer (BT-07).
+	/// BROWSE + shootable commits the already-visible preview directly.
+	/// A disabled target never exposes a confirm action.
 	static Outcome decideAccept(BattleControllerStateMachine::State top, bool shootable);
 };

@@ -72,15 +72,15 @@ TEST(BattleHintBarTest, browseShowsTheBT04ReasonForDisabledTargets)
 
 	// the target stays focusable but not commitable; the bar explains why
 	EXPECT_EQ(simplify(BattleHintBar::entries(InputMode::CONTROLLER, State::BROWSE, ctx)).front(),
-		(std::pair<EShortcut, std::string>{EShortcut::GLOBAL_ACCEPT, "vcmi.battleWindow.hints.reason.noAmmo"}));
+		(std::pair<EShortcut, std::string>{EShortcut::NONE, "vcmi.battleWindow.hints.reason.noAmmo"}));
 
 	ctx.shootingDisabled = Reason::BLOCKED_LINE;
 	EXPECT_EQ(simplify(BattleHintBar::entries(InputMode::CONTROLLER, State::BROWSE, ctx)).front(),
-		(std::pair<EShortcut, std::string>{EShortcut::GLOBAL_ACCEPT, "vcmi.battleWindow.hints.reason.blockedLine"}));
+		(std::pair<EShortcut, std::string>{EShortcut::NONE, "vcmi.battleWindow.hints.reason.blockedLine"}));
 
 	ctx.shootingDisabled = Reason::OUT_OF_RANGE;
 	EXPECT_EQ(simplify(BattleHintBar::entries(InputMode::CONTROLLER, State::BROWSE, ctx)).front(),
-		(std::pair<EShortcut, std::string>{EShortcut::GLOBAL_ACCEPT, "vcmi.battleWindow.hints.reason.outOfRange"}));
+		(std::pair<EShortcut, std::string>{EShortcut::NONE, "vcmi.battleWindow.hints.reason.outOfRange"}));
 }
 
 TEST(BattleHintBarTest, previewAndMeleeLayersAdvertiseTheirWalk)

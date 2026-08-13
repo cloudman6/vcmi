@@ -75,6 +75,30 @@
 			"control": "dpad_right"
 		},
 		{
+			"op": "wait_frames",
+			"frames": 6
+		},
+		{
+			"op": "assert",
+			"probe": "battle",
+			"field": "focus_hex",
+			"equals": 36
+		},
+		{
+			"op": "set_axis",
+			"device": "pad0",
+			"control": "left_stick_x",
+			"value": 1.0
+		},
+		{
+			"op": "wait_frames",
+			"frames": 3
+		},
+		{
+			"op": "neutralize",
+			"device": "pad0"
+		},
+		{
 			"op": "wait_until",
 			"probe": "battle",
 			"field": "focus_hex",
@@ -88,9 +112,18 @@
 			"equals": true
 		},
 		{
-			"op": "tap",
+			"op": "set_axis",
 			"device": "pad0",
-			"control": "dpad_down"
+			"control": "left_stick_y",
+			"value": 1.0
+		},
+		{
+			"op": "wait_frames",
+			"frames": 3
+		},
+		{
+			"op": "neutralize",
+			"device": "pad0"
 		},
 		{
 			"op": "wait_frames",
@@ -103,9 +136,18 @@
 			"equals": true
 		},
 		{
-			"op": "tap",
+			"op": "set_axis",
 			"device": "pad0",
-			"control": "dpad_down"
+			"control": "left_stick_y",
+			"value": 1.0
+		},
+		{
+			"op": "wait_frames",
+			"frames": 3
+		},
+		{
+			"op": "neutralize",
+			"device": "pad0"
 		},
 		{
 			"op": "wait_frames",
@@ -118,9 +160,18 @@
 			"equals": true
 		},
 		{
-			"op": "tap",
+			"op": "set_axis",
 			"device": "pad0",
-			"control": "dpad_right"
+			"control": "left_stick_x",
+			"value": 1.0
+		},
+		{
+			"op": "wait_frames",
+			"frames": 3
+		},
+		{
+			"op": "neutralize",
+			"device": "pad0"
 		},
 		{
 			"op": "wait_frames",

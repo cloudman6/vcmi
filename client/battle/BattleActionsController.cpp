@@ -179,10 +179,17 @@ static std::string prepareSpellEffectText(int gnrlTextID, const spells::effects:
 	return baseText +" ("+ outputString +")";
 }
 
-static BattleHex findAttackFromHex(const BattleInterface & owner, const CStack * attacker, const BattleHex & targetHex, bool allowLongWeapon)
+static BattleHex findAttackFromHex(const BattleInterface & owner, const CStack * attacker, const BattleHex & targetHex, bool allowLongWeapon, const BattleHex & preferred = BattleHex::INVALID)
 {
 	if(!attacker || !targetHex.isValid())
 		return BattleHex::INVALID;
+
+	if(preferred.isValid())
+	{
+		for(int direction = 0; direction < 8; ++direction)
+			if(owner.getBattle()->fromWhichHexAttack(attacker, targetHex, static_cast<BattleHex::EDir>(direction), allowLongWeapon) == preferred)
+				return preferred;
+	}
 
 	const auto preferredDirection = owner.fieldController->selectAttackDirection(targetHex);
 	BattleHex attackFromHex = owner.getBattle()->fromWhichHexAttack(attacker, targetHex, preferredDirection, allowLongWeapon);
@@ -604,7 +611,7 @@ void BattleActionsController::actionSetCursorBlocked(PossiblePlayerBattleAction 
 	assert(0);
 }
 
-std::string BattleActionsController::actionGetStatusMessage(PossiblePlayerBattleAction action, const BattleHex & targetHex)
+std::string BattleActionsController::actionGetStatusMessage(PossiblePlayerBattleAction action, const BattleHex & targetHex, const BattleHex & preferredAttackFrom)
 {
 	const CStack * targetStack = getStackForHex(targetHex);
 
@@ -627,7 +634,7 @@ std::string BattleActionsController::actionGetStatusMessage(PossiblePlayerBattle
 			{
 				const auto * attacker = owner.stacksController->getActiveStack();
 				bool allowLongWeapon = action.get() == PossiblePlayerBattleAction::LONG_WEAPON_ATTACK;
-				BattleHex attackFromHex = findAttackFromHex(owner, attacker, targetHex, allowLongWeapon);
+				BattleHex attackFromHex = findAttackFromHex(owner, attacker, targetHex, allowLongWeapon, preferredAttackFrom);
 				assert(attackFromHex.isValid());
 				if(!attackFromHex.isValid())
 					return "";
@@ -1162,6 +1169,61 @@ void BattleActionsController::onHexHovered(const BattleHex & hoveredHex)
 		ENGINE->statusbar()->write(newConsoleMsg);
 
 	currentConsoleMsg = newConsoleMsg;
+}
+
+PossiblePlayerBattleAction BattleActionsController::controllerActionForHex(const BattleHex & focusedHex)
+{
+	if(!focusedHex.isValid() || (!owner.stacksController->getActiveStack() && !monsterCaster) || possibleActions.empty())
+		return PossiblePlayerBattleAction::INVALID;
+	return selectAction(focusedHex);
+}
+
+bool BattleActionsController::controllerActionIsLegal(PossiblePlayerBattleAction action, const BattleHex & focusedHex)
+{
+	return action.get() != PossiblePlayerBattleAction::INVALID && actionIsLegal(action, focusedHex);
+}
+
+void BattleActionsController::onHexFocused(const BattleHex & focusedHex, const BattleHex & attackFrom)
+{
+	const auto action = controllerActionForHex(focusedHex);
+	std::string newConsoleMsg;
+	if(controllerActionIsLegal(action, focusedHex))
+		newConsoleMsg = actionGetStatusMessage(action, focusedHex, attackFrom);
+	else if(action.get() != PossiblePlayerBattleAction::INVALID)
+		newConsoleMsg = actionGetStatusMessageBlocked(action, focusedHex);
+
+	if(!currentConsoleMsg.empty())
+		ENGINE->statusbar()->clearIfMatching(currentConsoleMsg);
+	if(!newConsoleMsg.empty())
+		ENGINE->statusbar()->write(newConsoleMsg);
+	currentConsoleMsg = newConsoleMsg;
+}
+
+bool BattleActionsController::realizeControllerAction(PossiblePlayerBattleAction action, const BattleHex & focusedHex, const BattleHex & attackFrom)
+{
+	if(!controllerActionIsLegal(action, focusedHex))
+		return false;
+
+	switch(action.get())
+	{
+		case PossiblePlayerBattleAction::ATTACK:
+		case PossiblePlayerBattleAction::LONG_WEAPON_ATTACK:
+		case PossiblePlayerBattleAction::WALK_AND_ATTACK:
+		case PossiblePlayerBattleAction::ATTACK_AND_RETURN:
+		{
+			const auto * attacker = owner.stacksController->getActiveStack();
+			const bool allowLongWeapon = action.get() == PossiblePlayerBattleAction::LONG_WEAPON_ATTACK;
+			const BattleHex origin = findAttackFromHex(owner, attacker, focusedHex, allowLongWeapon, attackFrom);
+			if(!origin.isValid())
+				return false;
+			const bool returnAfterAttack = action.get() == PossiblePlayerBattleAction::ATTACK_AND_RETURN;
+			owner.sendCommand(BattleAction::makeMeleeAttack(attacker, focusedHex, origin, returnAfterAttack), attacker);
+			return true;
+		}
+		default:
+			actionRealize(action, focusedHex);
+			return true;
+	}
 }
 
 void BattleActionsController::onHoverEnded()

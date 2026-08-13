@@ -49,7 +49,6 @@ static AcceptConsumer dispatchAccept(BattleControllerStateMachine & states, cons
 			EXPECT_TRUE(states.enter(State::ATTACK_DIRECTION));
 			return AcceptConsumer::MELEE;
 		case BattleAttackDirection::MeleeOutcome::COMMIT:
-			EXPECT_TRUE(states.enter(State::COMMIT));
 			states.reset();
 			return AcceptConsumer::MELEE;
 		case BattleAttackDirection::MeleeOutcome::CANCEL_LAYER:
@@ -65,7 +64,6 @@ static AcceptConsumer dispatchAccept(BattleControllerStateMachine & states, cons
 			EXPECT_TRUE(states.enter(State::ACTION));
 			return AcceptConsumer::SHOOTING;
 		case BattleRangedShooting::Outcome::COMMIT:
-			EXPECT_TRUE(states.enter(State::COMMIT));
 			states.reset();
 			return AcceptConsumer::SHOOTING;
 		case BattleRangedShooting::Outcome::CANCEL_LAYER:
@@ -81,7 +79,6 @@ static AcceptConsumer dispatchAccept(BattleControllerStateMachine & states, cons
 			EXPECT_TRUE(states.enter(State::PREVIEW));
 			return AcceptConsumer::MOVEMENT;
 		case BattleMovementPreview::Outcome::COMMIT:
-			EXPECT_TRUE(states.enter(State::COMMIT));
 			states.reset();
 			return AcceptConsumer::MOVEMENT;
 		case BattleMovementPreview::Outcome::CANCEL_PREVIEW:
@@ -103,33 +100,24 @@ TEST(BattleClosedLoopScenarioTest, MoveMeleeShootLoopCompletesWithoutPointer)
 	AcceptContext moveCtx;
 	moveCtx.focusedReachable = true;
 	EXPECT_EQ(dispatchAccept(states, moveCtx), AcceptConsumer::MOVEMENT);
-	EXPECT_EQ(states.top(), State::PREVIEW);
-	EXPECT_EQ(dispatchAccept(states, moveCtx), AcceptConsumer::MOVEMENT);
 	EXPECT_EQ(states.top(), State::BROWSE); // committed move resets the stack
 
 	// Phase 2 - melee: a new turn, the focus sits on an adjacent enemy
 	AcceptContext meleeCtx;
 	meleeCtx.attackable = true;
 	EXPECT_EQ(dispatchAccept(states, meleeCtx), AcceptConsumer::MELEE);
-	EXPECT_EQ(states.top(), State::ACTION);
-	EXPECT_EQ(dispatchAccept(states, meleeCtx), AcceptConsumer::MELEE);
-	EXPECT_EQ(states.top(), State::ATTACK_DIRECTION);
+	EXPECT_EQ(states.top(), State::BROWSE); // committed attack resets the stack
 
-	// D-pad fine-tuning cycles the approach hex without moving the focus
+	// Shoulder fine-tuning cycles the visible approach hex without moving focus
 	const std::vector<BattleHex> origins = {BattleHex(7, 5), BattleHex(8, 4)};
 	const BattleHex recommended = BattleAttackDirection::recommend(origins);
 	EXPECT_EQ(recommended, origins.front());
 	const BattleHex cycled = BattleAttackDirection::cycle(origins, recommended, true);
 	EXPECT_EQ(cycled, origins.back());
 
-	EXPECT_EQ(dispatchAccept(states, meleeCtx), AcceptConsumer::MELEE);
-	EXPECT_EQ(states.top(), State::BROWSE); // committed attack resets the stack
-
 	// Phase 3 - shooting: the focus sits on an in-range enemy with ammo
 	AcceptContext shootCtx;
 	shootCtx.shootable = true;
-	EXPECT_EQ(dispatchAccept(states, shootCtx), AcceptConsumer::SHOOTING);
-	EXPECT_EQ(states.top(), State::ACTION);
 	EXPECT_EQ(dispatchAccept(states, shootCtx), AcceptConsumer::SHOOTING);
 	EXPECT_EQ(states.top(), State::BROWSE); // committed shot resets the stack
 }
@@ -145,49 +133,34 @@ TEST(BattleClosedLoopScenarioTest, priorityStaysMeleeOverShootingOverMovement)
 	contested.shootable = true;
 	contested.focusedReachable = true;
 	EXPECT_EQ(dispatchAccept(states, contested), AcceptConsumer::MELEE);
-	EXPECT_EQ(states.top(), State::ACTION);
-	EXPECT_TRUE(states.cancel());
+	EXPECT_EQ(states.top(), State::BROWSE);
 
 	EXPECT_EQ(states.top(), State::BROWSE);
 	contested.attackable = false;
 	EXPECT_EQ(dispatchAccept(states, contested), AcceptConsumer::SHOOTING);
-	EXPECT_EQ(states.top(), State::ACTION);
-	EXPECT_TRUE(states.cancel());
+	EXPECT_EQ(states.top(), State::BROWSE);
 
 	EXPECT_EQ(states.top(), State::BROWSE);
 	contested.shootable = false;
 	EXPECT_EQ(dispatchAccept(states, contested), AcceptConsumer::MOVEMENT);
-	EXPECT_EQ(states.top(), State::PREVIEW);
-	EXPECT_TRUE(states.cancel());
 	EXPECT_EQ(states.top(), State::BROWSE);
 }
 
-TEST(BattleClosedLoopScenarioTest, disabledTargetAndBExitBackOutLayerByLayer)
+TEST(BattleClosedLoopScenarioTest, disabledTargetHasNoCommitAndIdleBCanOpenParent)
 {
 	BattleControllerStateMachine states;
 
-	// BT-07: the shooting layer is open when the target loses ammo
+	// A legal shot commits immediately and never leaves an open layer.
 	AcceptContext shootCtx;
 	shootCtx.shootable = true;
 	ASSERT_EQ(dispatchAccept(states, shootCtx), AcceptConsumer::SHOOTING);
-	EXPECT_EQ(states.top(), State::ACTION);
+	EXPECT_EQ(states.top(), State::BROWSE);
 
-	// the BT-04 reason is reported while accept backs out one layer
+	// Once disabled, the target remains focusable but A has no action.
 	EXPECT_EQ(BattleRangedShooting::classify(true, false, false, true),
 		BattleRangedShooting::DisabledReason::NO_AMMO);
 	shootCtx.shootable = false;
-	EXPECT_EQ(dispatchAccept(states, shootCtx), AcceptConsumer::SHOOTING);
-	EXPECT_EQ(states.top(), State::BROWSE);
-
-	// B pops one layer at a time from the melee fine-tuning stack
-	AcceptContext meleeCtx;
-	meleeCtx.attackable = true;
-	ASSERT_EQ(dispatchAccept(states, meleeCtx), AcceptConsumer::MELEE);
-	ASSERT_EQ(dispatchAccept(states, meleeCtx), AcceptConsumer::MELEE);
-	EXPECT_EQ(states.top(), State::ATTACK_DIRECTION);
-	EXPECT_TRUE(states.cancel());
-	EXPECT_EQ(states.top(), State::ACTION);
-	EXPECT_TRUE(states.cancel());
+	EXPECT_EQ(dispatchAccept(states, shootCtx), AcceptConsumer::NONE);
 	EXPECT_EQ(states.top(), State::BROWSE);
 
 	// idle B stays in browse; the caller then returns to the parent layer

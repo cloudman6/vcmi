@@ -18,8 +18,11 @@
 
 enum class ControllerPresentation
 {
-	UNKNOWN,
-	PLAYSTATION
+	GENERIC,
+	UNKNOWN = GENERIC,
+	PLAYSTATION,
+	XBOX,
+	NINTENDO
 };
 
 /// Class that handles game controller input from SDL events
@@ -36,9 +39,9 @@ class InputSourceGameController
 
 	std::map<int, GameControllerPtr> gameControllerMap;
 	std::map<int, ControllerPresentation> controllerPresentations;
-	std::set<SDL_GameControllerAxis> pressedAxes;
+	std::set<std::pair<int, SDL_GameControllerAxis>> pressedAxes;
 	int activeController = -1;
-	ControllerPresentation activePresentation = ControllerPresentation::UNKNOWN;
+	ControllerPresentation activePresentation = ControllerPresentation::GENERIC;
 
 	std::chrono::steady_clock::time_point lastCheckTime;
 	double cursorAxisValueX;
@@ -66,7 +69,8 @@ class InputSourceGameController
 	InputSourceGameController(HeadlessTestTag);
 	int getJoystickIndex(SDL_GameController * controller);
 	double getRealAxisValue(int value) const;
-	void dispatchAxisShortcuts(const std::vector<EShortcut> & shortcutsVector, SDL_GameControllerAxis axisID, int axisValue, std::string axisName);
+	void resetAxisState();
+	void dispatchAxisShortcuts(const std::vector<EShortcut> & shortcutsVector, int instanceID, SDL_GameControllerAxis axisID, int axisValue, std::string axisName);
 	void tryToConvertCursor();
 	void doCursorMove(int deltaX, int deltaY);
 	int getMoveDis(float planDis);
@@ -81,6 +85,7 @@ public:
 	void handleEventDeviceRemoved(const SDL_ControllerDeviceEvent & device);
 	void handleEventDeviceRemapped(const SDL_ControllerDeviceEvent & device);
 	bool isAxisMotionActive(const SDL_ControllerAxisEvent & axis) const;
+	static double normalizeAxisValue(int value, double deadZone, double fullZone);
 	void handleEventAxisMotion(const SDL_ControllerAxisEvent & axis);
 	void handleEventButtonDown(const SDL_ControllerButtonEvent & button);
 	void handleEventButtonUp(const SDL_ControllerButtonEvent & button);
@@ -88,4 +93,5 @@ public:
 	ControllerPresentation getActivePresentation() const;
 	static std::optional<std::string> getGlyphToken(
 		ControllerPresentation presentation, const std::vector<std::string> & bindings);
+	static std::string getProfileName(ControllerPresentation presentation);
 };

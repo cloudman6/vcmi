@@ -58,6 +58,17 @@
 #include "../../lib/spells/CSpell.h"
 #include "../../lib/texts/CGeneralTextHandler.h"
 
+namespace
+{
+bool isMeleeControllerAction(PossiblePlayerBattleAction action)
+{
+	return action.get() == PossiblePlayerBattleAction::ATTACK
+		|| action.get() == PossiblePlayerBattleAction::LONG_WEAPON_ATTACK
+		|| action.get() == PossiblePlayerBattleAction::WALK_AND_ATTACK
+		|| action.get() == PossiblePlayerBattleAction::ATTACK_AND_RETURN;
+}
+}
+
 BattleInterface::BattleInterface(const BattleID & battleID, const CCreatureSet *army1, const CCreatureSet *army2,
 		const CGHeroInstance *hero1, const CGHeroInstance *hero2,
 		std::shared_ptr<CPlayerInterface> att,
@@ -334,7 +345,74 @@ void BattleInterface::handleFocusNavigationShortcut(EShortcut shortcut)
 	// preview is open, so the focused target stays announced while navigating
 	const BattleHex statusHex = BattleFocusStatusSync::decide(ENGINE->input().getCurrentInputMode(), focusModel);
 	if(statusHex.isValid())
-		actionsController->onHexHovered(statusHex);
+		actionsController->onHexFocused(statusHex, controllerAttackFromHex);
+}
+
+bool BattleInterface::handleControllerAxis(const ControllerAxisEvent & event)
+{
+	if(controllerCursorMode)
+		return false;
+	pointerPresentationOwner = false;
+
+	for(const auto action : event.actions)
+	{
+		if(action == EShortcut::CONTROLLER_NAVIGATE_X)
+			focusNavigation->updateAxis(event.instanceId, true, event.value);
+		if(action == EShortcut::CONTROLLER_NAVIGATE_Y)
+			focusNavigation->updateAxis(event.instanceId, false, event.value);
+	}
+	ENGINE->windows().refreshControllerCursorPolicy();
+	return true;
+}
+
+void BattleInterface::updateControllerAxis(uint32_t msPassed)
+{
+	if(!isControllerNativeMode() || !focusNavigation->update(msPassed))
+		return;
+	controllerAttackFromHex = BattleHex::INVALID;
+	const auto focus = BattleFocusStatusSync::decide(InputMode::CONTROLLER, focusModel);
+	if(focus.isValid())
+		actionsController->onHexFocused(focus, controllerAttackFromHex);
+	redrawBattlefield();
+}
+
+void BattleInterface::resetControllerAxis()
+{
+	focusNavigation->reset();
+}
+
+void BattleInterface::toggleControllerCursorMode()
+{
+	if(ENGINE->input().getCurrentInputMode() != InputMode::CONTROLLER)
+		return;
+	controllerCursorMode = !controllerCursorMode;
+	pointerPresentationOwner = controllerCursorMode;
+	resetControllerAxis();
+	ENGINE->windows().refreshControllerCursorPolicy();
+	redrawBattlefield();
+}
+
+bool BattleInterface::isControllerNativeMode() const
+{
+	return ENGINE->input().getCurrentInputMode() == InputMode::CONTROLLER && !controllerCursorMode;
+}
+
+bool BattleInterface::acceptsPointerPresentation(PointerEventSource source)
+{
+	if(source == PointerEventSource::REAL_MOUSE || source == PointerEventSource::TOUCH)
+	{
+		pointerPresentationOwner = true;
+		return true;
+	}
+	if(source == PointerEventSource::CONTROLLER_CURSOR)
+		return controllerCursorMode;
+	return pointerPresentationOwner;
+}
+
+void BattleInterface::controllerInputModeActivated()
+{
+	if(!controllerCursorMode)
+		pointerPresentationOwner = false;
 }
 
 void BattleInterface::handleControllerCancel()
@@ -371,7 +449,7 @@ void BattleInterface::onActiveStackChanged(const CStack * stack)
 
 	// same status host as the other focus paths, so the damage preview
 	// follows the restored focus
-	actionsController->onHexHovered(BattleFocusStatusSync::decide(ENGINE->input().getCurrentInputMode(), focusModel));
+	actionsController->onHexFocused(BattleFocusStatusSync::decide(ENGINE->input().getCurrentInputMode(), focusModel));
 }
 
 bool BattleInterface::trySwitchStack(bool forward)
@@ -381,6 +459,15 @@ bool BattleInterface::trySwitchStack(bool forward)
 
 	if(!controllerStates.canSwitchStacks())
 		return false;
+
+	const auto meleeOrigins = meleeAttackCandidates();
+	if(meleeOrigins.size() > 1)
+	{
+		controllerAttackFromHex = BattleAttackDirection::cycle(meleeOrigins, controllerAttackFromHex, forward);
+		actionsController->onHexFocused(focusModel.getFocusedHex(), controllerAttackFromHex);
+		redrawBattlefield();
+		return true;
+	}
 
 	const auto battle = getBattle();
 	if(!battle)
@@ -423,7 +510,7 @@ bool BattleInterface::trySwitchStack(bool forward)
 
 	// same status host as the mouse hover path, so the damage preview
 	// follows the newly focused unit
-	actionsController->onHexHovered(BattleFocusStatusSync::decide(ENGINE->input().getCurrentInputMode(), focusModel));
+	actionsController->onHexFocused(BattleFocusStatusSync::decide(ENGINE->input().getCurrentInputMode(), focusModel));
 	return true;
 }
 
@@ -440,6 +527,10 @@ std::vector<BattleHex> BattleInterface::meleeAttackCandidates() const
 		return candidates;
 
 	const BattleHex focusHex = focusModel.getFocusedHex();
+	const auto selectedAction = actionsController->controllerActionForHex(focusHex);
+	if(!isMeleeControllerAction(selectedAction) || !actionsController->controllerActionIsLegal(selectedAction, focusHex))
+		return candidates;
+	const bool allowLongWeapon = selectedAction.get() == PossiblePlayerBattleAction::LONG_WEAPON_ATTACK;
 	const CStack * targetStack = battle->battleGetStackByPos(focusHex, true);
 	if(!targetStack || targetStack->unitSide() == activeStack->unitSide())
 		return candidates;
@@ -455,7 +546,7 @@ std::vector<BattleHex> BattleInterface::meleeAttackCandidates() const
 	// same direction scan order as findAttackFromHex fallback
 	for(int direction = 0; direction < 8; ++direction)
 	{
-		const BattleHex origin = battle->fromWhichHexAttack(activeStack, focusHex, static_cast<BattleHex::EDir>(direction), false);
+		const BattleHex origin = battle->fromWhichHexAttack(activeStack, focusHex, static_cast<BattleHex::EDir>(direction), allowLongWeapon);
 		if(!origin.isValid() || !availableHexes.contains(origin))
 			continue;
 
@@ -503,26 +594,33 @@ BattleHintBar::Context BattleInterface::buildHintContext() const
 		&& focusModel.getFocusedHex() != activeStack->getPosition()
 		&& fieldController->getAvailableHexes().contains(focusModel.getFocusedHex());
 
-	context.attackable = !meleeAttackCandidates().empty();
+	const auto selectedAction = focusModel.hasFocus() ? actionsController->controllerActionForHex(focusModel.getFocusedHex()) : PossiblePlayerBattleAction::INVALID;
+	context.focusedReachable = context.focusedReachable
+		&& selectedAction.get() == PossiblePlayerBattleAction::MOVE_STACK
+		&& actionsController->controllerActionIsLegal(selectedAction, focusModel.getFocusedHex());
+	context.attackable = isMeleeControllerAction(selectedAction)
+		&& actionsController->controllerActionIsLegal(selectedAction, focusModel.getFocusedHex())
+		&& !meleeAttackCandidates().empty();
 
-	const CStack * targetStack = activeStack != nullptr && focusModel.hasFocus()
-		? getBattle()->battleGetStackByPos(focusModel.getFocusedHex(), true)
-		: nullptr;
-	const bool enemyFocus = targetStack != nullptr && targetStack->unitSide() != activeStack->unitSide();
-	context.shootable = enemyFocus && getBattle()->battleCanShoot(activeStack, focusModel.getFocusedHex());
+	context.shootable = selectedAction.get() == PossiblePlayerBattleAction::SHOOT
+		&& actionsController->controllerActionIsLegal(selectedAction, focusModel.getFocusedHex());
 	context.shootingDisabled = shootingDisabledReason();
 	return context;
 }
 
 void BattleInterface::handleControllerAccept()
 {
-	if(ENGINE->input().getCurrentInputMode() != InputMode::CONTROLLER)
+	if(!isControllerNativeMode())
 		return;
 
 	// D6: the hint bar and the accept dispatch derive their view of the
 	// focus from one shared context so prompts and actions always agree
 	const auto hintContext = buildHintContext();
 	const CStack * activeStack = stacksController->getActiveStack();
+	if(!activeStack || !focusModel.hasFocus())
+		return;
+	const BattleHex focusedHex = focusModel.getFocusedHex();
+	const auto selectedAction = actionsController->controllerActionForHex(focusedHex);
 
 	// melee attack takes priority: an enemy focus is never a movement
 	// destination, so both contracts can only compete on empty overlap
@@ -534,22 +632,20 @@ void BattleInterface::handleControllerAccept()
 		case BattleAttackDirection::MeleeOutcome::START_ACTION:
 			controllerStates.enter(BattleControllerStateMachine::State::ACTION);
 			controllerAttackFromHex = BattleAttackDirection::recommend(meleeOrigins);
-			actionsController->onHexHovered(focusModel.getFocusedHex());
+			actionsController->onHexFocused(focusModel.getFocusedHex(), controllerAttackFromHex);
 			return;
 		case BattleAttackDirection::MeleeOutcome::OPEN_DIRECTION:
 			controllerStates.enter(BattleControllerStateMachine::State::ATTACK_DIRECTION);
 			return;
 		case BattleAttackDirection::MeleeOutcome::COMMIT:
 		{
-			controllerStates.enter(BattleControllerStateMachine::State::COMMIT);
 			BattleHex attackFrom = controllerAttackFromHex;
 			bool stillValid = false;
 			for(const auto & origin : meleeOrigins)
 				stillValid |= origin == attackFrom;
 			if(!stillValid)
 				attackFrom = meleeOrigins.front(); // chosen origin vanished, fall back to the recommendation
-			const auto command = BattleAction::makeMeleeAttack(activeStack, focusModel.getFocusedHex(), attackFrom, false);
-			sendCommand(command, activeStack);
+			actionsController->realizeControllerAction(selectedAction, focusedHex, attackFrom);
 			controllerStates.reset();
 			return;
 		}
@@ -566,11 +662,10 @@ void BattleInterface::handleControllerAccept()
 	{
 		case BattleRangedShooting::Outcome::START_ACTION:
 			controllerStates.enter(BattleControllerStateMachine::State::ACTION);
-			actionsController->onHexHovered(focusModel.getFocusedHex());
+			actionsController->onHexFocused(focusModel.getFocusedHex());
 			return;
 		case BattleRangedShooting::Outcome::COMMIT:
-			controllerStates.enter(BattleControllerStateMachine::State::COMMIT);
-			giveCommand(EActionType::SHOOT, focusModel.getFocusedHex());
+			actionsController->realizeControllerAction(selectedAction, focusedHex);
 			controllerStates.reset();
 			return;
 		case BattleRangedShooting::Outcome::CANCEL_LAYER:
@@ -584,15 +679,11 @@ void BattleInterface::handleControllerAccept()
 	{
 		case BattleMovementPreview::Outcome::START_PREVIEW:
 			controllerStates.enter(BattleControllerStateMachine::State::PREVIEW);
-			actionsController->onHexHovered(focusModel.getFocusedHex());
+			actionsController->onHexFocused(focusModel.getFocusedHex());
 			return;
 		case BattleMovementPreview::Outcome::COMMIT:
 		{
-			controllerStates.enter(BattleControllerStateMachine::State::COMMIT);
-			// same destination resolution as the mouse MOVE_STACK path
-			const auto toHex = getBattle()->toWhichHexMove(activeStack, focusModel.getFocusedHex());
-			if(toHex.isValid())
-				giveCommand(EActionType::WALK, toHex);
+			actionsController->realizeControllerAction(selectedAction, focusedHex);
 			controllerStates.reset();
 			return;
 		}

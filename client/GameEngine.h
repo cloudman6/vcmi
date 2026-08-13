@@ -96,6 +96,7 @@ public:
 	ISoundPlayer & sound() { return *soundPlayerInstance; }
 	IMusicPlayer & music() { return *musicPlayerInstance; }
 	CursorHandler & cursor() { return *cursorHandlerInstance; }
+	bool hasCursorHandler() const { return cursorHandlerInstance != nullptr; }
 	IVideoPlayer & video() { return *videoPlayerInstance; }
 	Discord & discord() { return *discordInstance; }
 

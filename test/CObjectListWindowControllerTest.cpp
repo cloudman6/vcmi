@@ -85,6 +85,37 @@ public:
 	std::function<void()> onShowAll;
 };
 
+class AxisScopeProbeWindow final : public IShowActivatable, public IControllerAxisReceiver
+{
+	bool ownsAxis;
+	bool cursorAllowed;
+
+public:
+	explicit AxisScopeProbeWindow(bool ownsAxis_, bool cursorAllowed_ = true)
+		: ownsAxis(ownsAxis_)
+		, cursorAllowed(cursorAllowed_)
+	{
+	}
+
+	int captured = 0;
+	void activate() override {}
+	void deactivate() override {}
+	void redraw() override {}
+	void show(Canvas &) override {}
+	void showAll(Canvas &) override {}
+	bool isPopupWindow() const override { return false; }
+	void onScreenResize() override {}
+	IControllerAxisReceiver * getControllerAxisReceiver() override { return ownsAxis ? this : nullptr; }
+	ControllerAxisRoute controllerAxisMoved(const ControllerAxisEvent &) override
+	{
+		++captured;
+		return ControllerAxisRoute::CAPTURED;
+	}
+	void controllerAxisUpdate(uint32_t) override {}
+	void controllerAxisReset() override {}
+	bool controllerCursorAllowed() const override { return cursorAllowed; }
+};
+
 class TestFont final : public IFont
 {
 public:
@@ -763,6 +794,29 @@ protected:
 		controller.controllerPresentations.emplace(17, ControllerPresentation::UNKNOWN);
 		controller.setActiveController(17);
 		return {beforeRemap, afterInvalidation, controller.getActivePresentation()};
+	}
+
+	std::pair<bool, int> releaseInactiveControllerAxisState()
+	{
+		InputSourceGameController controller{InputSourceGameController::HeadlessTestTag()};
+		controller.activeController = 17;
+		controller.pressedAxes.insert({23, SDL_CONTROLLER_AXIS_TRIGGERLEFT});
+		controller.dispatchAxisShortcuts({}, 23, SDL_CONTROLLER_AXIS_TRIGGERLEFT, 0, "lefttrigger");
+		return {controller.pressedAxes.empty(), controller.activeController};
+	}
+
+	std::array<double, 4> cursorAxisStateAfterNativePolicyUpdate()
+	{
+		InputSourceGameController controller{InputSourceGameController::HeadlessTestTag()};
+		controller.cursorAxisValueX = 0.75;
+		controller.cursorAxisValueY = -0.5;
+		controller.cursorPlanDisX = 1.25;
+		controller.cursorPlanDisY = -2.0;
+		auto nativeScope = std::make_shared<AxisScopeProbeWindow>(true, false);
+		ENGINE->windows().pushWindow(nativeScope);
+		controller.handleCursorUpdate(16);
+		ENGINE->windows().clear();
+		return {controller.cursorAxisValueX, controller.cursorAxisValueY, controller.cursorPlanDisX, controller.cursorPlanDisY};
 	}
 
 };
@@ -1492,6 +1546,33 @@ TEST_F(WindowHandlerFocusLifecycleTest, PushSuspendsParentBeforeModalDispatchAnd
 	EXPECT_EQ(enabledSelection(parent), 0);
 }
 
+TEST_F(WindowHandlerFocusLifecycleTest, OldModalBlocksLowerControllerAxisReceiverFailClosed)
+{
+	auto battle = std::make_shared<AxisScopeProbeWindow>(true, false);
+	auto oldModal = std::make_shared<AxisScopeProbeWindow>(false);
+	const ControllerAxisEvent event{17, "leftx", {EShortcut::CONTROLLER_NAVIGATE_X}, 1.0};
+
+	ENGINE->windows().pushWindow(battle);
+	EXPECT_FALSE(ENGINE->windows().isControllerCursorAllowed());
+	EXPECT_EQ(ENGINE->windows().routeControllerAxis(event), ControllerAxisRoute::CAPTURED);
+	EXPECT_EQ(battle->captured, 1);
+
+	ENGINE->windows().pushWindow(oldModal);
+	EXPECT_FALSE(ENGINE->windows().isControllerCursorAllowed());
+	EXPECT_EQ(ENGINE->windows().routeControllerAxis(event), ControllerAxisRoute::BLOCKED);
+	EXPECT_EQ(battle->captured, 1);
+
+	ENGINE->windows().popWindow(oldModal);
+	EXPECT_EQ(ENGINE->windows().routeControllerAxis(event), ControllerAxisRoute::CAPTURED);
+	EXPECT_EQ(battle->captured, 2);
+	ENGINE->windows().clear();
+}
+
+TEST_F(ShortcutGlyphQueryTest, NativeAxisOwnershipClearsLatchedCursorVelocity)
+{
+	EXPECT_EQ(cursorAxisStateAfterNativePolicyUpdate(), (std::array<double, 4>{0.0, 0.0, 0.0, 0.0}));
+}
+
 TEST_F(WindowHandlerFocusLifecycleTest, ClearSuspendsFocusedWindow)
 {
 	auto window = createWindow({{"Enabled", true, ""}}, [](int)
@@ -1557,12 +1638,51 @@ TEST_F(ShortcutGlyphQueryTest, ReverseQuerySortsDeduplicatesAndRemapsBindings)
 	EXPECT_FALSE(InputSourceGameController::getGlyphToken(ControllerPresentation::PLAYSTATION, {"leftshoulder"}));
 }
 
+TEST_F(ShortcutGlyphQueryTest, CursorModeProfileOverridesBackWithoutAutocombatConflict)
+{
+	for(const auto & profile : {"xbox", "nintendo", "generic"})
+	{
+		const auto actions = ENGINE->shortcuts().translateJoystickButton("back", profile);
+		EXPECT_TRUE(vstd::contains(actions, EShortcut::GLOBAL_TOGGLE_CURSOR_MODE));
+		EXPECT_FALSE(vstd::contains(actions, EShortcut::BATTLE_END_WITH_AUTOCOMBAT));
+		EXPECT_EQ(ENGINE->shortcuts().getJoystickBindings(EShortcut::GLOBAL_TOGGLE_CURSOR_MODE, profile), std::vector<std::string>{"back"});
+	}
+	const auto playstationActions = ENGINE->shortcuts().translateJoystickButton("touchpad", "playstation");
+	EXPECT_TRUE(vstd::contains(playstationActions, EShortcut::GLOBAL_TOGGLE_CURSOR_MODE));
+	EXPECT_EQ(ENGINE->shortcuts().getJoystickBindings(EShortcut::GLOBAL_TOGGLE_CURSOR_MODE, "playstation"), std::vector<std::string>{"touchpad"});
+}
+
 TEST_F(ShortcutGlyphQueryTest, ControllerRemapInvalidatesActivePresentation)
 {
 	const auto presentations = controllerPresentationsAfterRemap();
 	EXPECT_EQ(presentations[0], ControllerPresentation::PLAYSTATION);
 	EXPECT_EQ(presentations[1], ControllerPresentation::UNKNOWN);
 	EXPECT_EQ(presentations[2], ControllerPresentation::UNKNOWN);
+}
+
+TEST_F(ShortcutGlyphQueryTest, NeutralAxisEventReleasesItsOwnInactiveControllerState)
+{
+	const auto [released, activeController] = releaseInactiveControllerAxisState();
+	EXPECT_TRUE(released);
+	EXPECT_EQ(activeController, 17);
+}
+
+TEST_F(ShortcutGlyphQueryTest, NativeControllerCursorPolicyOverridesLateShowAndRestoresRequest)
+{
+	initializeCursorPresentation();
+	ASSERT_TRUE(ENGINE->cursor().isVisible());
+
+	ENGINE->cursor().setControllerNativeHidden(true);
+	EXPECT_FALSE(ENGINE->cursor().isVisible());
+	ENGINE->cursor().show();
+	EXPECT_FALSE(ENGINE->cursor().isVisible());
+
+	ENGINE->cursor().setControllerNativeHidden(false);
+	EXPECT_TRUE(ENGINE->cursor().isVisible());
+	ENGINE->cursor().hide();
+	ENGINE->cursor().setControllerNativeHidden(true);
+	ENGINE->cursor().setControllerNativeHidden(false);
+	EXPECT_FALSE(ENGINE->cursor().isVisible());
 }
 
 TEST_F(ShortcutGlyphQueryTest, ControllerAcceptDefersExecutionUntilButtonRelease)

@@ -65,11 +65,9 @@ TEST(BattleAttackDirectionTest, cycleWithoutCandidatesYieldsInvalid)
 	EXPECT_EQ(BattleAttackDirection::cycle({}, BattleHex(6, 4), true), BattleHex::INVALID);
 }
 
-TEST(BattleAttackDirectionTest, acceptWalksTheMeleeLayersInOrder)
+TEST(BattleAttackDirectionTest, acceptFromBrowseCommitsTheVisibleRecommendedOrigin)
 {
-	EXPECT_EQ(BattleAttackDirection::decideAccept(State::BROWSE, true), Outcome::START_ACTION);
-	EXPECT_EQ(BattleAttackDirection::decideAccept(State::ACTION, true), Outcome::OPEN_DIRECTION);
-	EXPECT_EQ(BattleAttackDirection::decideAccept(State::ATTACK_DIRECTION, true), Outcome::COMMIT);
+	EXPECT_EQ(BattleAttackDirection::decideAccept(State::BROWSE, true), Outcome::COMMIT);
 }
 
 TEST(BattleAttackDirectionTest, acceptWithoutTargetCancelsDeeperMeleeLayers)

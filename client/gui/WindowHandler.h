@@ -10,6 +10,8 @@
 #pragma once
 
 class IShowActivatable;
+struct ControllerAxisEvent;
+enum class ControllerAxisRoute;
 
 class WindowHandler
 {
@@ -70,6 +72,12 @@ public:
 
 	/// returns current number of windows in the stack
 	size_t count() const;
+
+	ControllerAxisRoute routeControllerAxis(const ControllerAxisEvent & event);
+	void updateControllerAxis(uint32_t msPassed);
+	void resetControllerAxis();
+	void refreshControllerCursorPolicy();
+	bool isControllerCursorAllowed() const;
 
 	/// erases all currently existing windows from the stack
 	void clear();

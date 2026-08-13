@@ -26,6 +26,14 @@ void ShortcutHandler::reloadShortcuts()
 	mappedKeyboardShortcuts = loadShortcuts(keyBindingsConfig["keyboard"]);
 	mappedJoystickShortcuts = loadShortcuts(keyBindingsConfig["joystickButtons"]);
 	mappedJoystickAxes = loadShortcuts(keyBindingsConfig["joystickAxes"]);
+	for(const auto & [profile, group] : std::map<std::string, std::string>{{"playstation", "joystickButtonsPlayStation"}, {"xbox", "joystickButtonsXbox"}, {"nintendo", "joystickButtonsNintendo"}, {"generic", "joystickButtonsGeneric"}})
+	{
+		mappedJoystickProfiles[profile] = loadShortcuts(keyBindingsConfig[group]);
+		auto & overrides = overriddenJoystickActions[profile];
+		overrides.clear();
+		for(const auto & entry : keyBindingsConfig[group].Struct())
+			overrides.insert(findShortcut(entry.first));
+	}
 
 #ifndef ENABLE_GOLDMASTER
 	std::vector<EShortcut> assignedShortcuts;
@@ -103,6 +111,25 @@ std::vector<EShortcut> ShortcutHandler::translateJoystickButton(const std::strin
 	return translateShortcut(mappedJoystickShortcuts, key);
 }
 
+std::vector<EShortcut> ShortcutHandler::translateJoystickButton(const std::string & key, const std::string & profile) const
+{
+	auto result = translateJoystickButton(key);
+	const auto overrides = overriddenJoystickActions.find(profile);
+	if(overrides != overriddenJoystickActions.end())
+		vstd::erase_if(result, [&](EShortcut action){ return overrides->second.count(action) != 0; });
+	const auto mapped = mappedJoystickProfiles.find(profile);
+	if(mapped != mappedJoystickProfiles.end())
+	{
+		auto additions = translateShortcut(mapped->second, key);
+		vstd::erase_if(additions, [](EShortcut action){ return action == EShortcut::NONE; });
+		result.insert(result.end(), additions.begin(), additions.end());
+	}
+	vstd::erase_if(result, [](EShortcut action){ return action == EShortcut::NONE; });
+	std::sort(result.begin(), result.end());
+	result.erase(std::unique(result.begin(), result.end()), result.end());
+	return result.empty() ? std::vector<EShortcut>{EShortcut::NONE} : result;
+}
+
 std::vector<EShortcut> ShortcutHandler::translateJoystickAxis(const std::string & key) const
 {
 	return translateShortcut(mappedJoystickAxes, key);
@@ -122,6 +149,22 @@ std::vector<std::string> ShortcutHandler::getJoystickBindings(EShortcut shortcut
 	return result;
 }
 
+std::vector<std::string> ShortcutHandler::getJoystickBindings(EShortcut shortcut, const std::string & profile) const
+{
+	std::vector<std::string> result;
+	const auto overrides = overriddenJoystickActions.find(profile);
+	if(overrides == overriddenJoystickActions.end() || overrides->second.count(shortcut) == 0)
+		result = getJoystickBindings(shortcut);
+	const auto mapped = mappedJoystickProfiles.find(profile);
+	if(mapped != mappedJoystickProfiles.end())
+		for(const auto & binding : mapped->second)
+			if(binding.second == shortcut)
+				result.push_back(binding.first);
+	std::sort(result.begin(), result.end());
+	result.erase(std::unique(result.begin(), result.end()), result.end());
+	return result;
+}
+
 EShortcut ShortcutHandler::findShortcut(const std::string & identifier ) const
 {
 	static const std::map<std::string, EShortcut> shortcutNames = {
@@ -131,6 +174,8 @@ EShortcut ShortcutHandler::findShortcut(const std::string & identifier ) const
 		{"mouseCursorY",             EShortcut::MOUSE_CURSOR_Y,           },
 		{"mouseSwipeX",              EShortcut::MOUSE_SWIPE_X,            },
 		{"mouseSwipeY",              EShortcut::MOUSE_SWIPE_Y,            },
+		{"controllerNavigateX",      EShortcut::CONTROLLER_NAVIGATE_X,    },
+		{"controllerNavigateY",      EShortcut::CONTROLLER_NAVIGATE_Y,    },
 		{"globalAccept",             EShortcut::GLOBAL_ACCEPT             },
 		{"globalCancel",             EShortcut::GLOBAL_CANCEL             },
 		{"globalReturn",             EShortcut::GLOBAL_RETURN             },
@@ -139,6 +184,7 @@ EShortcut ShortcutHandler::findShortcut(const std::string & identifier ) const
 		{"globalOptions",            EShortcut::GLOBAL_OPTIONS            },
 		{"globalBackspace",          EShortcut::GLOBAL_BACKSPACE          },
 		{"globalMoveFocus",          EShortcut::GLOBAL_MOVE_FOCUS         },
+		{"toggleCursorMode",         EShortcut::GLOBAL_TOGGLE_CURSOR_MODE },
 		{"moveLeft",                 EShortcut::MOVE_LEFT                 },
 		{"moveRight",                EShortcut::MOVE_RIGHT                },
 		{"moveUp",                   EShortcut::MOVE_UP                   },

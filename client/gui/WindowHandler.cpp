@@ -34,6 +34,7 @@ void WindowHandler::popWindow(std::shared_ptr<IShowActivatable> top)
 		if(auto * scope = windowsStack.back()->getFocusScope())
 			scope->restoreFocus();
 	}
+	refreshControllerCursorPolicy();
 
 	totalRedraw();
 }
@@ -58,6 +59,7 @@ void WindowHandler::pushWindow(std::shared_ptr<IShowActivatable> newInt)
 	newInt->activate();
 	if(auto * scope = newInt->getFocusScope())
 		scope->restoreFocus();
+	refreshControllerCursorPolicy();
 	totalRedraw();
 }
 
@@ -93,6 +95,7 @@ void WindowHandler::popWindows(int howMany)
 	}
 	if(!ENGINE->isHeadlessForTests())
 		ENGINE->fakeMouseMove();
+	refreshControllerCursorPolicy();
 }
 
 std::shared_ptr<IShowActivatable> WindowHandler::topWindowImpl() const
@@ -132,6 +135,7 @@ void WindowHandler::totalRedrawImpl()
 
 void WindowHandler::simpleRedraw()
 {
+	refreshControllerCursorPolicy();
 	if (totalRedrawRequested)
 		totalRedrawImpl();
 	else
@@ -166,6 +170,53 @@ size_t WindowHandler::count() const
 	return windowsStack.size();
 }
 
+ControllerAxisRoute WindowHandler::routeControllerAxis(const ControllerAxisEvent & event)
+{
+	for(auto it = windowsStack.rbegin(); it != windowsStack.rend(); ++it)
+	{
+		if(auto * receiver = (*it)->getControllerAxisReceiver())
+		{
+			if(it != windowsStack.rbegin())
+				return ControllerAxisRoute::BLOCKED;
+			return receiver->controllerAxisMoved(event);
+		}
+	}
+	return ControllerAxisRoute::UNOWNED;
+}
+
+void WindowHandler::updateControllerAxis(uint32_t msPassed)
+{
+	if(windowsStack.empty())
+		return;
+	if(auto * receiver = windowsStack.back()->getControllerAxisReceiver())
+		receiver->controllerAxisUpdate(msPassed);
+}
+
+void WindowHandler::resetControllerAxis()
+{
+	for(auto it = windowsStack.rbegin(); it != windowsStack.rend(); ++it)
+		if(auto * receiver = (*it)->getControllerAxisReceiver())
+		{
+			receiver->controllerAxisReset();
+			return;
+		}
+}
+
+void WindowHandler::refreshControllerCursorPolicy()
+{
+	if(!ENGINE->hasCursorHandler())
+		return;
+	ENGINE->cursor().setControllerNativeHidden(!isControllerCursorAllowed());
+}
+
+bool WindowHandler::isControllerCursorAllowed() const
+{
+	for(auto it = windowsStack.rbegin(); it != windowsStack.rend(); ++it)
+		if(auto * receiver = (*it)->getControllerAxisReceiver())
+			return receiver->controllerCursorAllowed();
+	return true;
+}
+
 void WindowHandler::clear()
 {
 	if(!windowsStack.empty())
@@ -177,4 +228,5 @@ void WindowHandler::clear()
 
 	windowsStack.clear();
 	disposed.clear();
+	refreshControllerCursorPolicy();
 }

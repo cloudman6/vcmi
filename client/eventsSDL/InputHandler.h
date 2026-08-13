@@ -34,6 +34,14 @@ enum class InputMode
 	CONTROLLER
 };
 
+enum class PointerEventSource
+{
+	REAL_MOUSE,
+	TOUCH,
+	CONTROLLER_CURSOR,
+	SYNTHETIC_REFRESH
+};
+
 enum class PowerStateMode
 {
 	UNKNOWN,
@@ -68,6 +76,7 @@ class InputHandler
 	const bool enableController;
 
 	InputMode currentInputMode;
+	PointerEventSource pointerEventSource = PointerEventSource::SYNTHETIC_REFRESH;
 	void setCurrentInputMode(InputMode modi);
 	InputHandler(HeadlessTestTag);
 
@@ -107,7 +116,9 @@ public:
 	void moveCursorPosition(const Point & distance);
 
 	/// Moves cursor to a specified position
-	void setCursorPosition(const Point & position);
+	void setCursorPosition(const Point & position, PointerEventSource source = PointerEventSource::SYNTHETIC_REFRESH);
+	void dispatchSyntheticMouseMove();
+	PointerEventSource getPointerEventSource() const { return pointerEventSource; }
 
 	/// Initiates text input in selected area, potentially creating IME popup (mobile systems only at the moment)
 	void startTextInput(const Rect & where);

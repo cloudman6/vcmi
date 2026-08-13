@@ -20,6 +20,8 @@ class ShortcutHandler
 	std::multimap<std::string, EShortcut> mappedKeyboardShortcuts;
 	std::multimap<std::string, EShortcut> mappedJoystickShortcuts;
 	std::multimap<std::string, EShortcut> mappedJoystickAxes;
+	std::map<std::string, std::multimap<std::string, EShortcut>> mappedJoystickProfiles;
+	std::map<std::string, std::set<EShortcut>> overriddenJoystickActions;
 
 	std::multimap<std::string, EShortcut> loadShortcuts(const JsonNode & data) const;
 	std::vector<EShortcut> translateShortcut(const std::multimap<std::string, EShortcut> & options, const std::string & key) const;
@@ -35,11 +37,13 @@ public:
 	std::vector<EShortcut> translateKeycode(const std::string & key) const;
 
 	std::vector<EShortcut> translateJoystickButton(const std::string & key) const;
+	std::vector<EShortcut> translateJoystickButton(const std::string & key, const std::string & profile) const;
 
 	std::vector<EShortcut> translateJoystickAxis(const std::string & key) const;
 
 	/// Returns sorted unique joystick button bindings assigned to the provided shortcut.
 	std::vector<std::string> getJoystickBindings(EShortcut shortcut) const;
+	std::vector<std::string> getJoystickBindings(EShortcut shortcut, const std::string & profile) const;
 
 	/// attempts to find shortcut by its unique identifier. Returns EShortcut::NONE on failure
 	EShortcut findShortcut(const std::string & identifier ) const;

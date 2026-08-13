@@ -48,10 +48,10 @@ TEST(BattleRangedShootingTest, classifyOutOfRange)
 	EXPECT_EQ(BattleRangedShooting::classify(true, true, false, false), Reason::OUT_OF_RANGE);
 }
 
-TEST(BattleRangedShootingTest, acceptOpensTheShootingLayerFromBrowse)
+TEST(BattleRangedShootingTest, acceptFromBrowseCommitsTheVisibleShotPreview)
 {
-	EXPECT_EQ(BattleRangedShooting::decideAccept(State::BROWSE, true), Outcome::START_ACTION);
-	// illegal targets stay focusable but never open the shooting layer
+	EXPECT_EQ(BattleRangedShooting::decideAccept(State::BROWSE, true), Outcome::COMMIT);
+	// illegal targets stay focusable but never expose a confirm action
 	EXPECT_EQ(BattleRangedShooting::decideAccept(State::BROWSE, false), Outcome::NONE);
 }
 

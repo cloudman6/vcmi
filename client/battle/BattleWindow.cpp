@@ -100,15 +100,11 @@ BattleWindow::BattleWindow(BattleInterface & Owner)
 	// fall back to the pre-existing defend/wait behavior otherwise
 	addShortcut(EShortcut::BATTLE_WAIT, [this](){ if(!owner.trySwitchStack(true)) bWaitf(); });
 	addShortcut(EShortcut::BATTLE_DEFEND, [this](){ if(!owner.trySwitchStack(false)) bDefencef(); });
-	addShortcut(EShortcut::BATTLE_CONSOLE_UP, std::bind(&BattleWindow::bConsoleUpf, this));
-	addShortcut(EShortcut::BATTLE_CONSOLE_DOWN, std::bind(&BattleWindow::bConsoleDownf, this));
+	addShortcut(EShortcut::BATTLE_CONSOLE_UP, [this](){ if(!owner.isControllerNativeMode()) bConsoleUpf(); });
+	addShortcut(EShortcut::BATTLE_CONSOLE_DOWN, [this](){ if(!owner.isControllerNativeMode()) bConsoleDownf(); });
 
-	// controller D-pad focus navigation, consumed only in controller input mode
-	addShortcut(EShortcut::MOVE_UP, [this](){ owner.handleFocusNavigationShortcut(EShortcut::MOVE_UP); });
-	addShortcut(EShortcut::MOVE_DOWN, [this](){ owner.handleFocusNavigationShortcut(EShortcut::MOVE_DOWN); });
-	addShortcut(EShortcut::MOVE_LEFT, [this](){ owner.handleFocusNavigationShortcut(EShortcut::MOVE_LEFT); });
-	addShortcut(EShortcut::MOVE_RIGHT, [this](){ owner.handleFocusNavigationShortcut(EShortcut::MOVE_RIGHT); });
 	addShortcut(EShortcut::GLOBAL_ACCEPT, [this](){ owner.handleControllerAccept(); });
+	addShortcut(EShortcut::GLOBAL_TOGGLE_CURSOR_MODE, [this](){ owner.toggleControllerCursorMode(); });
 	addShortcut(EShortcut::BATTLE_TACTICS_NEXT, std::bind(&BattleWindow::bTacticNextStack, this));
 	addShortcut(EShortcut::BATTLE_TACTICS_END, std::bind(&BattleWindow::bTacticPhaseEnd, this));
 	addShortcut(EShortcut::BATTLE_OPEN_ACTIVE_UNIT, std::bind(&BattleWindow::bOpenActiveUnit, this));
@@ -152,7 +148,7 @@ BattleWindow::BattleWindow(BattleInterface & Owner)
 	else
 		tacticPhaseEnded();
 
-	addUsedEvents(LCLICK | KEYBOARD);
+	addUsedEvents(LCLICK | KEYBOARD | INPUT_MODE_CHANGE);
 }
 
 void BattleWindow::createQueue()
@@ -527,9 +523,37 @@ void BattleWindow::activate()
 
 void BattleWindow::deactivate()
 {
+	controllerAxisReset();
 	ENGINE->setStatusbar(nullptr);
 	CIntObject::deactivate();
 	GAME->interface()->cingconsole->deactivate();
+}
+
+void BattleWindow::inputModeChanged(InputMode mode)
+{
+	if(mode == InputMode::CONTROLLER && owner.isControllerNativeMode())
+		owner.controllerInputModeActivated();
+	ENGINE->windows().refreshControllerCursorPolicy();
+}
+
+ControllerAxisRoute BattleWindow::controllerAxisMoved(const ControllerAxisEvent & event)
+{
+	return owner.handleControllerAxis(event) ? ControllerAxisRoute::CAPTURED : ControllerAxisRoute::CURSOR;
+}
+
+void BattleWindow::controllerAxisUpdate(uint32_t msPassed)
+{
+	owner.updateControllerAxis(msPassed);
+}
+
+void BattleWindow::controllerAxisReset()
+{
+	owner.resetControllerAxis();
+}
+
+bool BattleWindow::controllerCursorAllowed() const
+{
+	return !owner.isControllerNativeMode();
 }
 
 bool BattleWindow::captureThisKey(EShortcut key)

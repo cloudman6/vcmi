@@ -139,6 +139,8 @@ class CursorHandler final
 	int32_t currentFrame {};
 	Cursor::ShowType showType;
 	bool showing;
+	bool showingRequested;
+	bool controllerNativeHidden;
 
 	void updateAnimatedCursor();
 
@@ -171,6 +173,8 @@ public:
 
 	void hide();
 	void show();
+	void setControllerNativeHidden(bool hidden);
+	bool isVisible() const { return showing; }
 	void onScreenResize();
 
 	/// change cursor's positions to (x, y)

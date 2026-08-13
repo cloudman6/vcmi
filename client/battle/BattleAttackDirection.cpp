@@ -46,7 +46,7 @@ BattleAttackDirection::MeleeOutcome BattleAttackDirection::decideAccept(BattleCo
 	switch(top)
 	{
 		case State::BROWSE:
-			return attackable ? MeleeOutcome::START_ACTION : MeleeOutcome::NONE;
+			return attackable ? MeleeOutcome::COMMIT : MeleeOutcome::NONE;
 		case State::ACTION:
 			if(!attackable)
 				return MeleeOutcome::NONE; // the shooting layer may own ACTION; dispatch arbitrates

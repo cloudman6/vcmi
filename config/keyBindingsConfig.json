@@ -281,6 +281,9 @@
 		"mouseClickRight":          [],
 		"mouseSwipeX":              [],
 		"mouseSwipeY":              [],
+		"controllerNavigateX":      [],
+		"controllerNavigateY":      [],
+		"toggleCursorMode":         [],
 
 	},
 	
@@ -288,6 +291,8 @@
 	{
 		"mouseCursorX" : "leftx",
 		"mouseCursorY" : "lefty",
+		"controllerNavigateX" : "leftx",
+		"controllerNavigateY" : "lefty",
 		"mouseSwipeX" : "rightx",
 		"mouseSwipeY" : "righty"
 	},
@@ -322,7 +327,8 @@
 		"battleCastSpell" : "righttrigger",
 		
 		"adventureEndTurn" : "back",
-		"battleAutocombatEnd" : "back",
+		"battleAutocombatEnd" : [],
+		"toggleCursorMode" : [],
 		
 		"globalOptions" : "start",
 		"adventureGameOptions" : "start",
@@ -350,5 +356,22 @@
 		
 		"adventureToggleGrid" : "rightstick",
 		"battleToggleQueue" : "rightstick",
+	},
+
+	"joystickButtonsPlayStation": {
+		"toggleCursorMode": "touchpad",
+		"battleAutocombatEnd": []
+	},
+	"joystickButtonsXbox": {
+		"toggleCursorMode": "back",
+		"battleAutocombatEnd": []
+	},
+	"joystickButtonsNintendo": {
+		"toggleCursorMode": "back",
+		"battleAutocombatEnd": []
+	},
+	"joystickButtonsGeneric": {
+		"toggleCursorMode": "back",
+		"battleAutocombatEnd": []
 	}
 }

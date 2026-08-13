@@ -19,9 +19,9 @@
 using State = BattleControllerStateMachine::State;
 using Outcome = BattleMovementPreview::Outcome;
 
-TEST(BattleMovementPreviewTest, acceptFromBrowseStartsPreviewOnlyWhenFocusIsReachable)
+TEST(BattleMovementPreviewTest, acceptFromBrowseCommitsVisiblePreviewWhenFocusIsReachable)
 {
-	EXPECT_EQ(BattleMovementPreview::decideAccept(State::BROWSE, true), Outcome::START_PREVIEW);
+	EXPECT_EQ(BattleMovementPreview::decideAccept(State::BROWSE, true), Outcome::COMMIT);
 	EXPECT_EQ(BattleMovementPreview::decideAccept(State::BROWSE, false), Outcome::NONE);
 }
 

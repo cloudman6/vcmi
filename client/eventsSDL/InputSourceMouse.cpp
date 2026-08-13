@@ -53,7 +53,7 @@ void InputSourceMouse::handleEventMouseMotion(const SDL_MouseMotionEvent & motio
 	else if (mouseButtonsMask & SDL_BUTTON(SDL_BUTTON_RIGHT))
 		ENGINE->events().dispatchMouseDraggedPopup(newPosition, distance);
 	else
-		ENGINE->input().setCursorPosition(newPosition);
+		ENGINE->input().setCursorPosition(newPosition, PointerEventSource::REAL_MOUSE);
 }
 
 void InputSourceMouse::handleEventMouseButtonDown(const SDL_MouseButtonEvent & button)

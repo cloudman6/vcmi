@@ -53,7 +53,7 @@ std::vector<BattleHintEntry> BattleHintBar::entries(InputMode inputMode, BattleC
 					reasonKey = HINT_REASON_BLOCKED_LINE;
 				if(context.shootingDisabled == BattleRangedShooting::DisabledReason::OUT_OF_RANGE)
 					reasonKey = HINT_REASON_OUT_OF_RANGE;
-				entries.push_back({EShortcut::GLOBAL_ACCEPT, reasonKey});
+				entries.push_back({EShortcut::NONE, reasonKey, false});
 			}
 			else if(context.focusedReachable)
 				entries.push_back({EShortcut::GLOBAL_ACCEPT, HINT_MOVE});

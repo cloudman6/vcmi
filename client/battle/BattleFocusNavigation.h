@@ -14,15 +14,16 @@
 #include "../eventsSDL/InputHandler.h"
 #include "../gui/Shortcut.h"
 
-/// Routes navigation shortcuts onto the battle focus model. The shortcuts are
-/// produced by the existing moveUp/moveDown/moveLeft/moveRight bindings,
-/// which the controller D-pad maps onto, so no new binding is introduced.
-/// Navigation is only consumed while the game controller input mode is
-/// active; keyboard and mouse behaviour stays untouched.
+/// Compatibility seam for shortcut navigation. Battle Native Focus does not
+/// consume D-pad movement shortcuts; analog navigation uses the axis receiver.
 class BattleFocusNavigation
 {
 public:
 	explicit BattleFocusNavigation(BattleFocusModel & model);
+
+	void updateAxis(int instanceId, bool horizontal, double value);
+	bool update(uint32_t msPassed);
+	void reset();
 
 	/// Returns true when the shortcut is a focus navigation shortcut consumed
 	/// under the given input mode, regardless of whether focus could move.
@@ -33,4 +34,12 @@ public:
 
 private:
 	BattleFocusModel & model;
+	int activeInstance = -1;
+	double axisX = 0.0;
+	double axisY = 0.0;
+	BattleHex::EDir direction = BattleHex::NONE;
+	bool initialPending = false;
+	uint32_t elapsed = 0;
+
+	BattleHex::EDir quantizedDirection() const;
 };

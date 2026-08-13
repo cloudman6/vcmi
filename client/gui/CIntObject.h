@@ -29,6 +29,35 @@ public:
 	virtual ~IFocusScope() = default;
 };
 
+struct ControllerAxisEvent
+{
+	int instanceId = -1;
+	std::string axisName;
+	std::vector<EShortcut> actions;
+	double value = 0.0;
+};
+
+enum class ControllerAxisRoute
+{
+	UNOWNED,
+	CAPTURED,
+	BLOCKED,
+	CURSOR
+};
+
+class IControllerAxisReceiver
+{
+public:
+	virtual ControllerAxisRoute controllerAxisMoved(const ControllerAxisEvent & event) = 0;
+	virtual void controllerAxisUpdate(uint32_t msPassed) = 0;
+	virtual void controllerAxisReset() = 0;
+	/// Whether the virtual/system cursor may be visible while this receiver owns
+	/// the current controller axis scope. A receiver below an old modal still
+	/// owns this policy even though the modal blocks its axis events.
+	virtual bool controllerCursorAllowed() const { return true; }
+	virtual ~IControllerAxisReceiver() = default;
+};
+
 class IShowActivatable
 {
 public:
@@ -42,6 +71,7 @@ public:
 	virtual bool isPopupWindow() const = 0;
 	virtual void onScreenResize() = 0;
 	virtual IFocusScope * getFocusScope() { return nullptr; }
+	virtual IControllerAxisReceiver * getControllerAxisReceiver() { return nullptr; }
 	virtual ~IShowActivatable() = default;
 };
 

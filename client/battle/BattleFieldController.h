@@ -85,6 +85,7 @@ class BattleFieldController : public CIntObject
 	void showBackgroundImageWithHexes(Canvas & canvas);
 	void showHighlightedHexes(Canvas & canvas);
 	void showControllerFocusHex(Canvas & canvas);
+	void showControllerActionPrompt(Canvas & canvas);
 	void showControllerMeleeAssist(Canvas & canvas);
 	void updateAccessibleHexes();
 

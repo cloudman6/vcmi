@@ -64,9 +64,18 @@
 			"frames": 30
 		},
 		{
-			"op": "tap",
+			"op": "set_axis",
 			"device": "pad0",
-			"control": "dpad_right"
+			"control": "left_stick_x",
+			"value": 1.0
+		},
+		{
+			"op": "wait_frames",
+			"frames": 3
+		},
+		{
+			"op": "neutralize",
+			"device": "pad0"
 		},
 		{
 			"op": "wait_until",
@@ -76,9 +85,18 @@
 			"timeout_ms": 5000
 		},
 		{
-			"op": "tap",
+			"op": "set_axis",
 			"device": "pad0",
-			"control": "dpad_right"
+			"control": "left_stick_x",
+			"value": 1.0
+		},
+		{
+			"op": "wait_frames",
+			"frames": 3
+		},
+		{
+			"op": "neutralize",
+			"device": "pad0"
 		},
 		{
 			"op": "wait_until",
@@ -88,9 +106,18 @@
 			"timeout_ms": 5000
 		},
 		{
-			"op": "tap",
+			"op": "set_axis",
 			"device": "pad0",
-			"control": "dpad_right"
+			"control": "left_stick_x",
+			"value": 1.0
+		},
+		{
+			"op": "wait_frames",
+			"frames": 3
+		},
+		{
+			"op": "neutralize",
+			"device": "pad0"
 		},
 		{
 			"op": "wait_until",
@@ -112,18 +139,6 @@
 			"equals": 0
 		},
 		{
-			"op": "tap",
-			"device": "pad0",
-			"control": "south"
-		},
-		{
-			"op": "wait_until",
-			"probe": "battle",
-			"field": "state",
-			"equals": "preview",
-			"timeout_ms": 5000
-		},
-		{
 			"op": "assert",
 			"probe": "battle",
 			"field": "status_host_follows_focus",
@@ -137,43 +152,7 @@
 		},
 		{
 			"op": "capture_frame",
-			"name": "s4-move-preview"
-		},
-		{
-			"op": "tap",
-			"device": "pad0",
-			"control": "east"
-		},
-		{
-			"op": "wait_until",
-			"probe": "battle",
-			"field": "state",
-			"equals": "browse",
-			"timeout_ms": 5000
-		},
-		{
-			"op": "assert",
-			"probe": "battle",
-			"field": "focus_hex",
-			"equals": 39
-		},
-		{
-			"op": "assert",
-			"probe": "battle",
-			"field": "commands_sent",
-			"equals": 0
-		},
-		{
-			"op": "tap",
-			"device": "pad0",
-			"control": "south"
-		},
-		{
-			"op": "wait_until",
-			"probe": "battle",
-			"field": "state",
-			"equals": "preview",
-			"timeout_ms": 5000
+			"name": "s4-continuous-move-preview"
 		},
 		{
 			"op": "tap",

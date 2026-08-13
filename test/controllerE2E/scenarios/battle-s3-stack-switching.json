@@ -106,9 +106,18 @@
 			"equals": 0
 		},
 		{
-			"op": "tap",
+			"op": "set_axis",
 			"device": "pad0",
-			"control": "dpad_right"
+			"control": "left_stick_x",
+			"value": 1.0
+		},
+		{
+			"op": "wait_frames",
+			"frames": 3
+		},
+		{
+			"op": "neutralize",
+			"device": "pad0"
 		},
 		{
 			"op": "wait_until",
@@ -116,18 +125,6 @@
 			"field": "focus_hex",
 			"timeout_ms": 10000,
 			"equals": 37
-		},
-		{
-			"op": "tap",
-			"device": "pad0",
-			"control": "south"
-		},
-		{
-			"op": "wait_until",
-			"probe": "battle",
-			"field": "state",
-			"equals": "preview",
-			"timeout_ms": 5000
 		},
 		{
 			"op": "tap",
@@ -156,60 +153,8 @@
 			"timeout_ms": 10000
 		},
 		{
-			"op": "tap",
-			"device": "pad0",
-			"control": "dpad_right"
-		},
-		{
-			"op": "wait_until",
-			"probe": "battle",
-			"field": "focus_hex",
-			"timeout_ms": 10000,
-			"equals": 138
-		},
-		{
-			"op": "tap",
-			"device": "pad0",
-			"control": "south"
-		},
-		{
-			"op": "wait_until",
-			"probe": "battle",
-			"field": "state",
-			"equals": "preview",
-			"timeout_ms": 5000
-		},
-		{
 			"op": "capture_frame",
-			"name": "s3-preview-before-shoulder"
-		},
-		{
-			"op": "tap",
-			"device": "pad0",
-			"control": "l1"
-		},
-		{
-			"op": "wait_until",
-			"probe": "battle",
-			"field": "commands_sent",
-			"equals": 2,
-			"timeout_ms": 10000
-		},
-		{
-			"op": "assert",
-			"probe": "battle",
-			"field": "state",
-			"equals": "preview"
-		},
-		{
-			"op": "assert",
-			"probe": "battle",
-			"field": "focus_hex",
-			"equals": 138
-		},
-		{
-			"op": "capture_frame",
-			"name": "s3-preview-no-switch"
+			"name": "s3-direct-commit-next-stack"
 		},
 		{
 			"op": "request_shutdown"

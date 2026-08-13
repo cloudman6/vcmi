@@ -164,7 +164,7 @@ InputMode InputHandler::getCurrentInputMode()
 
 ControllerPresentation InputHandler::getControllerPresentation() const
 {
-	return gameControllerHandler ? gameControllerHandler->getActivePresentation() : ControllerPresentation::UNKNOWN;
+	return gameControllerHandler ? gameControllerHandler->getActivePresentation() : ControllerPresentation::GENERIC;
 }
 
 std::optional<std::string> InputHandler::getControllerGlyphToken(const std::vector<std::string> & bindings) const
@@ -441,10 +441,21 @@ void InputHandler::moveCursorPosition(const Point & distance)
 	setCursorPosition(getCursorPosition() + distance);
 }
 
-void InputHandler::setCursorPosition(const Point & position)
+void InputHandler::setCursorPosition(const Point & position, PointerEventSource source)
 {
 	cursorPosition = position;
+	const auto previousSource = pointerEventSource;
+	pointerEventSource = source;
 	ENGINE->events().dispatchMouseMoved(Point(0, 0), position);
+	pointerEventSource = previousSource;
+}
+
+void InputHandler::dispatchSyntheticMouseMove()
+{
+	const auto previousSource = pointerEventSource;
+	pointerEventSource = PointerEventSource::SYNTHETIC_REFRESH;
+	ENGINE->events().dispatchMouseMoved(Point(0, 0), cursorPosition);
+	pointerEventSource = previousSource;
 }
 
 void InputHandler::startTextInput(const Rect & where)

@@ -125,7 +125,7 @@ void GameEngine::handleEvents()
 void GameEngine::fakeMouseMove()
 {
 	dispatchMainThread([](){
-		ENGINE->events().dispatchMouseMoved(Point(0, 0), ENGINE->getCursorPosition());
+		ENGINE->input().dispatchSyntheticMouseMove();
 	});
 }
 

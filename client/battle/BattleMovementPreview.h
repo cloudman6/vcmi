@@ -11,7 +11,7 @@
 
 #include "BattleControllerStateMachine.h"
 
-/// Pure A-button contract for the controller movement preview (D2). The
+/// Pure A-button contract for the controller movement preview. The
 /// caller supplies the current interaction layer and whether the focused hex
 /// is a legal movement destination for the active stack; the rule decides
 /// the outcome without touching battle state.
@@ -21,7 +21,7 @@ public:
 	enum class Outcome
 	{
 		NONE,           ///< A has no preview/commit meaning in this layer
-		START_PREVIEW,  ///< enter the movement preview layer
+		START_PREVIEW,  ///< legacy preview-layer outcome; not used from browse
 		COMMIT,         ///< submit the move to the focused hex
 		CANCEL_PREVIEW  ///< focus stopped being reachable; back to browse
 	};

@@ -55,7 +55,7 @@ class BattleActionsController
 	void actionSetCursor(PossiblePlayerBattleAction action, const BattleHex & hoveredHex);
 	void actionSetCursorBlocked(PossiblePlayerBattleAction action, const BattleHex & hoveredHex);
 
-	std::string actionGetStatusMessage(PossiblePlayerBattleAction action, const BattleHex & hoveredHex);
+	std::string actionGetStatusMessage(PossiblePlayerBattleAction action, const BattleHex & hoveredHex, const BattleHex & attackFrom = BattleHex::INVALID);
 	std::string actionGetStatusMessageBlocked(PossiblePlayerBattleAction action, const BattleHex & hoveredHex);
 
 	void actionRealize(PossiblePlayerBattleAction action, const BattleHex & hoveredHex);
@@ -114,6 +114,10 @@ public:
 
 	/// update cursor and status bar according to new active hex
 	void onHexHovered(const BattleHex & hoveredHex);
+	void onHexFocused(const BattleHex & focusedHex, const BattleHex & attackFrom = BattleHex::INVALID);
+	PossiblePlayerBattleAction controllerActionForHex(const BattleHex & focusedHex);
+	bool controllerActionIsLegal(PossiblePlayerBattleAction action, const BattleHex & focusedHex);
+	bool realizeControllerAction(PossiblePlayerBattleAction action, const BattleHex & focusedHex, const BattleHex & attackFrom = BattleHex::INVALID);
 
 	/// called when cursor is no longer over battlefield and cursor/battle log should be reset
 	void onHoverEnded();

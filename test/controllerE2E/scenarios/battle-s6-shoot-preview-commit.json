@@ -73,9 +73,18 @@
 			"equals": 36
 		},
 		{
-			"op": "tap",
+			"op": "set_axis",
 			"device": "pad0",
-			"control": "dpad_right"
+			"control": "left_stick_x",
+			"value": 1.0
+		},
+		{
+			"op": "wait_frames",
+			"frames": 3
+		},
+		{
+			"op": "neutralize",
+			"device": "pad0"
 		},
 		{
 			"op": "wait_until",
@@ -85,9 +94,18 @@
 			"timeout_ms": 5000
 		},
 		{
-			"op": "tap",
+			"op": "set_axis",
 			"device": "pad0",
-			"control": "dpad_right"
+			"control": "left_stick_x",
+			"value": 1.0
+		},
+		{
+			"op": "wait_frames",
+			"frames": 3
+		},
+		{
+			"op": "neutralize",
+			"device": "pad0"
 		},
 		{
 			"op": "wait_until",
@@ -97,9 +115,18 @@
 			"timeout_ms": 5000
 		},
 		{
-			"op": "tap",
+			"op": "set_axis",
 			"device": "pad0",
-			"control": "dpad_right"
+			"control": "left_stick_x",
+			"value": 1.0
+		},
+		{
+			"op": "wait_frames",
+			"frames": 3
+		},
+		{
+			"op": "neutralize",
+			"device": "pad0"
 		},
 		{
 			"op": "wait_until",
@@ -107,22 +134,6 @@
 			"field": "focus_hex",
 			"equals": 39,
 			"timeout_ms": 5000
-		},
-		{
-			"op": "tap",
-			"device": "pad0",
-			"control": "south"
-		},
-		{
-			"op": "wait_until",
-			"probe": "battle",
-			"field": "state",
-			"equals": "preview",
-			"timeout_ms": 5000
-		},
-		{
-			"op": "wait_frames",
-			"frames": 10
 		},
 		{
 			"op": "tap",
@@ -162,9 +173,18 @@
 			"frames": 30
 		},
 		{
-			"op": "tap",
+			"op": "set_axis",
 			"device": "pad0",
-			"control": "dpad_right"
+			"control": "left_stick_x",
+			"value": 1.0
+		},
+		{
+			"op": "wait_frames",
+			"frames": 3
+		},
+		{
+			"op": "neutralize",
+			"device": "pad0"
 		},
 		{
 			"op": "wait_until",
@@ -174,9 +194,18 @@
 			"timeout_ms": 5000
 		},
 		{
-			"op": "tap",
+			"op": "set_axis",
 			"device": "pad0",
-			"control": "dpad_right"
+			"control": "left_stick_x",
+			"value": 1.0
+		},
+		{
+			"op": "wait_frames",
+			"frames": 3
+		},
+		{
+			"op": "neutralize",
+			"device": "pad0"
 		},
 		{
 			"op": "wait_until",
@@ -186,9 +215,18 @@
 			"timeout_ms": 5000
 		},
 		{
-			"op": "tap",
+			"op": "set_axis",
 			"device": "pad0",
-			"control": "dpad_right"
+			"control": "left_stick_x",
+			"value": 1.0
+		},
+		{
+			"op": "wait_frames",
+			"frames": 3
+		},
+		{
+			"op": "neutralize",
+			"device": "pad0"
 		},
 		{
 			"op": "wait_until",
@@ -198,9 +236,18 @@
 			"timeout_ms": 5000
 		},
 		{
-			"op": "tap",
+			"op": "set_axis",
 			"device": "pad0",
-			"control": "dpad_right"
+			"control": "left_stick_x",
+			"value": 1.0
+		},
+		{
+			"op": "wait_frames",
+			"frames": 3
+		},
+		{
+			"op": "neutralize",
+			"device": "pad0"
 		},
 		{
 			"op": "wait_until",
@@ -210,9 +257,18 @@
 			"timeout_ms": 5000
 		},
 		{
-			"op": "tap",
+			"op": "set_axis",
 			"device": "pad0",
-			"control": "dpad_right"
+			"control": "left_stick_x",
+			"value": 1.0
+		},
+		{
+			"op": "wait_frames",
+			"frames": 3
+		},
+		{
+			"op": "neutralize",
+			"device": "pad0"
 		},
 		{
 			"op": "wait_until",
@@ -222,9 +278,18 @@
 			"timeout_ms": 5000
 		},
 		{
-			"op": "tap",
+			"op": "set_axis",
 			"device": "pad0",
-			"control": "dpad_right"
+			"control": "left_stick_x",
+			"value": 1.0
+		},
+		{
+			"op": "wait_frames",
+			"frames": 3
+		},
+		{
+			"op": "neutralize",
+			"device": "pad0"
 		},
 		{
 			"op": "wait_until",
@@ -234,9 +299,18 @@
 			"timeout_ms": 5000
 		},
 		{
-			"op": "tap",
+			"op": "set_axis",
 			"device": "pad0",
-			"control": "dpad_right"
+			"control": "left_stick_x",
+			"value": 1.0
+		},
+		{
+			"op": "wait_frames",
+			"frames": 3
+		},
+		{
+			"op": "neutralize",
+			"device": "pad0"
 		},
 		{
 			"op": "wait_until",
@@ -246,9 +320,18 @@
 			"timeout_ms": 5000
 		},
 		{
-			"op": "tap",
+			"op": "set_axis",
 			"device": "pad0",
-			"control": "dpad_right"
+			"control": "left_stick_x",
+			"value": 1.0
+		},
+		{
+			"op": "wait_frames",
+			"frames": 3
+		},
+		{
+			"op": "neutralize",
+			"device": "pad0"
 		},
 		{
 			"op": "wait_until",
@@ -258,9 +341,18 @@
 			"timeout_ms": 5000
 		},
 		{
-			"op": "tap",
+			"op": "set_axis",
 			"device": "pad0",
-			"control": "dpad_right"
+			"control": "left_stick_x",
+			"value": 1.0
+		},
+		{
+			"op": "wait_frames",
+			"frames": 3
+		},
+		{
+			"op": "neutralize",
+			"device": "pad0"
 		},
 		{
 			"op": "wait_until",
@@ -270,9 +362,18 @@
 			"timeout_ms": 5000
 		},
 		{
-			"op": "tap",
+			"op": "set_axis",
 			"device": "pad0",
-			"control": "dpad_right"
+			"control": "left_stick_x",
+			"value": 1.0
+		},
+		{
+			"op": "wait_frames",
+			"frames": 3
+		},
+		{
+			"op": "neutralize",
+			"device": "pad0"
 		},
 		{
 			"op": "wait_until",
@@ -282,9 +383,18 @@
 			"timeout_ms": 5000
 		},
 		{
-			"op": "tap",
+			"op": "set_axis",
 			"device": "pad0",
-			"control": "dpad_right"
+			"control": "left_stick_x",
+			"value": 1.0
+		},
+		{
+			"op": "wait_frames",
+			"frames": 3
+		},
+		{
+			"op": "neutralize",
+			"device": "pad0"
 		},
 		{
 			"op": "wait_until",
@@ -294,9 +404,18 @@
 			"timeout_ms": 5000
 		},
 		{
-			"op": "tap",
+			"op": "set_axis",
 			"device": "pad0",
-			"control": "dpad_right"
+			"control": "left_stick_x",
+			"value": 1.0
+		},
+		{
+			"op": "wait_frames",
+			"frames": 3
+		},
+		{
+			"op": "neutralize",
+			"device": "pad0"
 		},
 		{
 			"op": "wait_until",
@@ -306,9 +425,18 @@
 			"timeout_ms": 5000
 		},
 		{
-			"op": "tap",
+			"op": "set_axis",
 			"device": "pad0",
-			"control": "dpad_right"
+			"control": "left_stick_x",
+			"value": 1.0
+		},
+		{
+			"op": "wait_frames",
+			"frames": 3
+		},
+		{
+			"op": "neutralize",
+			"device": "pad0"
 		},
 		{
 			"op": "wait_until",
@@ -318,9 +446,18 @@
 			"timeout_ms": 5000
 		},
 		{
-			"op": "tap",
+			"op": "set_axis",
 			"device": "pad0",
-			"control": "dpad_right"
+			"control": "left_stick_x",
+			"value": 1.0
+		},
+		{
+			"op": "wait_frames",
+			"frames": 3
+		},
+		{
+			"op": "neutralize",
+			"device": "pad0"
 		},
 		{
 			"op": "wait_until",
@@ -330,9 +467,18 @@
 			"timeout_ms": 5000
 		},
 		{
-			"op": "tap",
+			"op": "set_axis",
 			"device": "pad0",
-			"control": "dpad_up"
+			"control": "left_stick_y",
+			"value": -1.0
+		},
+		{
+			"op": "wait_frames",
+			"frames": 3
+		},
+		{
+			"op": "neutralize",
+			"device": "pad0"
 		},
 		{
 			"op": "wait_until",
@@ -342,9 +488,18 @@
 			"timeout_ms": 5000
 		},
 		{
-			"op": "tap",
+			"op": "set_axis",
 			"device": "pad0",
-			"control": "dpad_up"
+			"control": "left_stick_y",
+			"value": -1.0
+		},
+		{
+			"op": "wait_frames",
+			"frames": 3
+		},
+		{
+			"op": "neutralize",
+			"device": "pad0"
 		},
 		{
 			"op": "wait_until",
@@ -354,9 +509,18 @@
 			"timeout_ms": 5000
 		},
 		{
-			"op": "tap",
+			"op": "set_axis",
 			"device": "pad0",
-			"control": "dpad_up"
+			"control": "left_stick_y",
+			"value": -1.0
+		},
+		{
+			"op": "wait_frames",
+			"frames": 3
+		},
+		{
+			"op": "neutralize",
+			"device": "pad0"
 		},
 		{
 			"op": "wait_until",
@@ -386,34 +550,6 @@
 		{
 			"op": "capture_frame",
 			"name": "s6-shoot-target"
-		},
-		{
-			"op": "tap",
-			"device": "pad0",
-			"control": "south"
-		},
-		{
-			"op": "wait_until",
-			"probe": "battle",
-			"field": "state",
-			"equals": "action",
-			"timeout_ms": 5000
-		},
-		{
-			"op": "assert",
-			"probe": "battle",
-			"field": "commands_sent",
-			"equals": 1
-		},
-		{
-			"op": "assert",
-			"probe": "battle",
-			"field": "shooting_disabled_reason",
-			"equals": "none"
-		},
-		{
-			"op": "capture_frame",
-			"name": "s6-shoot-aim"
 		},
 		{
 			"op": "tap",

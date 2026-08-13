@@ -35,7 +35,7 @@ BattleRangedShooting::Outcome BattleRangedShooting::decideAccept(BattleControlle
 	switch(top)
 	{
 		case State::BROWSE:
-			return shootable ? Outcome::START_ACTION : Outcome::NONE;
+			return shootable ? Outcome::COMMIT : Outcome::NONE;
 		case State::ACTION:
 			if(!shootable)
 				return Outcome::CANCEL_LAYER; // BT-07 target lost or disabled

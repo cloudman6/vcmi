@@ -84,6 +84,18 @@
 		{
 			"op": "assert",
 			"probe": "battle",
+			"field": "controller_cursor_mode",
+			"equals": false
+		},
+		{
+			"op": "assert",
+			"probe": "runtime",
+			"field": "cursor_visible",
+			"equals": false
+		},
+		{
+			"op": "assert",
+			"probe": "battle",
 			"field": "focus_hex",
 			"equals": 36
 		},

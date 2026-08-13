@@ -23,6 +23,7 @@ struct BattleHintEntry
 {
 	EShortcut glyph;      ///< shortcut whose controller glyph is rendered
 	std::string textKey;  ///< translation key of the prompt text
+	bool showGlyph = true;
 };
 
 /// Pure content contract of the contextual battle hint bar. The caller

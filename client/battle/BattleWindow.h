@@ -30,7 +30,7 @@ class QuickSpellPanel;
 class UnitActionPanel;
 
 /// GUI object that handles functionality of panel at the bottom of combat screen
-class BattleWindow : public InterfaceObjectConfigurable
+class BattleWindow : public InterfaceObjectConfigurable, public IControllerAxisReceiver
 {
 	BattleInterface & owner;
 
@@ -151,6 +151,12 @@ public:
 	void show(Canvas & to) override;
 	void showAll(Canvas & to) override;
 	void onScreenResize() override;
+	void inputModeChanged(InputMode mode) override;
+	IControllerAxisReceiver * getControllerAxisReceiver() override { return this; }
+	ControllerAxisRoute controllerAxisMoved(const ControllerAxisEvent & event) override;
+	void controllerAxisUpdate(uint32_t msPassed) override;
+	void controllerAxisReset() override;
+	bool controllerCursorAllowed() const override;
 
 	/// Toggle UI to displaying tactics phase
 	void tacticPhaseStarted();
@@ -164,4 +170,3 @@ public:
 	/// ends battle with autocombat
 	void endWithAutocombat();
 };
-

@@ -41,6 +41,8 @@ CursorHandler::CursorHandler()
 	: cursor(createCursor())
 	, frameTime(0.f)
 	, showing(false)
+	, showingRequested(false)
+	, controllerNativeHidden(false)
 	, pos(0,0)
 	, dndObject(nullptr)
 {
@@ -283,6 +285,7 @@ void CursorHandler::update()
 
 void CursorHandler::hide()
 {
+	showingRequested = false;
 	if (!showing)
 		return;
 
@@ -292,11 +295,22 @@ void CursorHandler::hide()
 
 void CursorHandler::show()
 {
-	if (showing)
+	showingRequested = true;
+	if (showing || controllerNativeHidden)
 		return;
 
 	showing = true;
 	cursor->setVisible(true);
+}
+
+void CursorHandler::setControllerNativeHidden(bool hidden)
+{
+	controllerNativeHidden = hidden;
+	const bool shouldShow = showingRequested && !controllerNativeHidden;
+	if(showing == shouldShow)
+		return;
+	showing = shouldShow;
+	cursor->setVisible(showing);
 }
 
 Cursor::ShowType CursorHandler::getShowType() const

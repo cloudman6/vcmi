@@ -73,9 +73,18 @@
 			"equals": 36
 		},
 		{
-			"op": "tap",
+			"op": "set_axis",
 			"device": "pad0",
-			"control": "dpad_right"
+			"control": "left_stick_x",
+			"value": 1.0
+		},
+		{
+			"op": "wait_frames",
+			"frames": 3
+		},
+		{
+			"op": "neutralize",
+			"device": "pad0"
 		},
 		{
 			"op": "wait_until",
@@ -85,9 +94,18 @@
 			"timeout_ms": 5000
 		},
 		{
-			"op": "tap",
+			"op": "set_axis",
 			"device": "pad0",
-			"control": "dpad_right"
+			"control": "left_stick_x",
+			"value": 1.0
+		},
+		{
+			"op": "wait_frames",
+			"frames": 3
+		},
+		{
+			"op": "neutralize",
+			"device": "pad0"
 		},
 		{
 			"op": "wait_until",
@@ -97,9 +115,18 @@
 			"timeout_ms": 5000
 		},
 		{
-			"op": "tap",
+			"op": "set_axis",
 			"device": "pad0",
-			"control": "dpad_right"
+			"control": "left_stick_x",
+			"value": 1.0
+		},
+		{
+			"op": "wait_frames",
+			"frames": 3
+		},
+		{
+			"op": "neutralize",
+			"device": "pad0"
 		},
 		{
 			"op": "wait_until",
@@ -109,9 +136,18 @@
 			"timeout_ms": 5000
 		},
 		{
-			"op": "tap",
+			"op": "set_axis",
 			"device": "pad0",
-			"control": "dpad_right"
+			"control": "left_stick_x",
+			"value": 1.0
+		},
+		{
+			"op": "wait_frames",
+			"frames": 3
+		},
+		{
+			"op": "neutralize",
+			"device": "pad0"
 		},
 		{
 			"op": "wait_until",
@@ -121,9 +157,18 @@
 			"timeout_ms": 5000
 		},
 		{
-			"op": "tap",
+			"op": "set_axis",
 			"device": "pad0",
-			"control": "dpad_right"
+			"control": "left_stick_x",
+			"value": 1.0
+		},
+		{
+			"op": "wait_frames",
+			"frames": 3
+		},
+		{
+			"op": "neutralize",
+			"device": "pad0"
 		},
 		{
 			"op": "wait_until",
@@ -133,9 +178,18 @@
 			"timeout_ms": 5000
 		},
 		{
-			"op": "tap",
+			"op": "set_axis",
 			"device": "pad0",
-			"control": "dpad_right"
+			"control": "left_stick_x",
+			"value": 1.0
+		},
+		{
+			"op": "wait_frames",
+			"frames": 3
+		},
+		{
+			"op": "neutralize",
+			"device": "pad0"
 		},
 		{
 			"op": "wait_until",
@@ -143,22 +197,6 @@
 			"field": "focus_hex",
 			"equals": 42,
 			"timeout_ms": 5000
-		},
-		{
-			"op": "tap",
-			"device": "pad0",
-			"control": "south"
-		},
-		{
-			"op": "wait_until",
-			"probe": "battle",
-			"field": "state",
-			"equals": "preview",
-			"timeout_ms": 5000
-		},
-		{
-			"op": "wait_frames",
-			"frames": 10
 		},
 		{
 			"op": "tap",
@@ -198,9 +236,18 @@
 			"frames": 30
 		},
 		{
-			"op": "tap",
+			"op": "set_axis",
 			"device": "pad0",
-			"control": "dpad_right"
+			"control": "left_stick_x",
+			"value": 1.0
+		},
+		{
+			"op": "wait_frames",
+			"frames": 3
+		},
+		{
+			"op": "neutralize",
+			"device": "pad0"
 		},
 		{
 			"op": "wait_until",
@@ -210,9 +257,18 @@
 			"timeout_ms": 5000
 		},
 		{
-			"op": "tap",
+			"op": "set_axis",
 			"device": "pad0",
-			"control": "dpad_right"
+			"control": "left_stick_x",
+			"value": 1.0
+		},
+		{
+			"op": "wait_frames",
+			"frames": 3
+		},
+		{
+			"op": "neutralize",
+			"device": "pad0"
 		},
 		{
 			"op": "wait_until",
@@ -222,9 +278,18 @@
 			"timeout_ms": 5000
 		},
 		{
-			"op": "tap",
+			"op": "set_axis",
 			"device": "pad0",
-			"control": "dpad_right"
+			"control": "left_stick_x",
+			"value": 1.0
+		},
+		{
+			"op": "wait_frames",
+			"frames": 3
+		},
+		{
+			"op": "neutralize",
+			"device": "pad0"
 		},
 		{
 			"op": "wait_until",
@@ -232,22 +297,6 @@
 			"field": "focus_hex",
 			"equals": 140,
 			"timeout_ms": 5000
-		},
-		{
-			"op": "tap",
-			"device": "pad0",
-			"control": "south"
-		},
-		{
-			"op": "wait_until",
-			"probe": "battle",
-			"field": "state",
-			"equals": "preview",
-			"timeout_ms": 5000
-		},
-		{
-			"op": "wait_frames",
-			"frames": 10
 		},
 		{
 			"op": "tap",
@@ -293,9 +342,18 @@
 			"equals": 42
 		},
 		{
-			"op": "tap",
+			"op": "set_axis",
 			"device": "pad0",
-			"control": "dpad_right"
+			"control": "left_stick_x",
+			"value": 1.0
+		},
+		{
+			"op": "wait_frames",
+			"frames": 3
+		},
+		{
+			"op": "neutralize",
+			"device": "pad0"
 		},
 		{
 			"op": "wait_until",
@@ -305,9 +363,18 @@
 			"timeout_ms": 5000
 		},
 		{
-			"op": "tap",
+			"op": "set_axis",
 			"device": "pad0",
-			"control": "dpad_right"
+			"control": "left_stick_x",
+			"value": 1.0
+		},
+		{
+			"op": "wait_frames",
+			"frames": 3
+		},
+		{
+			"op": "neutralize",
+			"device": "pad0"
 		},
 		{
 			"op": "wait_until",
@@ -317,9 +384,18 @@
 			"timeout_ms": 5000
 		},
 		{
-			"op": "tap",
+			"op": "set_axis",
 			"device": "pad0",
-			"control": "dpad_right"
+			"control": "left_stick_x",
+			"value": 1.0
+		},
+		{
+			"op": "wait_frames",
+			"frames": 3
+		},
+		{
+			"op": "neutralize",
+			"device": "pad0"
 		},
 		{
 			"op": "wait_until",
@@ -329,9 +405,18 @@
 			"timeout_ms": 5000
 		},
 		{
-			"op": "tap",
+			"op": "set_axis",
 			"device": "pad0",
-			"control": "dpad_right"
+			"control": "left_stick_x",
+			"value": 1.0
+		},
+		{
+			"op": "wait_frames",
+			"frames": 3
+		},
+		{
+			"op": "neutralize",
+			"device": "pad0"
 		},
 		{
 			"op": "wait_until",
@@ -359,32 +444,29 @@
 		{
 			"op": "tap",
 			"device": "pad0",
-			"control": "south"
-		},
-		{
-			"op": "wait_until",
-			"probe": "battle",
-			"field": "state",
-			"equals": "action",
-			"timeout_ms": 5000
+			"control": "r1"
 		},
 		{
 			"op": "assert",
 			"probe": "battle",
-			"field": "commands_sent",
-			"equals": 2
+			"field": "attack_from_hex",
+			"equals": 29
 		},
 		{
 			"op": "tap",
 			"device": "pad0",
-			"control": "south"
+			"control": "r1"
 		},
 		{
-			"op": "wait_until",
+			"op": "assert",
 			"probe": "battle",
-			"field": "state",
-			"equals": "attack_direction",
-			"timeout_ms": 5000
+			"field": "attack_from_hex",
+			"equals": 31
+		},
+		{
+			"op": "tap",
+			"device": "pad0",
+			"control": "l1"
 		},
 		{
 			"op": "assert",
@@ -397,36 +479,6 @@
 			"probe": "battle",
 			"field": "attack_candidates_index",
 			"equals": 0
-		},
-		{
-			"op": "tap",
-			"device": "pad0",
-			"control": "dpad_right"
-		},
-		{
-			"op": "wait_frames",
-			"frames": 8
-		},
-		{
-			"op": "assert",
-			"probe": "battle",
-			"field": "state",
-			"equals": "attack_direction"
-		},
-		{
-			"op": "assert",
-			"probe": "battle",
-			"field": "attack_from_hex",
-			"equals": 31
-		},
-		{
-			"op": "tap",
-			"device": "pad0",
-			"control": "dpad_left"
-		},
-		{
-			"op": "wait_frames",
-			"frames": 8
 		},
 		{
 			"op": "assert",
@@ -442,7 +494,7 @@
 		},
 		{
 			"op": "capture_frame",
-			"name": "s5-attack-direction"
+			"name": "s5-attack-origin-selected"
 		},
 		{
 			"op": "tap",
