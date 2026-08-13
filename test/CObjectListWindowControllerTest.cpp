@@ -743,19 +743,24 @@ protected:
 		ENGINE->cursor().show();
 	}
 
-	std::array<ControllerPresentation, 3> controllerPresentationsAfterRemap()
+	/// Routes a synthetic remap event through the production handler. The map
+	/// holds a null handle because headless SDL cannot open a device; the
+	/// handler's reopen attempt therefore fails and the presentation stays in its
+	/// invalidated fallback, which is exactly what this coverage verifies.
+	std::array<ControllerPresentation, 2> presentationsAroundHandledRemap()
 	{
 		InputSourceGameController controller{InputSourceGameController::HeadlessTestTag()};
+		controller.gameControllerMap.emplace(17, InputSourceGameController::GameControllerPtr(nullptr, &InputSourceGameController::gameControllerDeleter));
 		controller.controllerPresentations.emplace(17, ControllerPresentation::PLAYSTATION);
 		controller.setActiveController(17);
 		const auto beforeRemap = controller.getActivePresentation();
 
-		controller.invalidateControllerPresentation(17);
-		const auto afterInvalidation = controller.getActivePresentation();
+		SDL_ControllerDeviceEvent remapEvent{};
+		remapEvent.type = SDL_CONTROLLERDEVICEREMAPPED;
+		remapEvent.which = 17;
+		controller.handleEventDeviceRemapped(remapEvent);
 
-		controller.controllerPresentations.emplace(17, ControllerPresentation::UNKNOWN);
-		controller.setActiveController(17);
-		return {beforeRemap, afterInvalidation, controller.getActivePresentation()};
+		return {beforeRemap, controller.getActivePresentation()};
 	}
 
 };
@@ -1550,12 +1555,13 @@ TEST_F(ShortcutGlyphQueryTest, ReverseQuerySortsDeduplicatesAndRemapsBindings)
 	EXPECT_FALSE(InputSourceGameController::getGlyphToken(ControllerPresentation::PLAYSTATION, {"leftshoulder"}));
 }
 
-TEST_F(ShortcutGlyphQueryTest, ControllerRemapInvalidatesActivePresentation)
+TEST_F(ShortcutGlyphQueryTest, RemapEventHandlerInvalidatesActivePresentation)
 {
-	const auto presentations = controllerPresentationsAfterRemap();
+	// Repopulation after a successful reopen requires a live device and is not
+	// covered here; see the review discussion on the handler's open seam.
+	const auto presentations = presentationsAroundHandledRemap();
 	EXPECT_EQ(presentations[0], ControllerPresentation::PLAYSTATION);
 	EXPECT_EQ(presentations[1], ControllerPresentation::UNKNOWN);
-	EXPECT_EQ(presentations[2], ControllerPresentation::UNKNOWN);
 }
 
 TEST_F(ShortcutGlyphQueryTest, ControllerAcceptDefersExecutionUntilButtonRelease)
