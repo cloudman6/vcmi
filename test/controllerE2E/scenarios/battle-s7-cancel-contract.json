@@ -147,8 +147,8 @@
 		{
 			"op": "wait_until",
 			"probe": "battle",
-			"field": "active_stack.id",
-			"changes": true,
+			"field": "commands_sent",
+			"equals": 1,
 			"timeout_ms": 10000
 		},
 		{
