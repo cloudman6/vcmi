@@ -221,6 +221,13 @@ protected:
 		ENGINE->input().gameControllerHandler.reset();
 		for(const int deviceIndex : virtualControllerDeviceIndices)
 			EXPECT_EQ(SDL_JoystickDetachVirtual(deviceIndex), 0);
+		// Do not let a stale removal event target an instance id that SDL reuses
+		// for a virtual controller in the next test.
+		if(!virtualControllerDeviceIndices.empty())
+		{
+			SDL_PumpEvents();
+			SDL_FlushEvent(SDL_CONTROLLERDEVICEREMOVED);
+		}
 		ENGINE.reset();
 		if(initializedSdlSubsystems)
 			SDL_QuitSubSystem(initializedSdlSubsystems);
