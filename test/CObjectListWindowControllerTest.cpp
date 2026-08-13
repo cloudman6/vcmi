@@ -252,7 +252,7 @@ protected:
 								: ColorRGBA(24, 24, 24, 255));
 	}
 
-	void initializeProductionListConstruction()
+	void initializeProductionShortcutBindings()
 	{
 		CResourceHandler::initialize();
 		resourceHandlerInitialized = true;
@@ -262,6 +262,15 @@ protected:
 			"data",
 			"controller-list-test-config",
 			std::make_unique<CFilesystemLoader>("config/", sourceRoot / "config", 0));
+		keyBindingsConfig.init("config/keyBindingsConfig.json", "");
+		ENGINE->shortcuts().reloadShortcuts();
+	}
+
+	void initializeProductionListConstruction()
+	{
+		initializeProductionShortcutBindings();
+
+		const auto sourceRoot = boost::filesystem::path(__FILE__).parent_path().parent_path();
 		CResourceHandler::addFilesystem(
 			"data",
 			"controller-list-test-button-config",
@@ -270,8 +279,6 @@ protected:
 			"data",
 			"controller-list-test-translations",
 			std::make_unique<CFilesystemLoader>("config/", sourceRoot / "Mods" / "vcmi" / "Content" / "config", 1));
-		keyBindingsConfig.init("config/keyBindingsConfig.json", "");
-		ENGINE->shortcuts().reloadShortcuts();
 
 		localizationLibrary = std::make_unique<GameLibrary>();
 		LIBRARY = localizationLibrary.get();
@@ -1640,6 +1647,8 @@ TEST_F(ShortcutGlyphQueryTest, ReverseQuerySortsDeduplicatesAndRemapsBindings)
 
 TEST_F(ShortcutGlyphQueryTest, CursorModeProfileOverridesBackWithoutAutocombatConflict)
 {
+	initializeProductionShortcutBindings();
+
 	for(const auto & profile : {"xbox", "nintendo", "generic"})
 	{
 		const auto actions = ENGINE->shortcuts().translateJoystickButton("back", profile);
