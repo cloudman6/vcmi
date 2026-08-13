@@ -60,9 +60,11 @@ std::vector<BattleHintEntry> BattleHintBar::entries(InputMode inputMode, BattleC
 
 			addBack();
 
-			// D7: the LB/RB switch prompts exist only while browsing
-			entries.push_back({EShortcut::BATTLE_WAIT, HINT_SWITCH_UNIT});
-			entries.push_back({EShortcut::BATTLE_DEFEND, HINT_SWITCH_UNIT});
+			// Shoulders either fine-tune the visible melee origin or switch
+			// units. The label must describe the same branch accept dispatches.
+			const auto & shoulderHint = context.multipleAttackOrigins ? HINT_ADJUST : HINT_SWITCH_UNIT;
+			entries.push_back({EShortcut::BATTLE_WAIT, shoulderHint});
+			entries.push_back({EShortcut::BATTLE_DEFEND, shoulderHint});
 			return entries;
 		}
 		case State::PREVIEW:
@@ -78,8 +80,8 @@ std::vector<BattleHintEntry> BattleHintBar::entries(InputMode inputMode, BattleC
 			return entries;
 		case State::ATTACK_DIRECTION:
 			entries.push_back({EShortcut::GLOBAL_ACCEPT, HINT_ATTACK});
-			entries.push_back({EShortcut::MOVE_LEFT, HINT_ADJUST});
-			entries.push_back({EShortcut::MOVE_RIGHT, HINT_ADJUST});
+			entries.push_back({EShortcut::BATTLE_WAIT, HINT_ADJUST});
+			entries.push_back({EShortcut::BATTLE_DEFEND, HINT_ADJUST});
 			addBack();
 			return entries;
 		case State::TARGET:

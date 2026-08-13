@@ -52,11 +52,13 @@ TEST(BattleAttackDirectionTest, cycleBackwardWrapsThroughCandidates)
 	EXPECT_EQ(BattleAttackDirection::cycle(origins, BattleHex(6, 4), false), BattleHex(8, 5));
 }
 
-TEST(BattleAttackDirectionTest, cycleWithoutCurrentSelectionStartsAtEitherEnd)
+TEST(BattleAttackDirectionTest, cycleWithoutStoredSelectionStepsFromTheVisibleRecommendation)
 {
 	const auto origins = sampleOrigins();
 
-	EXPECT_EQ(BattleAttackDirection::cycle(origins, BattleHex(1, 1), true), BattleHex(6, 4));
+	// The first candidate is already rendered as the recommendation. The first
+	// forward shoulder press must therefore produce a visible change.
+	EXPECT_EQ(BattleAttackDirection::cycle(origins, BattleHex(1, 1), true), BattleHex(7, 4));
 	EXPECT_EQ(BattleAttackDirection::cycle(origins, BattleHex(1, 1), false), BattleHex(8, 5));
 }
 

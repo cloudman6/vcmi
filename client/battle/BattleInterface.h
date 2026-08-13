@@ -159,6 +159,7 @@ public:
 	/// D3: currently chosen melee approach hex for the focused enemy target
 	BattleHex controllerAttackFromHex;
 	bool controllerCursorMode = false;
+	BattleHex controllerCursorRestoreHex = BattleHex::INVALID;
 	bool pointerPresentationOwner = false;
 
 	std::shared_ptr<BattleHero> attackingHero;
@@ -187,8 +188,6 @@ public:
 	void giveCommand(EActionType action, const BattleHex & tile = BattleHex(), SpellID spell = SpellID::NONE);
 	void giveCommand(EActionType action, const std::vector<BattleHex> & tiles, SpellID spell = SpellID::NONE);
 
-	/// forwards navigation shortcuts to the focus model when controller input mode is active
-	void handleFocusNavigationShortcut(EShortcut shortcut);
 	bool handleControllerAxis(const ControllerAxisEvent & event);
 	void updateControllerAxis(uint32_t msPassed);
 	void resetControllerAxis();
@@ -201,15 +200,14 @@ public:
 	/// controller B contract: pop one state layer, fall back to spell cancel, open options when idle
 	void handleControllerCancel();
 
-	/// D7: LB/RB move the controller focus to the next or previous own stack
-	/// in turn order, only while browsing with controller input active.
-	/// Returns false when no switch happened so the caller falls back to the
-	/// pre-existing wait/defend shortcut behavior.
+	/// LB/RB cycle visible melee origins when several are legal; otherwise
+	/// they move focus to the next or previous own stack while browsing.
+	/// Returns false when no controller action happened so the caller falls
+	/// back to the pre-existing wait/defend shortcut behavior.
 	bool trySwitchStack(bool forward);
 
-	/// D2: controller A contract for the movement preview - start previewing
-	/// on a reachable focus, commit the move on a second press, back out when
-	/// the focus stopped being reachable. No-op outside controller mode.
+	/// Controller A directly commits the complete legal action continuously
+	/// previewed at the focused hex. No-op outside Native controller mode.
 	void handleControllerAccept();
 
 	/// D3: hexes the active stack can attack the focused enemy unit from,

@@ -134,6 +134,29 @@ void EventDispatcher::dispatchShortcutReleased(const std::vector<EShortcut> & sh
 	}
 }
 
+void EventDispatcher::dispatchShortcutCanceled(const std::vector<EShortcut> & shortcutsVector)
+{
+	bool keysCaptured = false;
+	for(auto & receiver : keyinterested)
+		for(EShortcut shortcut : shortcutsVector)
+			if(receiver->captureThisKey(shortcut))
+				keysCaptured = true;
+
+	EventReceiversList receiversCopy = keyinterested;
+	for(auto & receiver : receiversCopy)
+	{
+		for(EShortcut shortcut : shortcutsVector)
+		{
+			if(vstd::contains(keyinterested, receiver) && (!keysCaptured || receiver->captureThisKey(shortcut)))
+			{
+				receiver->keyCanceled(shortcut);
+				if(keysCaptured)
+					return;
+			}
+		}
+	}
+}
+
 void EventDispatcher::dispatchKeyPressed(const std::string & keyName)
 {
 	EventReceiversList miCopy = keyNameInterested;

@@ -34,7 +34,13 @@ BattleHex BattleAttackDirection::cycle(const std::vector<BattleHex> & candidates
 	}
 
 	if(!found)
-		return forward ? candidates.front() : candidates.back();
+	{
+		// The first candidate is already the visible recommendation even
+		// before it is persisted. A forward press must step past it.
+		if(forward && candidates.size() > 1)
+			return candidates[1];
+		return candidates.back();
+	}
 
 	return candidates[(currentIndex + (forward ? 1 : candidates.size() - 1)) % candidates.size()];
 }

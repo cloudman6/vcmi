@@ -2748,6 +2748,15 @@ void CObjectListWindow::keyReleased(EShortcut key)
 	}
 }
 
+void CObjectListWindow::keyCanceled(EShortcut key)
+{
+	if(key == EShortcut::GLOBAL_ACCEPT && ok && ok->isPressed())
+		ok->clickCancel(ok->pos.center());
+	if(key == EShortcut::GLOBAL_CANCEL && exit && exit->isPressed())
+		exit->clickCancel(exit->pos.center());
+	updateControllerGlyphs();
+}
+
 VideoWindow::VideoWindow(const VideoPath & video, const ImagePath & rim, bool showBackground, float scaleFactor, const std::function<void(bool skipped)> & closeCb)
 	: CWindowObject(BORDERED | SHADOW_DISABLED | NEEDS_ANIMATED_BACKGROUND)
 	, showBackground(showBackground)

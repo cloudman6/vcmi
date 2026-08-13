@@ -33,6 +33,7 @@ class InputSourceGameController
 	};
 
 	friend class CObjectListWindowControllerTest;
+	friend class InputHandler;
 
 	static void gameControllerDeleter(SDL_GameController * gameController);
 	using GameControllerPtr = std::unique_ptr<SDL_GameController, decltype(&gameControllerDeleter)>;

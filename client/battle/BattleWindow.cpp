@@ -582,6 +582,13 @@ void BattleWindow::keyReleased(EShortcut key)
 	InterfaceObjectConfigurable::keyReleased(key);
 }
 
+void BattleWindow::keyCanceled(EShortcut key)
+{
+	if(key == EShortcut::GLOBAL_ACCEPT)
+		hintBar->setAcceptPressed(false);
+	InterfaceObjectConfigurable::keyCanceled(key);
+}
+
 void BattleWindow::clickPressed(const Point & cursorPosition)
 {
 	if (owner.openingPlaying())

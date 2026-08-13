@@ -826,6 +826,42 @@ protected:
 		return {controller.cursorAxisValueX, controller.cursorAxisValueY, controller.cursorPlanDisX, controller.cursorPlanDisY};
 	}
 
+	std::array<double, 5> activeControllerAxisStateAfterRemap()
+	{
+		InputSourceGameController controller{InputSourceGameController::HeadlessTestTag()};
+		controller.activeController = 17;
+		controller.cursorAxisValueX = 0.75;
+		controller.cursorPlanDisX = 1.25;
+		controller.scrollAxisValueY = -0.5;
+		controller.scrollPlanDisY = -2.0;
+		controller.pressedAxes.insert({17, SDL_CONTROLLER_AXIS_TRIGGERLEFT});
+
+		SDL_ControllerDeviceEvent remap{};
+		remap.which = 17;
+		controller.handleEventDeviceRemapped(remap);
+
+		return {
+			controller.cursorAxisValueX,
+			controller.cursorPlanDisX,
+			controller.scrollAxisValueY,
+			controller.scrollPlanDisY,
+			controller.pressedAxes.empty() ? 1.0 : 0.0};
+	}
+
+	void pressAcceptThroughAxis()
+	{
+		if(!ENGINE->input().gameControllerHandler)
+			ENGINE->input().gameControllerHandler = std::unique_ptr<InputSourceGameController>(
+				new InputSourceGameController(InputSourceGameController::HeadlessTestTag()));
+		ENGINE->events().dispatchShortcutPressed({EShortcut::GLOBAL_ACCEPT});
+		ENGINE->input().gameControllerHandler->pressedAxes.insert({17, SDL_CONTROLLER_AXIS_TRIGGERLEFT});
+	}
+
+	bool controllerPressedAxesEmpty() const
+	{
+		return ENGINE->input().gameControllerHandler->pressedAxes.empty();
+	}
+
 };
 
 class FocusScopeContractTest : public CObjectListWindowControllerTest
@@ -1667,6 +1703,38 @@ TEST_F(ShortcutGlyphQueryTest, ControllerRemapInvalidatesActivePresentation)
 	EXPECT_EQ(presentations[0], ControllerPresentation::PLAYSTATION);
 	EXPECT_EQ(presentations[1], ControllerPresentation::UNKNOWN);
 	EXPECT_EQ(presentations[2], ControllerPresentation::UNKNOWN);
+}
+
+TEST_F(ShortcutGlyphQueryTest, ActiveControllerRemapClearsAllAxisLifecycleState)
+{
+	EXPECT_EQ(activeControllerAxisStateAfterRemap(), (std::array<double, 5>{0.0, 0.0, 0.0, 0.0, 1.0}));
+}
+
+TEST_F(ShortcutGlyphQueryTest, AxisLifecycleResetCancelsHeldActionWithoutCommittingIt)
+{
+	int accepted = 0;
+	initializeProductionListConstruction();
+	setJoystickBindings({{"lefttrigger", EShortcut::GLOBAL_ACCEPT}});
+	auto window = std::make_shared<CObjectListWindow>(
+		std::vector<CObjectListWindow::ListItem>{{"Magic Arrow", true, ""}},
+		nullptr, "Add spell", "Select a spell", [&accepted](int)
+		{
+			++accepted;
+		}, 0,
+		std::vector<std::shared_ptr<IImage>>{productionListIcon}, true, true);
+	ENGINE->windows().pushWindow(window);
+	setInputMode(InputMode::CONTROLLER);
+	silenceActionButtons(window);
+
+	pressAcceptThroughAxis();
+	ASSERT_TRUE(acceptActionPressed(window));
+
+	ENGINE->input().resetControllerAxisState();
+
+	EXPECT_EQ(accepted, 0);
+	EXPECT_TRUE(ENGINE->windows().isTopWindow(window));
+	EXPECT_FALSE(acceptActionPressed(window));
+	EXPECT_TRUE(controllerPressedAxesEmpty());
 }
 
 TEST_F(ShortcutGlyphQueryTest, NeutralAxisEventReleasesItsOwnInactiveControllerState)

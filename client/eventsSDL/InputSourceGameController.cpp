@@ -159,11 +159,12 @@ void InputSourceGameController::handleEventDeviceRemoved(const SDL_ControllerDev
 		logGlobal->warn("Game controller %d is not opened before.", device.which);
 		return;
 	}
+	if(activeController == device.which)
+		resetAxisState();
 	gameControllerMap.erase(device.which);
 	invalidateControllerPresentation(device.which);
 	if(activeController == device.which)
 	{
-		resetAxisState();
 		activeController = -1;
 		activePresentation = ControllerPresentation::GENERIC;
 	}
@@ -171,6 +172,12 @@ void InputSourceGameController::handleEventDeviceRemoved(const SDL_ControllerDev
 
 void InputSourceGameController::handleEventDeviceRemapped(const SDL_ControllerDeviceEvent & device)
 {
+	// Remapping can change both the semantic button actions attached to an
+	// axis and its presentation profile. Cancel the old lifecycle before the
+	// mapping is invalidated, including when SDL no longer exposes the device.
+	if(activeController == device.which)
+		resetAxisState();
+
 	if(gameControllerMap.find(device.which) == gameControllerMap.end())
 	{
 		logGlobal->warn("Game controller %d is not opened.", device.which);
@@ -200,6 +207,17 @@ double InputSourceGameController::normalizeAxisValue(int value, double deadZone,
 
 void InputSourceGameController::resetAxisState()
 {
+	for(const auto & [instanceID, axisID] : pressedAxes)
+	{
+		const std::string axisName = SDL_GameControllerGetStringForAxis(axisID);
+		const auto presentationEntry = controllerPresentations.find(instanceID);
+		const auto presentation = presentationEntry == controllerPresentations.end()
+			? ControllerPresentation::GENERIC
+			: presentationEntry->second;
+		const auto actions = ENGINE->shortcuts().translateJoystickButton(axisName, getProfileName(presentation));
+		ENGINE->events().dispatchShortcutCanceled(actions);
+	}
+
 	cursorAxisValueX = cursorAxisValueY = 0.0;
 	cursorPlanDisX = cursorPlanDisY = 0.0;
 	scrollAxisValueX = scrollAxisValueY = 0.0;

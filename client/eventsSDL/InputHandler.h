@@ -151,6 +151,9 @@ public:
 	bool isKeyboardShiftDown() const;
 
 	InputMode getCurrentInputMode();
+	/// Cancels every held controller-axis shortcut and clears cursor, scroll,
+	/// repeat and Native receiver sampling during ownership transitions.
+	void resetControllerAxisState();
 	ControllerPresentation getControllerPresentation() const;
 	std::optional<std::string> getControllerGlyphToken(const std::vector<std::string> & bindings) const;
 

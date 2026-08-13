@@ -77,6 +77,8 @@ public:
 
 	virtual void keyPressed(EShortcut key) {}
 	virtual void keyReleased(EShortcut key) {}
+	/// Releases held visual/input state without executing the shortcut action.
+	virtual void keyCanceled(EShortcut key) {}
 
 	virtual void keyPressed(const std::string & keyName) {}
 	virtual void keyReleased(const std::string & keyName) {}

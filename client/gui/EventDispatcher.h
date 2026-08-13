@@ -59,6 +59,7 @@ public:
 	/// Shortcut events (e.g. keyboard keys)
 	void dispatchShortcutPressed(const std::vector<EShortcut> & shortcuts);
 	void dispatchShortcutReleased(const std::vector<EShortcut> & shortcuts);
+	void dispatchShortcutCanceled(const std::vector<EShortcut> & shortcuts);
 
 	/// Key events (to get keyname of pressed key)
 	void dispatchKeyPressed(const std::string & keyName);

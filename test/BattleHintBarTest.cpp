@@ -66,6 +66,20 @@ TEST(BattleHintBarTest, browseAdvertisesTheContextualAcceptAction)
 		(std::pair<EShortcut, std::string>{EShortcut::GLOBAL_ACCEPT, "vcmi.battleWindow.hints.shoot"}));
 }
 
+TEST(BattleHintBarTest, browseLabelsShouldersAsAttackOriginAdjustmentWhenMultipleOriginsExist)
+{
+	BattleHintBar::Context ctx;
+	ctx.attackable = true;
+	ctx.multipleAttackOrigins = true;
+
+	EXPECT_EQ(simplify(BattleHintBar::entries(InputMode::CONTROLLER, State::BROWSE, ctx)),
+		(std::vector<std::pair<EShortcut, std::string>>{
+			{EShortcut::GLOBAL_ACCEPT, "vcmi.battleWindow.hints.attack"},
+			{EShortcut::GLOBAL_CANCEL, "vcmi.battleWindow.hints.back"},
+			{EShortcut::BATTLE_WAIT, "vcmi.battleWindow.hints.adjust"},
+			{EShortcut::BATTLE_DEFEND, "vcmi.battleWindow.hints.adjust"}}));
+}
+
 TEST(BattleHintBarTest, browseShowsTheBT04ReasonForDisabledTargets)
 {
 	BattleHintBar::Context ctx;
@@ -100,8 +114,8 @@ TEST(BattleHintBarTest, previewAndMeleeLayersAdvertiseTheirWalk)
 	EXPECT_EQ(simplify(BattleHintBar::entries(InputMode::CONTROLLER, State::ATTACK_DIRECTION, ctx)),
 		(std::vector<std::pair<EShortcut, std::string>>{
 			{EShortcut::GLOBAL_ACCEPT, "vcmi.battleWindow.hints.attack"},
-			{EShortcut::MOVE_LEFT, "vcmi.battleWindow.hints.adjust"},
-			{EShortcut::MOVE_RIGHT, "vcmi.battleWindow.hints.adjust"},
+			{EShortcut::BATTLE_WAIT, "vcmi.battleWindow.hints.adjust"},
+			{EShortcut::BATTLE_DEFEND, "vcmi.battleWindow.hints.adjust"},
 			{EShortcut::GLOBAL_CANCEL, "vcmi.battleWindow.hints.back"}}));
 }
 
@@ -120,12 +134,12 @@ TEST(BattleHintBarTest, shootingActionCommitsAndDeepLayersStayQuiet)
 	EXPECT_TRUE(BattleHintBar::entries(InputMode::CONTROLLER, State::COMMIT, ctx).empty());
 }
 
-TEST(BattleHintBarTest, switchPromptsOnlyAppearWhileBrowsing)
+TEST(BattleHintBarTest, shoulderPromptsMatchBrowseOrDirectionContext)
 {
 	BattleHintBar::Context ctx;
 	ctx.focusedReachable = true;
 
-	for(auto state : {State::ACTION, State::PREVIEW, State::ATTACK_DIRECTION})
+	for(auto state : {State::ACTION, State::PREVIEW})
 	{
 		for(const auto & entry : BattleHintBar::entries(InputMode::CONTROLLER, state, ctx))
 		{
@@ -133,6 +147,12 @@ TEST(BattleHintBarTest, switchPromptsOnlyAppearWhileBrowsing)
 			EXPECT_NE(entry.glyph, EShortcut::BATTLE_DEFEND);
 		}
 	}
+
+	const auto directionEntries = simplify(BattleHintBar::entries(InputMode::CONTROLLER, State::ATTACK_DIRECTION, ctx));
+	EXPECT_EQ(directionEntries[1],
+		(std::pair<EShortcut, std::string>{EShortcut::BATTLE_WAIT, "vcmi.battleWindow.hints.adjust"}));
+	EXPECT_EQ(directionEntries[2],
+		(std::pair<EShortcut, std::string>{EShortcut::BATTLE_DEFEND, "vcmi.battleWindow.hints.adjust"}));
 }
 
 TEST(BattleHintBarTest, actionPromptStaysInsideTheUnobscuredBattlefield)

@@ -140,6 +140,24 @@
 			"name": "s7-explicit-cursor-mode"
 		},
 		{
+			"op": "tap",
+			"device": "pad0",
+			"control": "r1"
+		},
+		{
+			"op": "wait_until",
+			"probe": "battle",
+			"field": "active_stack.id",
+			"changes": true,
+			"timeout_ms": 10000
+		},
+		{
+			"op": "assert",
+			"probe": "battle",
+			"field": "focus_hex",
+			"equals": 37
+		},
+		{
 			"op": "set_axis",
 			"device": "pad0",
 			"control": "left_stick_x",
@@ -205,7 +223,7 @@
 			"op": "assert",
 			"probe": "battle",
 			"field": "commands_sent",
-			"equals": 0
+			"equals": 1
 		},
 		{
 			"op": "capture_frame",

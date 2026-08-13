@@ -34,9 +34,10 @@ public:
 	/// matching the mouse path fallback; INVALID without candidates.
 	static BattleHex recommend(const std::vector<BattleHex> & candidates);
 
-	/// Cycles through candidates with wrap-around; an unknown current
-	/// selection moves relative to the first (forward) or last (backward)
-	/// candidate; INVALID without candidates.
+	/// Cycles through candidates with wrap-around. An unknown stored current
+	/// is treated as the already-visible first recommendation, so forward
+	/// selects the second candidate and backward selects the last. INVALID
+	/// is returned without candidates.
 	static BattleHex cycle(const std::vector<BattleHex> & candidates, const BattleHex & current, bool forward);
 
 	static MeleeOutcome decideAccept(BattleControllerStateMachine::State top, bool attackable);

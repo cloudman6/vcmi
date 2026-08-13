@@ -326,28 +326,6 @@ void BattleInterface::giveCommand(EActionType action, const std::vector<BattleHe
 	sendCommand(ba, actor);
 }
 
-void BattleInterface::handleFocusNavigationShortcut(EShortcut shortcut)
-{
-	// D3: while choosing the melee approach, left/right cycle the origin
-	// hex instead of moving the focus
-	if(ENGINE->input().getCurrentInputMode() == InputMode::CONTROLLER
-		&& controllerStates.top() == BattleControllerStateMachine::State::ATTACK_DIRECTION
-		&& (shortcut == EShortcut::MOVE_LEFT || shortcut == EShortcut::MOVE_RIGHT))
-	{
-		controllerAttackFromHex = BattleAttackDirection::cycle(meleeAttackCandidates(), controllerAttackFromHex, shortcut == EShortcut::MOVE_RIGHT);
-		return;
-	}
-
-	focusNavigation->handleShortcut(shortcut, ENGINE->input().getCurrentInputMode());
-
-	// D5: the controller focus owns the official hover status host (damage
-	// and retaliation preview) in every layer, not only while the movement
-	// preview is open, so the focused target stays announced while navigating
-	const BattleHex statusHex = BattleFocusStatusSync::decide(ENGINE->input().getCurrentInputMode(), focusModel);
-	if(statusHex.isValid())
-		actionsController->onHexFocused(statusHex, controllerAttackFromHex);
-}
-
 bool BattleInterface::handleControllerAxis(const ControllerAxisEvent & event)
 {
 	if(controllerCursorMode)
@@ -369,7 +347,7 @@ void BattleInterface::updateControllerAxis(uint32_t msPassed)
 {
 	if(!isControllerNativeMode() || !focusNavigation->update(msPassed))
 		return;
-	controllerAttackFromHex = BattleHex::INVALID;
+	controllerAttackFromHex = BattleAttackDirection::recommend(meleeAttackCandidates());
 	const auto focus = BattleFocusStatusSync::decide(InputMode::CONTROLLER, focusModel);
 	if(focus.isValid())
 		actionsController->onHexFocused(focus, controllerAttackFromHex);
@@ -385,9 +363,30 @@ void BattleInterface::toggleControllerCursorMode()
 {
 	if(ENGINE->input().getCurrentInputMode() != InputMode::CONTROLLER)
 		return;
-	controllerCursorMode = !controllerCursorMode;
-	pointerPresentationOwner = controllerCursorMode;
-	resetControllerAxis();
+
+	if(!controllerCursorMode)
+	{
+		controllerCursorRestoreHex = focusModel.hasFocus() ? focusModel.getFocusedHex() : BattleHex::INVALID;
+		controllerCursorMode = true;
+		pointerPresentationOwner = true;
+	}
+	else
+	{
+		controllerCursorMode = false;
+		pointerPresentationOwner = false;
+		const CStack * activeStack = stacksController->getActiveStack();
+		const BattleHex activeHead = activeStack ? activeStack->getPosition() : BattleHex::INVALID;
+		const BattleHex restoreHex = BattleFocusRestore::afterCursorMode(controllerCursorRestoreHex, activeHead);
+		if(restoreHex.isValid())
+		{
+			focusModel.setFocus(restoreHex);
+			controllerAttackFromHex = BattleAttackDirection::recommend(meleeAttackCandidates());
+			actionsController->onHexFocused(restoreHex, controllerAttackFromHex);
+		}
+		controllerCursorRestoreHex = BattleHex::INVALID;
+	}
+
+	ENGINE->input().resetControllerAxisState();
 	ENGINE->windows().refreshControllerCursorPolicy();
 	redrawBattlefield();
 }
@@ -440,12 +439,14 @@ void BattleInterface::onActiveStackChanged(const CStack * stack)
 	// CStack::getPosition() is the head hex for wide units, the single-hex
 	// anchor D8 and BT-01 require
 	const BattleHex activeHead = stack != nullptr ? stack->getPosition() : BattleHex::INVALID;
-	const BattleHex restoreHex = BattleFocusRestore::decide(ENGINE->input().getCurrentInputMode(), activeHead);
+	const BattleHex restoreHex = BattleFocusRestore::decide(
+		ENGINE->input().getCurrentInputMode(), activeHead, controllerCursorMode);
 	if(!restoreHex.isValid())
 		return;
 
 	if(!focusModel.setFocus(restoreHex))
 		return;
+	controllerAttackFromHex = BattleAttackDirection::recommend(meleeAttackCandidates());
 
 	// same status host as the other focus paths, so the damage preview
 	// follows the restored focus
@@ -454,7 +455,7 @@ void BattleInterface::onActiveStackChanged(const CStack * stack)
 
 bool BattleInterface::trySwitchStack(bool forward)
 {
-	if(ENGINE->input().getCurrentInputMode() != InputMode::CONTROLLER)
+	if(!isControllerNativeMode())
 		return false;
 
 	if(!controllerStates.canSwitchStacks())
@@ -507,6 +508,7 @@ bool BattleInterface::trySwitchStack(bool forward)
 
 	if(!focusModel.setFocus(entry.headHex))
 		return false;
+	controllerAttackFromHex = BattleAttackDirection::recommend(meleeAttackCandidates());
 
 	// same status host as the mouse hover path, so the damage preview
 	// follows the newly focused unit
@@ -598,9 +600,11 @@ BattleHintBar::Context BattleInterface::buildHintContext() const
 	context.focusedReachable = context.focusedReachable
 		&& selectedAction.get() == PossiblePlayerBattleAction::MOVE_STACK
 		&& actionsController->controllerActionIsLegal(selectedAction, focusModel.getFocusedHex());
+	const auto meleeOrigins = meleeAttackCandidates();
 	context.attackable = isMeleeControllerAction(selectedAction)
 		&& actionsController->controllerActionIsLegal(selectedAction, focusModel.getFocusedHex())
-		&& !meleeAttackCandidates().empty();
+		&& !meleeOrigins.empty();
+	context.multipleAttackOrigins = context.attackable && meleeOrigins.size() > 1;
 
 	context.shootable = selectedAction.get() == PossiblePlayerBattleAction::SHOOT
 		&& actionsController->controllerActionIsLegal(selectedAction, focusModel.getFocusedHex());

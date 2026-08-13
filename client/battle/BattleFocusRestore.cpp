@@ -11,10 +11,10 @@
 
 #include "BattleFocusRestore.h"
 
-BattleHex BattleFocusRestore::decide(InputMode inputMode, const BattleHex & activeStackHead)
+BattleHex BattleFocusRestore::decide(InputMode inputMode, const BattleHex & activeStackHead, bool cursorMode)
 {
 	// mouse zero-regression: pointer modes never move the controller focus
-	if(inputMode != InputMode::CONTROLLER)
+	if(inputMode != InputMode::CONTROLLER || cursorMode)
 		return BattleHex::INVALID;
 
 	// no active stack: the last valid focus and its status host hint stay put
@@ -23,4 +23,11 @@ BattleHex BattleFocusRestore::decide(InputMode inputMode, const BattleHex & acti
 
 	// entry default and restore both land on the active stack head hex
 	return activeStackHead;
+}
+
+BattleHex BattleFocusRestore::afterCursorMode(const BattleHex & savedFocus, const BattleHex & activeStackHead)
+{
+	if(savedFocus.isValid())
+		return savedFocus;
+	return activeStackHead.isValid() ? activeStackHead : BattleHex::INVALID;
 }

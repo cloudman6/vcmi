@@ -434,24 +434,24 @@
 		{
 			"op": "assert",
 			"probe": "battle",
+			"field": "hint_entries.2.text_key",
+			"equals": "vcmi.battleWindow.hints.adjust"
+		},
+		{
+			"op": "assert",
+			"probe": "battle",
+			"field": "attack_from_hex",
+			"equals": 29
+		},
+		{
+			"op": "assert",
+			"probe": "battle",
 			"field": "commands_sent",
 			"equals": 2
 		},
 		{
 			"op": "capture_frame",
 			"name": "s5-attack-target"
-		},
-		{
-			"op": "tap",
-			"device": "pad0",
-			"control": "r1"
-		},
-		{
-			"op": "wait_until",
-			"probe": "battle",
-			"field": "attack_from_hex",
-			"equals": 29,
-			"timeout_ms": 5000
 		},
 		{
 			"op": "tap",

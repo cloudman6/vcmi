@@ -35,6 +35,7 @@ public:
 	struct Context
 	{
 		bool attackable = false;
+		bool multipleAttackOrigins = false;
 		bool shootable = false;
 		bool focusedReachable = false;
 		BattleRangedShooting::DisabledReason shootingDisabled = BattleRangedShooting::DisabledReason::NONE;

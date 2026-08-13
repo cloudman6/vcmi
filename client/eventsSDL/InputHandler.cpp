@@ -152,6 +152,10 @@ void InputHandler::setCurrentInputMode(InputMode modi)
 {
 	if(currentInputMode != modi)
 	{
+		// Input-source ownership changes invalidate every controller axis
+		// lifecycle, even though Explicit Cursor Mode itself stays within the
+		// CONTROLLER source and resets through resetControllerAxisState().
+		resetControllerAxisState();
 		currentInputMode = modi;
 		ENGINE->events().dispatchInputModeChanged(modi);
 	}
@@ -160,6 +164,12 @@ void InputHandler::setCurrentInputMode(InputMode modi)
 InputMode InputHandler::getCurrentInputMode()
 {
 	return currentInputMode;
+}
+
+void InputHandler::resetControllerAxisState()
+{
+	if(gameControllerHandler)
+		gameControllerHandler->resetAxisState();
 }
 
 ControllerPresentation InputHandler::getControllerPresentation() const

@@ -24,5 +24,9 @@ class BattleFocusRestore
 public:
 	/// Returns the hex the focus must move to, or INVALID when the focus
 	/// stays where it is.
-	static BattleHex decide(InputMode inputMode, const BattleHex & activeStackHead);
+	static BattleHex decide(InputMode inputMode, const BattleHex & activeStackHead, bool cursorMode = false);
+
+	/// Explicit Cursor Mode exit restores the focus saved on entry when it is
+	/// still a valid board hex, then falls back to the current active stack.
+	static BattleHex afterCursorMode(const BattleHex & savedFocus, const BattleHex & activeStackHead);
 };

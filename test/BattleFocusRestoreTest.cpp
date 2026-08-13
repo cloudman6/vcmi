@@ -45,3 +45,23 @@ TEST(BattleFocusRestoreTest, PointerModesNeverMoveTheFocus)
 	EXPECT_EQ(BattleFocusRestore::decide(InputMode::KEYBOARD_AND_MOUSE, BattleHex(10, 3)), BattleHex::INVALID);
 	EXPECT_EQ(BattleFocusRestore::decide(InputMode::TOUCH, BattleHex(10, 3)), BattleHex::INVALID);
 }
+
+TEST(BattleFocusRestoreTest, CursorModeSuspendsActiveStackDrivenFocusChanges)
+{
+	EXPECT_EQ(
+		BattleFocusRestore::decide(InputMode::CONTROLLER, BattleHex(10, 3), true),
+		BattleHex::INVALID);
+}
+
+TEST(BattleFocusRestoreTest, CursorModeExitPrefersTheSavedFocusThenFallsBackToActiveStack)
+{
+	EXPECT_EQ(
+		BattleFocusRestore::afterCursorMode(BattleHex(7, 5), BattleHex(10, 3)),
+		BattleHex(7, 5));
+	EXPECT_EQ(
+		BattleFocusRestore::afterCursorMode(BattleHex::INVALID, BattleHex(10, 3)),
+		BattleHex(10, 3));
+	EXPECT_EQ(
+		BattleFocusRestore::afterCursorMode(BattleHex::INVALID, BattleHex::INVALID),
+		BattleHex::INVALID);
+}
