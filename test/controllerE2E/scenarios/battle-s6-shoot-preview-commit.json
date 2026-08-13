@@ -484,7 +484,7 @@
 			"op": "wait_until",
 			"probe": "battle",
 			"field": "focus_hex",
-			"equals": 134,
+			"equals": 135,
 			"timeout_ms": 5000
 		},
 		{
@@ -512,6 +512,27 @@
 			"op": "set_axis",
 			"device": "pad0",
 			"control": "left_stick_y",
+			"value": -1.0
+		},
+		{
+			"op": "wait_frames",
+			"frames": 3
+		},
+		{
+			"op": "neutralize",
+			"device": "pad0"
+		},
+		{
+			"op": "wait_until",
+			"probe": "battle",
+			"field": "focus_hex",
+			"equals": 101,
+			"timeout_ms": 5000
+		},
+		{
+			"op": "set_axis",
+			"device": "pad0",
+			"control": "left_stick_x",
 			"value": -1.0
 		},
 		{
