@@ -29,6 +29,12 @@ namespace BattleHintBarLayout
 	constexpr int GLYPH_SIZE = 24;
 	constexpr int GLYPH_TEXT_SPACING = 4;
 	constexpr int ENTRY_SPACING = 14;
+	constexpr int ACTION_PROMPT_WIDTH = 138;
+	constexpr int ACTION_PROMPT_GAP = 3;
+	constexpr int UNOBSCURED_LEFT = 79;
+	constexpr int UNOBSCURED_TOP = 86;
+	constexpr int UNOBSCURED_RIGHT = 721;
+	constexpr int UNOBSCURED_BOTTOM = 555;
 }
 
 /// Direct-canvas renderer of the contextual hint bar, shared by the live
@@ -42,6 +48,10 @@ public:
 
 	/// Draws the prompt strip into barRect; empty entries hide the bar
 	static void draw(Canvas & to, const std::vector<BattleHintEntry> & entries, const Rect & barRect, bool acceptPressed);
+
+	/// Places the focus-local action prompt without crossing sticky hero
+	/// panels, the turn queue, or the bottom battle controls.
+	static Rect actionPromptRect(const Rect & anchorRect, const Rect & unobscuredBattlefield);
 };
 
 /// Battle window child that recomputes the D6 hint entries from the live

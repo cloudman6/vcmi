@@ -808,16 +808,16 @@ void BattleFieldController::showControllerActionPrompt(Canvas & canvas)
 		return;
 
 	const Rect hexRect = hexPositionLocal(owner.focusModel.getFocusedHex());
-	constexpr int width = 138;
-	constexpr int height = BattleHintBarLayout::HEIGHT;
-	int x = std::clamp(hexRect.center().x - width / 2, 0, pos.w - width);
-	int y = hexRect.y - height - 3;
-	if(y < BattleHintBarLayout::TOP + BattleHintBarLayout::HEIGHT)
-		y = hexRect.y + hexRect.h + 3;
-	if(y + height > pos.h)
-		y = hexRect.y - height - 3;
-	y = std::clamp(y, 0, pos.h - height);
-	BattleHintBarPresenter::draw(canvas, {*primary}, Rect(x, y, width, height), false);
+	const Rect unobscuredBattlefield(
+		BattleHintBarLayout::UNOBSCURED_LEFT,
+		BattleHintBarLayout::UNOBSCURED_TOP,
+		BattleHintBarLayout::UNOBSCURED_RIGHT - BattleHintBarLayout::UNOBSCURED_LEFT,
+		BattleHintBarLayout::UNOBSCURED_BOTTOM - BattleHintBarLayout::UNOBSCURED_TOP);
+	BattleHintBarPresenter::draw(
+		canvas,
+		{*primary},
+		BattleHintBarPresenter::actionPromptRect(hexRect, unobscuredBattlefield),
+		false);
 }
 
 Rect BattleFieldController::hexPositionLocal(const BattleHex & hex) const

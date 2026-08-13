@@ -10,6 +10,7 @@
 #include "../client/StdInc.h"
 
 #include "../client/battle/BattleHintBar.h"
+#include "../client/battle/BattleHintBarPresenter.h"
 
 #include <gtest/gtest.h>
 
@@ -132,4 +133,21 @@ TEST(BattleHintBarTest, switchPromptsOnlyAppearWhileBrowsing)
 			EXPECT_NE(entry.glyph, EShortcut::BATTLE_DEFEND);
 		}
 	}
+}
+
+TEST(BattleHintBarTest, actionPromptStaysInsideTheUnobscuredBattlefield)
+{
+	const Rect safeBattlefield(79, 86, 642, 469);
+	const Rect rightEdgeHex(674, 296, 44, 42);
+	const Rect topEdgeHex(80, 86, 44, 42);
+
+	const Rect rightEdgePrompt = BattleHintBarPresenter::actionPromptRect(rightEdgeHex, safeBattlefield);
+	EXPECT_EQ(rightEdgePrompt.x, 583);
+	EXPECT_EQ(rightEdgePrompt.y, 266);
+	EXPECT_EQ(rightEdgePrompt.w, 138);
+	EXPECT_LE(rightEdgePrompt.x + rightEdgePrompt.w, safeBattlefield.x + safeBattlefield.w);
+
+	const Rect topEdgePrompt = BattleHintBarPresenter::actionPromptRect(topEdgeHex, safeBattlefield);
+	EXPECT_EQ(topEdgePrompt.y, 131);
+	EXPECT_GE(topEdgePrompt.y, safeBattlefield.y);
 }

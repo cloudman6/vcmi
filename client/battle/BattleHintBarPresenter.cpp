@@ -65,6 +65,23 @@ ColorRGBA BattleHintBarPresenter::backgroundColor()
 	return {73, 53, 34};
 }
 
+Rect BattleHintBarPresenter::actionPromptRect(const Rect & anchorRect, const Rect & unobscuredBattlefield)
+{
+	const int width = std::min(BattleHintBarLayout::ACTION_PROMPT_WIDTH, unobscuredBattlefield.w);
+	const int height = std::min(BattleHintBarLayout::HEIGHT, unobscuredBattlefield.h);
+	const int right = unobscuredBattlefield.x + unobscuredBattlefield.w;
+	const int bottom = unobscuredBattlefield.y + unobscuredBattlefield.h;
+
+	const int x = std::clamp(anchorRect.center().x - width / 2, unobscuredBattlefield.x, right - width);
+	int y = anchorRect.y - height - BattleHintBarLayout::ACTION_PROMPT_GAP;
+	if(y < unobscuredBattlefield.y)
+		y = anchorRect.y + anchorRect.h + BattleHintBarLayout::ACTION_PROMPT_GAP;
+	if(y + height > bottom)
+		y = anchorRect.y - height - BattleHintBarLayout::ACTION_PROMPT_GAP;
+	y = std::clamp(y, unobscuredBattlefield.y, bottom - height);
+	return Rect(x, y, width, height);
+}
+
 void BattleHintBarPresenter::draw(Canvas & to, const std::vector<BattleHintEntry> & entries, const Rect & barRect, bool acceptPressed)
 {
 	if(entries.empty())
