@@ -1107,6 +1107,15 @@ PossiblePlayerBattleAction BattleActionsController::selectAction(const BattleHex
 	return possibleActions.front();
 }
 
+BattleControllerPrimaryAction BattleActionsController::getControllerPrimaryAction(const BattleHex & focusedHex)
+{
+	if(!focusedHex.isValid() || (owner.stacksController->getActiveStack() == nullptr && monsterCaster == nullptr))
+		return BattleControllerPrimaryAction::NONE;
+
+	const auto action = selectAction(focusedHex);
+	return classifyBattleControllerPrimaryAction(action.get(), actionIsLegal(action, focusedHex));
+}
+
 void BattleActionsController::onHexHovered(const BattleHex & hoveredHex)
 {
 	if (owner.openingPlaying())

@@ -114,6 +114,7 @@ BattleWindow::BattleWindow(BattleInterface & Owner)
 	addShortcut(EShortcut::BATTLE_TOGGLE_HEROES_STATS, [this](){ this->toggleStickyHeroWindowsVisibility();});
 	addShortcut(EShortcut::BATTLE_USE_CREATURE_SPELL, [this](){ this->owner.actionsController->enterCreatureCastingMode(); });
 	addShortcut(EShortcut::GLOBAL_CANCEL, [this](){ this->owner.actionsController->endCastingSpell(); });
+	addShortcut(EShortcut::GLOBAL_ACCEPT, [this](){ this->owner.handleControllerAccept(); });
 	addShortcut(EShortcut::ADVENTURE_QUICK_LOAD, [this](){
 		//allow quick load only on player turn while no animations are ongoing
 		if (!this->owner.hasAnimations() && this->owner.stacksController->getActiveStack())
@@ -509,6 +510,7 @@ void BattleWindow::activate()
 	ENGINE->setStatusbar(console);
 	CIntObject::activate();
 	GAME->interface()->cingconsole->activate();
+	owner.controllerWindowRestored();
 }
 
 void BattleWindow::deactivate()

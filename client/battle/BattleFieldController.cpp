@@ -10,6 +10,8 @@
 #include "StdInc.h"
 #include "BattleFieldController.h"
 
+#include "BattleControllerActionPrompt.h"
+
 #include "BattleActionsController.h"
 #include "BattleEffectsController.h"
 #include "BattleInterface.h"
@@ -870,6 +872,15 @@ void BattleFieldController::show(Canvas & to)
 	const bool nativeFocus = owner.isControllerNativeMode() && owner.getControllerFocusedHex().isValid();
 	if (isActive() && (isGesturing() || nativeFocus) && getHoveredHex() != BattleHex::INVALID)
 		to.draw(ENGINE->cursor().getCurrentImage(), hexPositionAbsolute(getHoveredHex()).center() - ENGINE->cursor().getPivotOffset());
+
+	if(isActive() && nativeFocus)
+	{
+		BattleControllerActionPrompt::draw(
+			to,
+			owner.getControllerPrimaryAction(),
+			hexPositionAbsolute(owner.getControllerFocusedHex()),
+			BattleControllerActionPrompt::unobscuredBattlefieldRect(pos.topLeft()));
+	}
 }
 
 bool BattleFieldController::receiveEvent(const Point & position, int eventType) const

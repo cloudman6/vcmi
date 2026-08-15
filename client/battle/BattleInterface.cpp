@@ -38,6 +38,7 @@
 #include "../media/ISoundPlayer.h"
 #include "../render/Canvas.h"
 #include "../windows/CTutorialWindow.h"
+#include "../windows/CCreatureWindow.h"
 
 #include "../../lib/BattleFieldHandler.h"
 #include "../../lib/CConfigHandler.h"
@@ -68,6 +69,10 @@ BattleInterface::BattleInterface(const BattleID & battleID, const CCreatureSet *
 	, battleOpeningDelayActive(true)
 	, round(0)
 	, focusNavigation(std::make_unique<BattleFocusNavigation>(focusModel))
+	, unitNavigation(std::make_unique<BattleUnitNavigation>(focusModel, [this]
+	{
+		return getControllerUnitCandidates();
+	}))
 {
 	if(spectatorInt)
 	{
@@ -218,18 +223,32 @@ void BattleInterface::redrawBattlefield()
 void BattleInterface::stackReset(const CStack * stack)
 {
 	stacksController->stackReset(stack);
+	if(isControllerNativeMode())
+		syncControllerFocusPresentation();
 }
 
 void BattleInterface::stackAdded(const CStack * stack)
 {
 	stacksController->stackAdded(stack, false);
+	if(isControllerNativeMode())
+		syncControllerFocusPresentation();
 }
 
 void BattleInterface::stackRemoved(uint32_t stackID)
 {
 	stacksController->stackRemoved(stackID);
+	if(controllerInspectUnitId && *controllerInspectUnitId == stackID)
+	{
+		if(const auto inspectWindow = controllerInspectWindow.lock();
+			inspectWindow && ENGINE->windows().isTopWindow(inspectWindow))
+			ENGINE->windows().popWindow(inspectWindow);
+		controllerInspectUnitId.reset();
+		controllerInspectWindow.reset();
+	}
 	fieldController->redrawBackgroundWithHexes();
 	windowObject->updateQueue();
+	if(isControllerNativeMode())
+		syncControllerFocusPresentation();
 }
 
 void BattleInterface::stackActivated(const CStack *stack)
@@ -243,6 +262,8 @@ void BattleInterface::stackMoved(const CStack *stack, const BattleHexArray & des
 		stacksController->stackTeleported(stack, destHex, distance);
 	else
 		stacksController->stackMoved(stack, destHex, distance);
+	if(isControllerNativeMode())
+		syncControllerFocusPresentation();
 }
 
 void BattleInterface::stacksAreAttacked(std::vector<StackAttackedInfo> attackedInfos)
@@ -693,6 +714,24 @@ void BattleInterface::syncControllerFocusPresentation()
 	redrawBattlefield();
 }
 
+std::vector<BattleUnitNavigationCandidate> BattleInterface::getControllerUnitCandidates() const
+{
+	std::vector<BattleUnitNavigationCandidate> result;
+	for(const auto * unit : getBattle()->battleAliveUnits())
+	{
+		const auto headHex = unit->getPosition();
+		if(!unit->isValidTarget(false) || !headHex.isValid())
+			continue;
+
+		result.push_back({
+			unit->unitId(),
+			headHex,
+			unit->doubleWide() ? unit->occupiedHex() : BattleHex::INVALID
+		});
+	}
+	return result;
+}
+
 bool BattleInterface::handleControllerAxis(const ControllerAxisEvent & event)
 {
 	if(!isControllerNativeMode() || !ensureControllerFocus())
@@ -704,11 +743,29 @@ bool BattleInterface::handleControllerAxis(const ControllerAxisEvent & event)
 		if(action == EShortcut::CONTROLLER_NAVIGATE_X)
 		{
 			focusNavigation->updateAxis(event.instanceId, BattleFocusNavigation::Axis::HORIZONTAL, event.value);
+			navigationArbiter.update(BattleNavigationArbiter::Source::HEX,
+				focusNavigation->isActive(), unitNavigation->isActive());
 			consumed = true;
 		}
 		if(action == EShortcut::CONTROLLER_NAVIGATE_Y)
 		{
 			focusNavigation->updateAxis(event.instanceId, BattleFocusNavigation::Axis::VERTICAL, event.value);
+			navigationArbiter.update(BattleNavigationArbiter::Source::HEX,
+				focusNavigation->isActive(), unitNavigation->isActive());
+			consumed = true;
+		}
+		if(action == EShortcut::CONTROLLER_UNIT_NAVIGATE_X)
+		{
+			unitNavigation->updateAxis(event.instanceId, BattleUnitNavigation::Axis::HORIZONTAL, event.value);
+			navigationArbiter.update(BattleNavigationArbiter::Source::UNIT,
+				unitNavigation->isActive(), focusNavigation->isActive());
+			consumed = true;
+		}
+		if(action == EShortcut::CONTROLLER_UNIT_NAVIGATE_Y)
+		{
+			unitNavigation->updateAxis(event.instanceId, BattleUnitNavigation::Axis::VERTICAL, event.value);
+			navigationArbiter.update(BattleNavigationArbiter::Source::UNIT,
+				unitNavigation->isActive(), focusNavigation->isActive());
 			consumed = true;
 		}
 	}
@@ -717,19 +774,72 @@ bool BattleInterface::handleControllerAxis(const ControllerAxisEvent & event)
 
 void BattleInterface::updateControllerAxis(uint32_t msPassed)
 {
-	if(isControllerNativeMode() && focusNavigation->update(msPassed))
+	if(!isControllerNativeMode())
+		return;
+
+	bool focusMoved = false;
+	switch(navigationArbiter.owner())
+	{
+		case BattleNavigationArbiter::Source::HEX:
+			focusMoved = focusNavigation->update(msPassed);
+			break;
+		case BattleNavigationArbiter::Source::UNIT:
+			focusMoved = unitNavigation->update(msPassed);
+			break;
+		case BattleNavigationArbiter::Source::NONE:
+			break;
+	}
+	const bool presentationLost = focusModel.hasFocus()
+		&& fieldController->getHoveredHex() != focusModel.getFocusedHex();
+	if(focusMoved || presentationLost)
 		syncControllerFocusPresentation();
 }
 
 void BattleInterface::resetControllerAxis()
 {
 	focusNavigation->reset();
+	unitNavigation->reset();
+	navigationArbiter.reset();
 }
 
 void BattleInterface::controllerInputModeActivated()
 {
 	if(ensureControllerFocus())
 		syncControllerFocusPresentation();
+}
+
+bool BattleInterface::handleControllerAccept()
+{
+	if(!isControllerNativeMode() || getControllerPrimaryAction() != BattleControllerPrimaryAction::INSPECT)
+		return false;
+
+	const auto * stack = getBattle()->battleGetStackByPos(focusModel.getFocusedHex(), true);
+	if(stack == nullptr)
+		return false;
+
+	auto inspectWindow = std::make_shared<CStackWindow>(stack, false);
+	controllerInspectUnitId = stack->unitId();
+	controllerInspectWindow = inspectWindow;
+	ENGINE->windows().pushWindow(inspectWindow);
+	return true;
+}
+
+void BattleInterface::controllerWindowRestored()
+{
+	if(!controllerInspectUnitId)
+		return;
+
+	controllerInspectUnitId.reset();
+	controllerInspectWindow.reset();
+	if(isControllerNativeMode() && ensureControllerFocus())
+		syncControllerFocusPresentation();
+}
+
+BattleControllerPrimaryAction BattleInterface::getControllerPrimaryAction()
+{
+	if(!isControllerNativeMode() || !focusModel.hasFocus())
+		return BattleControllerPrimaryAction::NONE;
+	return actionsController->getControllerPrimaryAction(focusModel.getFocusedHex());
 }
 
 BattleHex BattleInterface::getControllerFocusedHex() const

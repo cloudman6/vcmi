@@ -283,6 +283,8 @@
 		"mouseSwipeY":              [],
 		"controllerNavigateX":      [],
 		"controllerNavigateY":      [],
+		"controllerUnitNavigateX":  [],
+		"controllerUnitNavigateY":  [],
 
 	},
 	
@@ -292,6 +294,8 @@
 		"mouseCursorY" : "lefty",
 		"controllerNavigateX" : "leftx",
 		"controllerNavigateY" : "lefty",
+		"controllerUnitNavigateX" : "rightx",
+		"controllerUnitNavigateY" : "righty",
 		"mouseSwipeX" : "rightx",
 		"mouseSwipeY" : "righty"
 	},
