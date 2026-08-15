@@ -9,6 +9,8 @@
  */
 #pragma once
 
+#include "BattleControllerAction.h"
+
 #include "../../lib/battle/CBattleInfoCallback.h"
 
 class BattleAction;
@@ -79,6 +81,8 @@ class BattleActionsController
 
 public:
 	BattleActionsController(BattleInterface & owner);
+
+	BattleControllerPrimaryAction getControllerPrimaryAction(const BattleHex & focusedHex);
 
 	/// initialize list of potential actions for new active stack
 	void activateStack();

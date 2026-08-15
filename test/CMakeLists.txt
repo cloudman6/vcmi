@@ -276,8 +276,12 @@ enable_pch(vcmitest)
 
 if(ENABLE_CLIENT)
 	add_executable(vcmi_battle_controller_test
+		BattleNavigationArbiterTest.cpp
 		BattleFocusModelTest.cpp
-		BattleFocusNavigationTest.cpp)
+		BattleFocusNavigationTest.cpp
+		BattleUnitSelectorTest.cpp
+		BattleUnitNavigationTest.cpp
+		BattleControllerActionTest.cpp)
 	target_link_libraries(vcmi_battle_controller_test PRIVATE gtest_main vcmiclientcommon)
 	target_include_directories(vcmi_battle_controller_test PRIVATE
 		${GTestSrc}/include)

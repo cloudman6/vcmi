@@ -10,8 +10,10 @@
 #pragma once
 
 #include "BattleConstants.h"
+#include "BattleNavigationArbiter.h"
 #include "BattleFocusModel.h"
 #include "BattleFocusNavigation.h"
+#include "BattleUnitNavigation.h"
 
 #include "../gui/CIntObject.h"
 
@@ -53,6 +55,7 @@ class BattleRenderer;
 class BattleWindow;
 class BattleStacksController;
 class BattleActionsController;
+enum class BattleControllerPrimaryAction;
 class BattleEffectsController;
 class BattleConsole;
 
@@ -123,6 +126,7 @@ class BattleInterface
 	void onIntroSoundPlayed();
 	bool ensureControllerFocus();
 	void syncControllerFocusPresentation();
+	std::vector<BattleUnitNavigationCandidate> getControllerUnitCandidates() const;
 public:
 	/// copy of initial armies (for result window)
 	const CCreatureSet *army1;
@@ -150,6 +154,10 @@ public:
 private:
 	BattleFocusModel focusModel;
 	std::unique_ptr<BattleFocusNavigation> focusNavigation;
+	std::unique_ptr<BattleUnitNavigation> unitNavigation;
+	BattleNavigationArbiter navigationArbiter;
+	std::optional<uint32_t> controllerInspectUnitId;
+	std::weak_ptr<IShowActivatable> controllerInspectWindow;
 
 public:
 	std::shared_ptr<BattleHero> attackingHero;
@@ -172,6 +180,9 @@ public:
 	void updateControllerAxis(uint32_t msPassed);
 	void resetControllerAxis();
 	void controllerInputModeActivated();
+	bool handleControllerAccept();
+	void controllerWindowRestored();
+	BattleControllerPrimaryAction getControllerPrimaryAction();
 	bool isControllerNativeMode() const;
 	void requestAutofightingAIToTakeAction();
 

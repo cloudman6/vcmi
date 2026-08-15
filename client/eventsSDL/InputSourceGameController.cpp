@@ -236,6 +236,7 @@ void InputSourceGameController::handleEventAxisMotion(const SDL_ControllerAxisEv
 	const bool ownershipSensitive = std::any_of(axisActions.begin(), axisActions.end(), [](EShortcut action)
 	{
 		return action == EShortcut::CONTROLLER_NAVIGATE_X || action == EShortcut::CONTROLLER_NAVIGATE_Y
+			|| action == EShortcut::CONTROLLER_UNIT_NAVIGATE_X || action == EShortcut::CONTROLLER_UNIT_NAVIGATE_Y
 			|| action == EShortcut::MOUSE_CURSOR_X || action == EShortcut::MOUSE_CURSOR_Y;
 	});
 	if(ownershipSensitive && controlsActiveDevice)
@@ -246,6 +247,8 @@ void InputSourceGameController::handleEventAxisMotion(const SDL_ControllerAxisEv
 		{
 			cursorAxisValueX = cursorAxisValueY = 0.0;
 			cursorPlanDisX = cursorPlanDisY = 0.0;
+			scrollAxisValueX = scrollAxisValueY = 0.0;
+			scrollPlanDisX = scrollPlanDisY = 0.0;
 			return;
 		}
 	}

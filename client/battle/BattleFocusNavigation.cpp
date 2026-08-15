@@ -111,6 +111,11 @@ void BattleFocusNavigation::reset()
 	elapsed = 0;
 }
 
+bool BattleFocusNavigation::isActive() const
+{
+	return direction != BattleHex::NONE;
+}
+
 BattleHex::EDir BattleFocusNavigation::quantizedDirection() const
 {
 	if(std::hypot(axisX, axisY) < DEAD_ZONE)
