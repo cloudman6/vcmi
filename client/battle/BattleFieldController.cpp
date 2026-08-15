@@ -879,7 +879,8 @@ void BattleFieldController::show(Canvas & to)
 			to,
 			owner.getControllerPrimaryAction(),
 			hexPositionAbsolute(owner.getControllerFocusedHex()),
-			BattleControllerActionPrompt::unobscuredBattlefieldRect(pos.topLeft()));
+			BattleControllerActionPrompt::unobscuredBattlefieldRect(pos.topLeft()),
+			owner.isControllerAcceptPressed());
 	}
 }
 

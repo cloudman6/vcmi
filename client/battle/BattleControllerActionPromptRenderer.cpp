@@ -29,7 +29,7 @@ namespace
 {
 constexpr int GLYPH_SIZE = 24;
 
-std::optional<ImagePath> acceptSprite(const std::vector<std::string> & bindings)
+std::optional<ImagePath> acceptSprite(const std::vector<std::string> & bindings, bool pressed)
 {
 	const auto family = ENGINE->input().getActiveControllerPromptFamily();
 	if(family == ControllerPrompt::Family::UNKNOWN || bindings.size() != 1
@@ -40,12 +40,13 @@ std::optional<ImagePath> acceptSprite(const std::vector<std::string> & bindings)
 		? "playstation"
 		: "xbox";
 	return ImagePath::builtin(
-		"controllerActionBar/" + familyPrefix + "-" + bindings.front() + "-normal.png");
+		"controllerActionBar/" + familyPrefix + "-" + bindings.front() + "-"
+		+ (pressed ? "pressed" : "normal") + ".png");
 }
 }
 
 void BattleControllerActionPrompt::draw(Canvas & to, BattleControllerPrimaryAction action,
-	const Rect & anchorRect, const Rect & unobscuredBattlefield)
+	const Rect & anchorRect, const Rect & unobscuredBattlefield, bool pressed)
 {
 	const auto actionTextKey = textKey(action);
 	if(actionTextKey.empty())
@@ -55,8 +56,8 @@ void BattleControllerActionPrompt::draw(Canvas & to, BattleControllerPrimaryActi
 	if(bindings.size() != 1)
 		return;
 
-	const auto rect = promptRect(anchorRect, unobscuredBattlefield);
-	const auto spritePath = acceptSprite(bindings);
+	const auto rect = promptRect(action, anchorRect, unobscuredBattlefield);
+	const auto spritePath = acceptSprite(bindings, pressed);
 	const auto glyphLabel = fallbackBindingLabel(bindings);
 	const auto text = LIBRARY->generaltexth->translate(actionTextKey);
 	const auto & font = ENGINE->renderHandler().loadFont(FONT_SMALL);

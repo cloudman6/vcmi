@@ -800,20 +800,52 @@ void BattleInterface::resetControllerAxis()
 	focusNavigation->reset();
 	unitNavigation->reset();
 	navigationArbiter.reset();
+	controllerActionPressState.reset();
 }
 
 void BattleInterface::controllerInputModeActivated()
 {
+	controllerActionPressState.reset();
 	if(ensureControllerFocus())
 		syncControllerFocusPresentation();
 }
 
-bool BattleInterface::handleControllerAccept()
+bool BattleInterface::handleControllerAcceptPressed()
 {
-	if(!isControllerNativeMode() || getControllerPrimaryAction() != BattleControllerPrimaryAction::INSPECT)
+	if(!isControllerNativeMode())
 		return false;
 
-	const auto * stack = getBattle()->battleGetStackByPos(focusModel.getFocusedHex(), true);
+	const auto action = getControllerPrimaryAction();
+	const auto focus = focusModel.getFocusedHex();
+	const bool phaseThreeAction = action == BattleControllerPrimaryAction::MOVE
+		|| action == BattleControllerPrimaryAction::INSPECT;
+	if(!phaseThreeAction || !controllerActionPressState.press(action, focus))
+		return false;
+
+	redrawBattlefield();
+	return true;
+}
+
+bool BattleInterface::handleControllerAcceptReleased()
+{
+	if(!controllerActionPressState.hasPendingAction())
+		return false;
+
+	const auto action = getControllerPrimaryAction();
+	const auto focus = focusModel.getFocusedHex();
+	const auto releasedAction = controllerActionPressState.release(action, focus);
+	redrawBattlefield();
+	if(!isControllerNativeMode())
+		return false;
+	if(releasedAction == BattleControllerPrimaryAction::MOVE)
+	{
+		actionsController->onHexLeftClicked(focus);
+		return true;
+	}
+	if(releasedAction != BattleControllerPrimaryAction::INSPECT)
+		return false;
+
+	const auto * stack = getBattle()->battleGetStackByPos(focus, true);
 	if(stack == nullptr)
 		return false;
 
@@ -822,6 +854,11 @@ bool BattleInterface::handleControllerAccept()
 	controllerInspectWindow = inspectWindow;
 	ENGINE->windows().pushWindow(inspectWindow);
 	return true;
+}
+
+bool BattleInterface::isControllerAcceptPressed()
+{
+	return controllerActionPressState.isPressed(getControllerPrimaryAction(), focusModel.getFocusedHex());
 }
 
 void BattleInterface::controllerWindowRestored()
@@ -849,6 +886,7 @@ BattleHex BattleInterface::getControllerFocusedHex() const
 
 void BattleInterface::activateStack()
 {
+	controllerActionPressState.reset();
 	stacksController->activateStack();
 
 	const CStack * s = stacksController->getActiveStack();
@@ -932,6 +970,19 @@ void BattleInterface::startAction(const BattleAction & action)
 	assert(getBattle()->battleGetStackByID(action.stackNumber));
 	windowObject->updateQueue();
 	effectsController->startAction(action);
+}
+
+void BattleInterface::actionRejected()
+{
+	controllerActionPressState.reset();
+
+	const auto * authoritativeUnit = getBattle()->battleActiveUnit();
+	if(!authoritativeUnit || authoritativeUnit->unitOwner() != curInt->playerID)
+		return;
+
+	const auto * authoritativeStack = getBattle()->battleGetStackByID(authoritativeUnit->unitId());
+	if(authoritativeStack)
+		stacksController->stackActivated(authoritativeStack);
 }
 
 void BattleInterface::tacticPhaseEnd()

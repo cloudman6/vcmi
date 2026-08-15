@@ -19,7 +19,6 @@ BattleControllerPrimaryAction classifyBattleControllerPrimaryAction(
 
 	switch(action)
 	{
-		case PossiblePlayerBattleAction::MOVE_TACTICS:
 		case PossiblePlayerBattleAction::MOVE_STACK:
 			return BattleControllerPrimaryAction::MOVE;
 		case PossiblePlayerBattleAction::ATTACK:
@@ -34,4 +33,42 @@ BattleControllerPrimaryAction classifyBattleControllerPrimaryAction(
 		default:
 			return BattleControllerPrimaryAction::NONE;
 	}
+}
+
+bool BattleControllerActionPressState::press(BattleControllerPrimaryAction action, const BattleHex & focusedHex)
+{
+	if(action == BattleControllerPrimaryAction::NONE || !focusedHex.isValid())
+		return false;
+
+	if(pressedAction == BattleControllerPrimaryAction::NONE)
+	{
+		pressedAction = action;
+		pressedHex = focusedHex;
+	}
+	return true;
+}
+
+BattleControllerPrimaryAction BattleControllerActionPressState::release(
+	BattleControllerPrimaryAction action, const BattleHex & focusedHex)
+{
+	const auto result = isPressed(action, focusedHex) ? action : BattleControllerPrimaryAction::NONE;
+	reset();
+	return result;
+}
+
+bool BattleControllerActionPressState::hasPendingAction() const
+{
+	return pressedAction != BattleControllerPrimaryAction::NONE;
+}
+
+bool BattleControllerActionPressState::isPressed(
+	BattleControllerPrimaryAction action, const BattleHex & focusedHex) const
+{
+	return action != BattleControllerPrimaryAction::NONE && action == pressedAction && focusedHex == pressedHex;
+}
+
+void BattleControllerActionPressState::reset()
+{
+	pressedAction = BattleControllerPrimaryAction::NONE;
+	pressedHex = BattleHex::INVALID;
 }
