@@ -10,6 +10,7 @@
 #pragma once
 
 #include "BattleControllerAction.h"
+#include "BattleMeleeSelection.h"
 
 #include "../../lib/battle/CBattleInfoCallback.h"
 
@@ -65,6 +66,8 @@ class BattleActionsController
 
 	PossiblePlayerBattleAction selectAction(const BattleHex & myNumber);
 	PossiblePlayerBattleAction selectControllerAction(const BattleHex & myNumber);
+	std::vector<BattleMeleeSelection::Candidate> getControllerMeleeCandidates(
+		PossiblePlayerBattleAction action, const BattleHex & targetHex) const;
 
 	const CStack * getStackForHex(const BattleHex & myNumber) ;
 
@@ -85,6 +88,8 @@ public:
 	BattleActionsController(BattleInterface & owner);
 
 	BattleControllerPrimaryAction getControllerPrimaryAction(const BattleHex & focusedHex);
+	bool refreshControllerMeleeSelection(BattleMeleeSelection & selection, const BattleHex & focusedHex);
+	bool realizeControllerMeleeSelection(const BattleMeleeSelection & selection);
 
 	/// initialize list of potential actions for new active stack
 	void activateStack();

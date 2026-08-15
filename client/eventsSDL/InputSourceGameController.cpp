@@ -187,33 +187,53 @@ double InputSourceGameController::getRealAxisValue(int value) const
 
 void InputSourceGameController::resetAxisState()
 {
+	cancelPressedShortcuts();
 	cursorAxisValueX = cursorAxisValueY = 0.0;
 	cursorPlanDisX = cursorPlanDisY = 0.0;
 	scrollAxisValueX = scrollAxisValueY = 0.0;
 	scrollPlanDisX = scrollPlanDisY = 0.0;
 	scrollAxisMoved = false;
-	pressedAxes.clear();
 	ENGINE->windows().resetControllerAxis();
 }
 
-void InputSourceGameController::dispatchAxisShortcuts(const std::vector<EShortcut> & shortcutsVector, SDL_GameControllerAxis axisID, int axisValue, std::string axisName)
+void InputSourceGameController::cancelPressedShortcuts()
+{
+	for(const auto & pressedAxis : pressedAxes)
+	{
+		const auto axisID = pressedAxis.first;
+		const std::string axisName = SDL_GameControllerGetStringForAxis(axisID);
+		ENGINE->events().dispatchShortcutCancelled(ENGINE->shortcuts().translateJoystickButton(axisName));
+	}
+	pressedAxes.clear();
+
+	for(const auto & pressedButton : pressedButtons)
+	{
+		const auto buttonID = pressedButton.first;
+		const std::string buttonName = SDL_GameControllerGetStringForButton(buttonID);
+		ENGINE->events().dispatchShortcutCancelled(ENGINE->shortcuts().translateJoystickButton(buttonName));
+	}
+	pressedButtons.clear();
+}
+
+void InputSourceGameController::dispatchAxisShortcuts(const std::vector<EShortcut> & shortcutsVector, int instanceID, SDL_GameControllerAxis axisID, int axisValue, std::string axisName)
 {
 	if(getRealAxisValue(axisValue) > configTriggerThreshold)
 	{
-		if(!pressedAxes.count(axisID))
+		if(!pressedAxes.count(axisID) && instanceID == activeController)
 		{
 			ENGINE->events().dispatchKeyPressed(axisName);
 			ENGINE->events().dispatchShortcutPressed(shortcutsVector);
-			pressedAxes.insert(axisID);
+			pressedAxes.emplace(axisID, instanceID);
 		}
 	}
 	else
 	{
-		if(pressedAxes.count(axisID))
+		const auto pressed = pressedAxes.find(axisID);
+		if(pressed != pressedAxes.end() && pressed->second == instanceID && instanceID == activeController)
 		{
 			ENGINE->events().dispatchKeyReleased(axisName);
 			ENGINE->events().dispatchShortcutReleased(shortcutsVector);
-			pressedAxes.erase(axisID);
+			pressedAxes.erase(pressed);
 		}
 	}
 }
@@ -276,7 +296,7 @@ void InputSourceGameController::handleEventAxisMotion(const SDL_ControllerAxisEv
 		}
 	}
 
-	dispatchAxisShortcuts(buttonActions, axisID, axis.value, axisName);
+	dispatchAxisShortcuts(buttonActions, axis.which, axisID, axis.value, axisName);
 }
 
 void InputSourceGameController::tryToConvertCursor()
@@ -293,7 +313,11 @@ void InputSourceGameController::tryToConvertCursor()
 
 void InputSourceGameController::handleEventButtonDown(const SDL_ControllerButtonEvent & button)
 {
-	std::string buttonName = SDL_GameControllerGetStringForButton(static_cast<SDL_GameControllerButton>(button.button));
+	const auto buttonID = static_cast<SDL_GameControllerButton>(button.button);
+	if(!pressedButtons.emplace(buttonID, button.which).second)
+		return;
+
+	std::string buttonName = SDL_GameControllerGetStringForButton(buttonID);
 	const auto & shortcutsVector = ENGINE->shortcuts().translateJoystickButton(buttonName);
 	
 	ENGINE->events().dispatchKeyPressed(buttonName);
@@ -302,7 +326,13 @@ void InputSourceGameController::handleEventButtonDown(const SDL_ControllerButton
 
 void InputSourceGameController::handleEventButtonUp(const SDL_ControllerButtonEvent & button)
 {
-	std::string buttonName = SDL_GameControllerGetStringForButton(static_cast<SDL_GameControllerButton>(button.button));
+	const auto buttonID = static_cast<SDL_GameControllerButton>(button.button);
+	const auto pressed = pressedButtons.find(buttonID);
+	if(pressed == pressedButtons.end() || pressed->second != button.which || button.which != activeController)
+		return;
+
+	pressedButtons.erase(pressed);
+	std::string buttonName = SDL_GameControllerGetStringForButton(buttonID);
 	const auto & shortcutsVector = ENGINE->shortcuts().translateJoystickButton(buttonName);
 	ENGINE->events().dispatchKeyReleased(buttonName);
 	ENGINE->events().dispatchShortcutReleased(shortcutsVector);

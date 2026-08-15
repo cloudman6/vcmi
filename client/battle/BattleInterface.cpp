@@ -55,6 +55,24 @@
 #include "../../lib/spells/CSpell.h"
 #include "../../lib/texts/CGeneralTextHandler.h"
 
+namespace
+{
+class ControllerHoldStackWindow final : public CStackWindow
+{
+public:
+	explicit ControllerHoldStackWindow(const CStack * stack)
+		: CStackWindow(stack, true)
+	{
+	}
+
+	void keyReleased(EShortcut key) override
+	{
+		if(key == EShortcut::GLOBAL_CANCEL)
+			close();
+	}
+};
+}
+
 BattleInterface::BattleInterface(const BattleID & battleID, const CCreatureSet *army1, const CCreatureSet *army2,
 		const CGHeroInstance *hero1, const CGHeroInstance *hero2,
 		std::shared_ptr<CPlayerInterface> att,
@@ -244,6 +262,7 @@ void BattleInterface::stackRemoved(uint32_t stackID)
 			ENGINE->windows().popWindow(inspectWindow);
 		controllerInspectUnitId.reset();
 		controllerInspectWindow.reset();
+		controllerHoldInspectWindow.reset();
 	}
 	fieldController->redrawBackgroundWithHexes();
 	windowObject->updateQueue();
@@ -710,6 +729,11 @@ void BattleInterface::syncControllerFocusPresentation()
 
 	const auto focus = focusModel.getFocusedHex();
 	fieldController->setControllerFocusedHex(focus);
+	actionsController->refreshControllerMeleeSelection(controllerMeleeSelection, focus);
+	if(controllerMeleeOriginRepeatState.hasPendingRepeat())
+		controllerMeleeOriginRepeatState.retainContext(getControllerMeleeOriginRepeatContext());
+	fieldController->setControllerAttackDirection(
+		controllerMeleeSelection.getTarget(), controllerMeleeSelection.getCandidate().direction);
 	actionsController->onHexHovered(focus);
 	redrawBattlefield();
 }
@@ -777,6 +801,12 @@ void BattleInterface::updateControllerAxis(uint32_t msPassed)
 	if(!isControllerNativeMode())
 		return;
 
+	if(const auto repeatDirection = controllerMeleeOriginRepeatState.update(msPassed);
+		repeatDirection && !cycleControllerMeleeOrigin(*repeatDirection, true))
+	{
+		controllerMeleeOriginRepeatState.reset();
+	}
+
 	bool focusMoved = false;
 	switch(navigationArbiter.owner())
 	{
@@ -801,11 +831,21 @@ void BattleInterface::resetControllerAxis()
 	unitNavigation->reset();
 	navigationArbiter.reset();
 	controllerActionPressState.reset();
+	controllerMeleeOriginRepeatState.reset();
+	controllerMeleeSelection.clear();
+	if(const auto inspectWindow = controllerHoldInspectWindow.lock();
+		inspectWindow && ENGINE->windows().isTopWindow(inspectWindow))
+	{
+		controllerHoldInspectWindow.reset();
+		ENGINE->windows().popWindow(inspectWindow);
+	}
 }
 
 void BattleInterface::controllerInputModeActivated()
 {
 	controllerActionPressState.reset();
+	controllerMeleeOriginRepeatState.reset();
+	controllerMeleeSelection.clear();
 	if(ensureControllerFocus())
 		syncControllerFocusPresentation();
 }
@@ -817,9 +857,13 @@ bool BattleInterface::handleControllerAcceptPressed()
 
 	const auto action = getControllerPrimaryAction();
 	const auto focus = focusModel.getFocusedHex();
-	const bool phaseThreeAction = action == BattleControllerPrimaryAction::MOVE
+	const bool directAction = action == BattleControllerPrimaryAction::MOVE
+		|| action == BattleControllerPrimaryAction::ATTACK
 		|| action == BattleControllerPrimaryAction::INSPECT;
-	if(!phaseThreeAction || !controllerActionPressState.press(action, focus))
+	const auto candidate = controllerMeleeSelection.getCandidate();
+	if(!directAction || !controllerActionPressState.press(
+		action, focus, candidate.attackFrom, candidate.direction,
+		controllerMeleeSelection.getAction(), controllerMeleeSelection.getTargetUnitId()))
 		return false;
 
 	redrawBattlefield();
@@ -833,13 +877,23 @@ bool BattleInterface::handleControllerAcceptReleased()
 
 	const auto action = getControllerPrimaryAction();
 	const auto focus = focusModel.getFocusedHex();
-	const auto releasedAction = controllerActionPressState.release(action, focus);
+	const auto candidate = controllerMeleeSelection.getCandidate();
+	const auto releasedAction = controllerActionPressState.release(
+		action, focus, candidate.attackFrom, candidate.direction,
+		controllerMeleeSelection.getAction(), controllerMeleeSelection.getTargetUnitId());
 	redrawBattlefield();
 	if(!isControllerNativeMode())
 		return false;
 	if(releasedAction == BattleControllerPrimaryAction::MOVE)
 	{
 		actionsController->onHexLeftClicked(focus);
+		return true;
+	}
+	if(releasedAction == BattleControllerPrimaryAction::ATTACK)
+	{
+		const bool submitted = actionsController->realizeControllerMeleeSelection(controllerMeleeSelection);
+		if(!submitted)
+			syncControllerFocusPresentation();
 		return true;
 	}
 	if(releasedAction != BattleControllerPrimaryAction::INSPECT)
@@ -856,9 +910,100 @@ bool BattleInterface::handleControllerAcceptReleased()
 	return true;
 }
 
+bool BattleInterface::handleControllerInspectPressed()
+{
+	if(!canControllerInspectFocusedStack())
+		return false;
+
+	const auto * stack = getBattle()->battleGetStackByPos(focusModel.getFocusedHex(), true);
+	auto inspectWindow = std::make_shared<ControllerHoldStackWindow>(stack);
+	controllerInspectUnitId = stack->unitId();
+	controllerInspectWindow = inspectWindow;
+	controllerHoldInspectWindow = inspectWindow;
+	ENGINE->windows().pushWindow(inspectWindow);
+	return true;
+}
+
 bool BattleInterface::isControllerAcceptPressed()
 {
-	return controllerActionPressState.isPressed(getControllerPrimaryAction(), focusModel.getFocusedHex());
+	const auto candidate = controllerMeleeSelection.getCandidate();
+	return controllerActionPressState.isPressed(
+		getControllerPrimaryAction(), focusModel.getFocusedHex(), candidate.attackFrom, candidate.direction,
+		controllerMeleeSelection.getAction(), controllerMeleeSelection.getTargetUnitId());
+}
+
+bool BattleInterface::hasControllerInspectTarget() const
+{
+	return canControllerInspectFocusedStack();
+}
+
+bool BattleInterface::canControllerInspectFocusedStack() const
+{
+	if(!isControllerNativeMode() || !focusModel.hasFocus())
+		return false;
+	if(!stacksController || stacksController->getActiveStack() == nullptr)
+		return false;
+	if(actionsController->heroSpellcastingModeActive() || actionsController->creatureSpellcastingModeActive())
+		return false;
+	return getBattle()->battleGetStackByPos(focusModel.getFocusedHex(), true) != nullptr;
+}
+
+bool BattleInterface::hasControllerMeleeAlternatives() const
+{
+	return isControllerNativeMode() && controllerMeleeSelection.hasAlternativeCandidates();
+}
+
+bool BattleInterface::handleControllerMeleeOriginPressed(bool forward)
+{
+	if(!cycleControllerMeleeOrigin(forward, false))
+	{
+		controllerMeleeOriginRepeatState.reset();
+		return false;
+	}
+
+	controllerMeleeOriginRepeatState.press(forward, getControllerMeleeOriginRepeatContext());
+	return true;
+}
+
+bool BattleInterface::handleControllerMeleeOriginReleased(bool forward)
+{
+	const bool hadPressedDirection = controllerMeleeOriginRepeatState.release(forward);
+	return hadPressedDirection || isControllerNativeMode();
+}
+
+bool BattleInterface::cycleControllerMeleeOrigin(bool forward, bool repeated)
+{
+	if(!isControllerNativeMode() || !focusModel.hasFocus())
+		return false;
+	if(repeated && !controllerMeleeOriginRepeatState.retainContext(getControllerMeleeOriginRepeatContext()))
+		return false;
+
+	if(!actionsController->refreshControllerMeleeSelection(controllerMeleeSelection, focusModel.getFocusedHex()))
+		return false;
+	if(repeated && !controllerMeleeOriginRepeatState.retainContext(getControllerMeleeOriginRepeatContext()))
+	{
+		syncControllerFocusPresentation();
+		return false;
+	}
+	if(!controllerMeleeSelection.cycle(forward))
+		return false;
+	if(repeated)
+		controllerMeleeOriginRepeatState.selectionAdvanced(getControllerMeleeOriginRepeatContext());
+
+	syncControllerFocusPresentation();
+	return true;
+}
+
+BattleControllerMeleeOriginRepeatContext BattleInterface::getControllerMeleeOriginRepeatContext() const
+{
+	const auto candidate = controllerMeleeSelection.getCandidate();
+	return {
+		controllerMeleeSelection.getAction(),
+		controllerMeleeSelection.getTarget(),
+		controllerMeleeSelection.getTargetUnitId(),
+		candidate.attackFrom,
+		candidate.direction
+	};
 }
 
 void BattleInterface::controllerWindowRestored()
@@ -868,6 +1013,7 @@ void BattleInterface::controllerWindowRestored()
 
 	controllerInspectUnitId.reset();
 	controllerInspectWindow.reset();
+	controllerHoldInspectWindow.reset();
 	if(isControllerNativeMode() && ensureControllerFocus())
 		syncControllerFocusPresentation();
 }
@@ -887,6 +1033,8 @@ BattleHex BattleInterface::getControllerFocusedHex() const
 void BattleInterface::activateStack()
 {
 	controllerActionPressState.reset();
+	controllerMeleeOriginRepeatState.reset();
+	controllerMeleeSelection.clear();
 	stacksController->activateStack();
 
 	const CStack * s = stacksController->getActiveStack();
@@ -975,6 +1123,8 @@ void BattleInterface::startAction(const BattleAction & action)
 void BattleInterface::actionRejected()
 {
 	controllerActionPressState.reset();
+	controllerMeleeOriginRepeatState.reset();
+	controllerMeleeSelection.clear();
 
 	const auto * authoritativeUnit = getBattle()->battleActiveUnit();
 	if(!authoritativeUnit || authoritativeUnit->unitOwner() != curInt->playerID)

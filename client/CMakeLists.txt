@@ -23,6 +23,7 @@ set(vcmiclientcommon_SRCS
 	battle/BattleFieldController.cpp
 	battle/BattleFocusModel.cpp
 	battle/BattleFocusNavigation.cpp
+	battle/BattleMeleeSelection.cpp
 	battle/BattleNavigationArbiter.cpp
 	battle/BattleUnitSelector.cpp
 	battle/BattleUnitNavigation.cpp
@@ -265,6 +266,7 @@ set(vcmiclientcommon_HEADERS
 	battle/BattleFocusNavigation.h
 	battle/BattleHero.h
 	battle/BattleInterface.h
+	battle/BattleMeleeSelection.h
 	battle/BattleNavigationArbiter.h
 	battle/BattleObstacleController.h
 	battle/BattleOverlayLogVisualizer.h

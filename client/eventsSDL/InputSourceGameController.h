@@ -24,7 +24,8 @@ class InputSourceGameController
 	using GameControllerPtr = std::unique_ptr<SDL_GameController, decltype(&gameControllerDeleter)>;
 
 	std::map<int, GameControllerPtr> gameControllerMap;
-	std::set<SDL_GameControllerAxis> pressedAxes;
+	std::map<SDL_GameControllerAxis, int> pressedAxes;
+	std::map<SDL_GameControllerButton, int> pressedButtons;
 	int activeController = -1;
 
 	std::chrono::steady_clock::time_point lastCheckTime;
@@ -50,7 +51,8 @@ class InputSourceGameController
 	void openGameController(int index);
 	int getJoystickIndex(SDL_GameController * controller);
 	double getRealAxisValue(int value) const;
-	void dispatchAxisShortcuts(const std::vector<EShortcut> & shortcutsVector, SDL_GameControllerAxis axisID, int axisValue, std::string axisName);
+	void cancelPressedShortcuts();
+	void dispatchAxisShortcuts(const std::vector<EShortcut> & shortcutsVector, int instanceID, SDL_GameControllerAxis axisID, int axisValue, std::string axisName);
 	void tryToConvertCursor();
 	void doCursorMove(int deltaX, int deltaY);
 	int getMoveDis(float planDis);

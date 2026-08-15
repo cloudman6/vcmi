@@ -83,11 +83,12 @@ void EventDispatcher::dispatchTimer(uint32_t msPassed)
 void EventDispatcher::dispatchShortcutPressed(const std::vector<EShortcut> & shortcutsVector)
 {
 	bool keysCaptured = false;
+	const bool controllerCursorAllowed = ENGINE->windows().isControllerCursorAllowed();
 
-	if (vstd::contains(shortcutsVector, EShortcut::MOUSE_LEFT))
+	if(controllerCursorAllowed && vstd::contains(shortcutsVector, EShortcut::MOUSE_LEFT))
 		dispatchMouseLeftButtonPressed(ENGINE->getCursorPosition(), settings["input"]["shortcutToleranceDistance"].Integer());
 
-	if (vstd::contains(shortcutsVector, EShortcut::MOUSE_RIGHT))
+	if(controllerCursorAllowed && vstd::contains(shortcutsVector, EShortcut::MOUSE_RIGHT))
 		dispatchShowPopup(ENGINE->getCursorPosition(), settings["input"]["shortcutToleranceDistance"].Integer());
 
 	for(auto & i : keyinterested)
@@ -112,11 +113,12 @@ void EventDispatcher::dispatchShortcutPressed(const std::vector<EShortcut> & sho
 void EventDispatcher::dispatchShortcutReleased(const std::vector<EShortcut> & shortcutsVector)
 {
 	bool keysCaptured = false;
+	const bool controllerCursorAllowed = ENGINE->windows().isControllerCursorAllowed();
 
-	if (vstd::contains(shortcutsVector, EShortcut::MOUSE_LEFT))
+	if(controllerCursorAllowed && vstd::contains(shortcutsVector, EShortcut::MOUSE_LEFT))
 		dispatchMouseLeftButtonReleased(ENGINE->getCursorPosition(), settings["input"]["shortcutToleranceDistance"].Integer());
 
-	if (vstd::contains(shortcutsVector, EShortcut::MOUSE_RIGHT))
+	if(controllerCursorAllowed && vstd::contains(shortcutsVector, EShortcut::MOUSE_RIGHT))
 		dispatchClosePopup(ENGINE->getCursorPosition());
 
 	for(auto & i : keyinterested)
@@ -133,6 +135,36 @@ void EventDispatcher::dispatchShortcutReleased(const std::vector<EShortcut> & sh
 			{
 				i->keyReleased(shortcut);
 				if (keysCaptured)
+					return;
+			}
+	}
+}
+
+void EventDispatcher::dispatchShortcutCancelled(const std::vector<EShortcut> & shortcutsVector)
+{
+	bool keysCaptured = false;
+	const bool controllerCursorAllowed = ENGINE->windows().isControllerCursorAllowed();
+
+	if(controllerCursorAllowed && vstd::contains(shortcutsVector, EShortcut::MOUSE_LEFT))
+		dispatchMouseLeftButtonCancelled(ENGINE->getCursorPosition());
+
+	if(controllerCursorAllowed && vstd::contains(shortcutsVector, EShortcut::MOUSE_RIGHT))
+		dispatchClosePopup(ENGINE->getCursorPosition());
+
+	for(auto & i : keyinterested)
+		for(EShortcut shortcut : shortcutsVector)
+			if(i->captureThisKey(shortcut))
+				keysCaptured = true;
+
+	EventReceiversList miCopy = keyinterested;
+
+	for(auto & i : miCopy)
+	{
+		for(EShortcut shortcut : shortcutsVector)
+			if(vstd::contains(keyinterested, i) && (!keysCaptured || i->captureThisKey(shortcut)))
+			{
+				i->keyCancelled(shortcut);
+				if(keysCaptured)
 					return;
 			}
 	}
@@ -167,6 +199,19 @@ void EventDispatcher::dispatchMouseLeftButtonPressed(const Point & position, int
 void EventDispatcher::dispatchMouseLeftButtonReleased(const Point & position, int tolerance)
 {
 	handleLeftButtonClick(position, tolerance, false);
+}
+
+void EventDispatcher::dispatchMouseLeftButtonCancelled(const Point & position)
+{
+	auto elements = lclickable;
+	for(auto & element : elements)
+	{
+		if(!vstd::contains(lclickable, element) || !element->mouseClickedState)
+			continue;
+
+		element->mouseClickedState = false;
+		element->clickCancel(position);
+	}
 }
 
 AEventsReceiver * EventDispatcher::findElementInToleranceRange(const EventReceiversList & list, const Point & position, int eventToTest, int tolerance)

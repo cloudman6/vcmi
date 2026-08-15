@@ -10,6 +10,8 @@
 
 #include "BattleControllerAction.h"
 
+#include "../eventsSDL/ControllerPromptFamily.h"
+
 #include "../../lib/Point.h"
 #include "../../lib/Rect.h"
 
@@ -23,15 +25,29 @@ class BattleControllerActionPrompt
 		Point glyphTopLeft;
 		Point textCenter;
 	};
+	struct PromptLayout
+	{
+		std::optional<Rect> primaryAction;
+		std::optional<Rect> holdInspect;
+		std::optional<Rect> attackDirection;
+	};
 
 	static std::string textKey(BattleControllerPrimaryAction action);
-	static std::string fallbackBindingLabel(const std::vector<std::string> & bindings);
-	static ContentLayout contentLayout(const Rect & promptRect, int textWidth);
-	static Rect promptRect(BattleControllerPrimaryAction action,
-		const Rect & anchorRect, const Rect & unobscuredBattlefield);
+	static std::string bindingPairLabel(const std::vector<std::string> & previousBindings,
+		const std::vector<std::string> & nextBindings, ControllerPrompt::Family family);
+	static std::string bindingPairSprite(const std::vector<std::string> & previousBindings,
+		const std::vector<std::string> & nextBindings, ControllerPrompt::Family family);
+	static std::string buttonSpritePath(const std::vector<std::string> & bindings,
+		ControllerPrompt::Family family, bool pressed);
+	static ContentLayout contentLayout(const Rect & promptRect, int textWidth,
+		int glyphWidth = 24, int glyphHeight = 24, const Rect & contentBounds = Rect());
+	static PromptLayout promptLayout(BattleControllerPrimaryAction action,
+		const Rect & anchorRect, const Rect & unobscuredBattlefield,
+		bool holdInspectAvailable, bool attackDirectionAvailable);
 
 public:
 	static Rect unobscuredBattlefieldRect(const Point & battlefieldOrigin);
 	static void draw(Canvas & to, BattleControllerPrimaryAction action,
-		const Rect & anchorRect, const Rect & unobscuredBattlefield, bool pressed);
+		const Rect & anchorRect, const Rect & unobscuredBattlefield, bool pressed,
+		bool holdInspectAvailable, bool attackDirectionAvailable);
 };
