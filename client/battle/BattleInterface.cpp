@@ -29,6 +29,8 @@
 #include "../GameEngine.h"
 #include "../CServerHandler.h"
 #include "../GameInstance.h"
+#include "../eventsSDL/InputHandler.h"
+#include "../gui/Shortcut.h"
 #include "../adventureMap/AdventureMapInterface.h"
 #include "../gui/CursorHandler.h"
 #include "../gui/WindowHandler.h"
@@ -65,6 +67,7 @@ BattleInterface::BattleInterface(const BattleID & battleID, const CCreatureSet *
 	, battleID(battleID)
 	, battleOpeningDelayActive(true)
 	, round(0)
+	, focusNavigation(std::make_unique<BattleFocusNavigation>(focusModel))
 {
 	if(spectatorInt)
 	{
@@ -665,6 +668,75 @@ void BattleInterface::trySetActivePlayer( PlayerColor player )
 		curInt = defenderInt;
 }
 
+bool BattleInterface::isControllerNativeMode() const
+{
+	return ENGINE->input().getCurrentInputMode() == InputMode::CONTROLLER;
+}
+
+bool BattleInterface::ensureControllerFocus()
+{
+	if(focusModel.hasFocus())
+		return true;
+
+	const auto * activeStack = stacksController->getActiveStack();
+	return activeStack != nullptr && focusModel.setFocus(activeStack->getPosition());
+}
+
+void BattleInterface::syncControllerFocusPresentation()
+{
+	if(!isControllerNativeMode() || !focusModel.hasFocus())
+		return;
+
+	const auto focus = focusModel.getFocusedHex();
+	fieldController->setControllerFocusedHex(focus);
+	actionsController->onHexHovered(focus);
+	redrawBattlefield();
+}
+
+bool BattleInterface::handleControllerAxis(const ControllerAxisEvent & event)
+{
+	if(!isControllerNativeMode() || !ensureControllerFocus())
+		return false;
+
+	bool consumed = false;
+	for(const auto action : event.actions)
+	{
+		if(action == EShortcut::CONTROLLER_NAVIGATE_X)
+		{
+			focusNavigation->updateAxis(event.instanceId, BattleFocusNavigation::Axis::HORIZONTAL, event.value);
+			consumed = true;
+		}
+		if(action == EShortcut::CONTROLLER_NAVIGATE_Y)
+		{
+			focusNavigation->updateAxis(event.instanceId, BattleFocusNavigation::Axis::VERTICAL, event.value);
+			consumed = true;
+		}
+	}
+	return consumed;
+}
+
+void BattleInterface::updateControllerAxis(uint32_t msPassed)
+{
+	if(isControllerNativeMode() && focusNavigation->update(msPassed))
+		syncControllerFocusPresentation();
+}
+
+void BattleInterface::resetControllerAxis()
+{
+	focusNavigation->reset();
+}
+
+void BattleInterface::controllerInputModeActivated()
+{
+	if(ensureControllerFocus())
+		syncControllerFocusPresentation();
+}
+
+BattleHex BattleInterface::getControllerFocusedHex() const
+{
+	return focusModel.getFocusedHex();
+}
+
 void BattleInterface::activateStack()
 {
 	stacksController->activateStack();
@@ -677,7 +749,15 @@ void BattleInterface::activateStack()
 	windowObject->blockUI(false);
 	fieldController->redrawBackgroundWithHexes();
 	actionsController->activateStack();
-	ENGINE->fakeMouseMove();
+	if(isControllerNativeMode())
+	{
+		focusModel.setFocus(s->getPosition());
+		syncControllerFocusPresentation();
+	}
+	else
+	{
+		ENGINE->fakeMouseMove();
+	}
 }
 
 bool BattleInterface::makingTurn() const

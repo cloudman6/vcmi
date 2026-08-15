@@ -20,6 +20,8 @@ enum class EShortcut
 	MOUSE_CURSOR_Y,
 	MOUSE_SWIPE_X,
 	MOUSE_SWIPE_Y,
+	CONTROLLER_NAVIGATE_X,
+	CONTROLLER_NAVIGATE_Y,
 
 	// Global hotkeys that are available in multiple dialogs
 	GLOBAL_ACCEPT,     // Return - Accept query

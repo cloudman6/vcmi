@@ -63,6 +63,7 @@ public:
 	void setActiveController(int instanceID);
 	bool isAxisMotionActive(const SDL_ControllerAxisEvent & axis) const;
 	ControllerPrompt::Family getActiveControllerPromptFamily() const;
+	void resetAxisState();
 	void tryOpenAllGameControllers();
 	void handleEventDeviceAdded(const SDL_ControllerDeviceEvent & device);
 	void handleEventDeviceRemoved(const SDL_ControllerDeviceEvent & device);

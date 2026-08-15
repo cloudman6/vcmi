@@ -12,6 +12,7 @@
 
 #include "GameEngine.h"
 #include "CIntObject.h"
+#include "ControllerAxisReceiver.h"
 #include "CursorHandler.h"
 
 #include "../render/Canvas.h"
@@ -28,6 +29,7 @@ void WindowHandler::popWindow(std::shared_ptr<IShowActivatable> top)
 	windowsStack.pop_back();
 	if(!windowsStack.empty())
 		windowsStack.back()->activate();
+	refreshControllerCursorPolicy();
 
 	totalRedraw();
 }
@@ -45,6 +47,7 @@ void WindowHandler::pushWindow(std::shared_ptr<IShowActivatable> newInt)
 	windowsStack.push_back(newInt);
 	ENGINE->cursor().set(Cursor::Map::POINTER);
 	newInt->activate();
+	refreshControllerCursorPolicy();
 	totalRedraw();
 }
 
@@ -75,6 +78,7 @@ void WindowHandler::popWindows(int howMany)
 		totalRedraw();
 	}
 	ENGINE->fakeMouseMove();
+	refreshControllerCursorPolicy();
 }
 
 std::shared_ptr<IShowActivatable> WindowHandler::topWindowImpl() const
@@ -154,6 +158,50 @@ size_t WindowHandler::count() const
 	return windowsStack.size();
 }
 
+ControllerAxisRoute WindowHandler::routeControllerAxis(const ControllerAxisEvent & event)
+{
+	for(auto it = windowsStack.rbegin(); it != windowsStack.rend(); ++it)
+	{
+		if(auto * receiver = dynamic_cast<IControllerAxisReceiver *>(it->get()))
+		{
+			if(it != windowsStack.rbegin())
+				return ControllerAxisRoute::BLOCKED;
+			return receiver->controllerAxisMoved(event);
+		}
+	}
+	return ControllerAxisRoute::UNOWNED;
+}
+
+void WindowHandler::updateControllerAxis(uint32_t msPassed)
+{
+	if(!windowsStack.empty())
+		if(auto * receiver = dynamic_cast<IControllerAxisReceiver *>(windowsStack.back().get()))
+			receiver->controllerAxisUpdate(msPassed);
+}
+
+void WindowHandler::resetControllerAxis()
+{
+	for(auto it = windowsStack.rbegin(); it != windowsStack.rend(); ++it)
+		if(auto * receiver = dynamic_cast<IControllerAxisReceiver *>(it->get()))
+		{
+			receiver->controllerAxisReset();
+			return;
+		}
+}
+
+void WindowHandler::refreshControllerCursorPolicy()
+{
+	ENGINE->cursor().setControllerNativeHidden(!isControllerCursorAllowed());
+}
+
+bool WindowHandler::isControllerCursorAllowed() const
+{
+	for(auto it = windowsStack.rbegin(); it != windowsStack.rend(); ++it)
+		if(auto * receiver = dynamic_cast<IControllerAxisReceiver *>(it->get()))
+			return receiver->controllerCursorAllowed();
+	return true;
+}
+
 void WindowHandler::clear()
 {
 	if(!windowsStack.empty())
@@ -161,6 +209,7 @@ void WindowHandler::clear()
 
 	windowsStack.clear();
 	disposed.clear();
+	refreshControllerCursorPolicy();
 }
 
 void WindowHandler::setOverlay(std::shared_ptr<IShowActivatable> newOverlay)

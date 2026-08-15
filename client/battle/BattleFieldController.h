@@ -121,6 +121,10 @@ public:
 	/// Returns ID of currently hovered hex or BattleHex::INVALID if none
 	BattleHex getHoveredHex();
 
+	/// Makes Native controller focus use the existing mouse-hover presentation
+	/// state without synthesizing pointer motion.
+	void setControllerFocusedHex(const BattleHex & hex);
+
 	/// Returns the currently hovered stack
 	const CStack* getHoveredStack();
 
