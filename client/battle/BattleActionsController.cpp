@@ -1131,6 +1131,80 @@ BattleControllerPrimaryAction BattleActionsController::getControllerPrimaryActio
 	return classifyBattleControllerPrimaryAction(action.get(), actionIsLegal(action, focusedHex));
 }
 
+std::vector<BattleMeleeSelection::Candidate> BattleActionsController::getControllerMeleeCandidates(
+	PossiblePlayerBattleAction action, const BattleHex & targetHex) const
+{
+	std::vector<BattleMeleeSelection::Candidate> result;
+	const auto * attacker = owner.stacksController->getActiveStack();
+	if(!attacker || !targetHex.isValid())
+		return result;
+
+	const bool allowLongWeapon = action.get() == PossiblePlayerBattleAction::LONG_WEAPON_ATTACK;
+	const auto availableHexes = owner.getBattle()->battleGetAvailableHexes(attacker, false);
+	for(int direction = 0; direction < 8; ++direction)
+	{
+		const auto attackDirection = static_cast<BattleHex::EDir>(direction);
+		if(!owner.getBattle()->battleCanAttackHex(availableHexes, attacker, targetHex, attackDirection))
+			continue;
+
+		const auto attackFrom = owner.getBattle()->fromWhichHexAttack(attacker, targetHex, attackDirection, allowLongWeapon);
+		if(attackFrom.isValid())
+			result.push_back({attackFrom, attackDirection});
+	}
+	return result;
+}
+
+bool BattleActionsController::refreshControllerMeleeSelection(BattleMeleeSelection & selection, const BattleHex & focusedHex)
+{
+	if(!focusedHex.isValid() || !controllerDirectActionsAllowed())
+	{
+		selection.clear();
+		return false;
+	}
+
+	const auto action = selectAction(focusedHex);
+	if(!actionIsLegal(action, focusedHex))
+	{
+		selection.clear();
+		return false;
+	}
+	const auto * target = owner.getBattle()->battleGetStackByPos(focusedHex, true);
+	if(target == nullptr)
+	{
+		selection.clear();
+		return false;
+	}
+
+	return selection.refresh(action.get(), focusedHex, target->unitId(), getControllerMeleeCandidates(action, focusedHex));
+}
+
+bool BattleActionsController::realizeControllerMeleeSelection(const BattleMeleeSelection & selection)
+{
+	if(!selection.isValid() || !controllerDirectActionsAllowed())
+		return false;
+	const auto * target = owner.getBattle()->battleGetStackByPos(selection.getTarget(), true);
+	if(target == nullptr || selection.getTargetUnitId() != target->unitId())
+		return false;
+
+	const auto action = selectAction(selection.getTarget());
+	if(action.get() != selection.getAction() || !actionIsLegal(action, selection.getTarget()))
+		return false;
+
+	const auto candidates = getControllerMeleeCandidates(action, selection.getTarget());
+	const auto selectedCandidate = selection.getCandidate();
+	if(std::find(candidates.begin(), candidates.end(), selectedCandidate) == candidates.end())
+		return false;
+
+	const auto * attacker = owner.stacksController->getActiveStack();
+	if(!attacker)
+		return false;
+
+	auto command = BattleAction::makeMeleeAttack(
+		attacker, selection.getTarget(), selectedCandidate.attackFrom, selection.returnsAfterAttack());
+	owner.sendCommand(command, attacker);
+	return true;
+}
+
 void BattleActionsController::onHexHovered(const BattleHex & hoveredHex)
 {
 	if (owner.openingPlaying())

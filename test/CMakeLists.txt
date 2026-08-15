@@ -279,6 +279,7 @@ if(ENABLE_CLIENT)
 		BattleNavigationArbiterTest.cpp
 		BattleFocusModelTest.cpp
 		BattleFocusNavigationTest.cpp
+		BattleMeleeSelectionTest.cpp
 		BattleUnitSelectorTest.cpp
 		BattleUnitNavigationTest.cpp
 		BattleControllerActionTest.cpp)

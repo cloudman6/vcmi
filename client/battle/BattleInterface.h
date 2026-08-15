@@ -13,6 +13,7 @@
 #include "BattleNavigationArbiter.h"
 #include "BattleControllerAction.h"
 #include "BattleFocusModel.h"
+#include "BattleMeleeSelection.h"
 #include "BattleFocusNavigation.h"
 #include "BattleUnitNavigation.h"
 
@@ -127,6 +128,9 @@ class BattleInterface
 	bool ensureControllerFocus();
 	void syncControllerFocusPresentation();
 	std::vector<BattleUnitNavigationCandidate> getControllerUnitCandidates() const;
+	bool canControllerInspectFocusedStack() const;
+	BattleControllerMeleeOriginRepeatContext getControllerMeleeOriginRepeatContext() const;
+	bool cycleControllerMeleeOrigin(bool forward, bool repeated);
 public:
 	/// copy of initial armies (for result window)
 	const CCreatureSet *army1;
@@ -157,8 +161,11 @@ private:
 	std::unique_ptr<BattleUnitNavigation> unitNavigation;
 	BattleNavigationArbiter navigationArbiter;
 	BattleControllerActionPressState controllerActionPressState;
+	BattleControllerMeleeOriginRepeatState controllerMeleeOriginRepeatState;
+	BattleMeleeSelection controllerMeleeSelection;
 	std::optional<uint32_t> controllerInspectUnitId;
 	std::weak_ptr<IShowActivatable> controllerInspectWindow;
+	std::weak_ptr<IShowActivatable> controllerHoldInspectWindow;
 
 public:
 	std::shared_ptr<BattleHero> attackingHero;
@@ -183,7 +190,12 @@ public:
 	void controllerInputModeActivated();
 	bool handleControllerAcceptPressed();
 	bool handleControllerAcceptReleased();
+	bool handleControllerInspectPressed();
+	bool handleControllerMeleeOriginPressed(bool forward);
+	bool handleControllerMeleeOriginReleased(bool forward);
 	bool isControllerAcceptPressed();
+	bool hasControllerInspectTarget() const;
+	bool hasControllerMeleeAlternatives() const;
 	void controllerWindowRestored();
 	BattleControllerPrimaryAction getControllerPrimaryAction();
 	bool isControllerNativeMode() const;

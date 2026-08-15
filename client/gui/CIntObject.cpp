@@ -341,6 +341,15 @@ void CKeyShortcut::keyReleased(EShortcut key)
 	}
 }
 
+void CKeyShortcut::keyCancelled(EShortcut key)
+{
+	if(assignedKey == key && assignedKey != EShortcut::NONE && shortcutPressed)
+	{
+		shortcutPressed = false;
+		clickCancel(ENGINE->getCursorPosition());
+	}
+}
+
 WindowBase::WindowBase(int used_, Point pos_)
 	: CIntObject(used_, pos_)
 {

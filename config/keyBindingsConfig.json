@@ -64,6 +64,8 @@
 		"battleCastSpell":          "C",
 		"battleConsoleDown":        "Down",
 		"battleConsoleUp":          "Up",
+		"battleControllerNextAttackOrigin": [],
+		"battleControllerPreviousAttackOrigin": [],
 		"battleDefend":             [ "D", "Space"],
 		"battleOpenActiveUnit":     "I",
 		"battleOpenHoveredUnit":    "V",
@@ -318,9 +320,11 @@
 
 		"adventureNextHero" : "leftshoulder",
 		"battleDefend" : "leftshoulder",
+		"battleControllerPreviousAttackOrigin" : "leftshoulder",
 
 		"adventureNextTown" : "rightshoulder",
 		"battleWait" : "rightshoulder",
+		"battleControllerNextAttackOrigin" : "rightshoulder",
 
 		"adventureVisitObject" : "lefttrigger",
 		"battleTacticsNext" : "lefttrigger",

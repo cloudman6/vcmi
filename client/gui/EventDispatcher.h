@@ -40,6 +40,7 @@ class EventDispatcher
 	std::vector<AEventsReceiver *> touchPressedElements;
 
 	void handleLeftButtonClick(const Point & position, int tolerance, bool isPressed);
+	void dispatchMouseLeftButtonCancelled(const Point & position);
 	void handleDoubleButtonClick(const Point & position, int tolerance);
 	AEventsReceiver * findElementInToleranceRange(const EventReceiversList & list, const Point & position, int eventToTest, int tolerance);
 
@@ -59,6 +60,7 @@ public:
 	/// Shortcut events (e.g. keyboard keys)
 	void dispatchShortcutPressed(const std::vector<EShortcut> & shortcuts);
 	void dispatchShortcutReleased(const std::vector<EShortcut> & shortcuts);
+	void dispatchShortcutCancelled(const std::vector<EShortcut> & shortcuts);
 
 	/// Key events (to get keyname of pressed key)
 	void dispatchKeyPressed(const std::string & keyName);

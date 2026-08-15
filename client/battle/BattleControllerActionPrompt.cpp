@@ -13,22 +13,57 @@
 
 namespace
 {
-constexpr int PROMPT_WIDTH = 138;
+constexpr int PROMPT_WIDTH = 196;
 constexpr int PROMPT_HEIGHT = 27;
 constexpr int PROMPT_GAP = 3;
-constexpr int GLYPH_SIZE = 24;
 constexpr int GLYPH_TEXT_SPACING = 4;
 constexpr int UNOBSCURED_LEFT = 79;
 constexpr int UNOBSCURED_TOP = 86;
 constexpr int UNOBSCURED_RIGHT = 721;
 constexpr int UNOBSCURED_BOTTOM = 555;
+
+std::string bindingLabel(const std::string & binding, ControllerPrompt::Family family)
+{
+	if(family == ControllerPrompt::Family::PLAYSTATION)
+	{
+		if(binding == "a") return "×";
+		if(binding == "b") return "○";
+		if(binding == "x") return "□";
+		if(binding == "y") return "△";
+		if(binding == "leftshoulder") return "L1";
+		if(binding == "rightshoulder") return "R1";
+		if(binding == "lefttrigger") return "L2";
+		if(binding == "righttrigger") return "R2";
+	}
+	else
+	{
+		if(binding == "a") return "A";
+		if(binding == "b") return "B";
+		if(binding == "x") return "X";
+		if(binding == "y") return "Y";
+		if(binding == "leftshoulder") return "LB";
+		if(binding == "rightshoulder") return "RB";
+		if(binding == "lefttrigger") return "LT";
+		if(binding == "righttrigger") return "RT";
+	}
+
+	std::string result = binding;
+	std::transform(result.begin(), result.end(), result.begin(), [](unsigned char character)
+	{
+		return static_cast<char>(std::toupper(character));
+	});
+	return result;
 }
+}
+
 std::string BattleControllerActionPrompt::textKey(BattleControllerPrimaryAction action)
 {
 	switch(action)
 	{
 	case BattleControllerPrimaryAction::MOVE:
 		return "vcmi.battleWindow.controller.move";
+	case BattleControllerPrimaryAction::ATTACK:
+		return "vcmi.battleWindow.controller.attack";
 	case BattleControllerPrimaryAction::INSPECT:
 		return "vcmi.battleWindow.controller.inspect";
 	default:
@@ -36,38 +71,94 @@ std::string BattleControllerActionPrompt::textKey(BattleControllerPrimaryAction 
 	}
 }
 
-std::string BattleControllerActionPrompt::fallbackBindingLabel(const std::vector<std::string> & bindings)
+std::string BattleControllerActionPrompt::bindingPairLabel(
+	const std::vector<std::string> & previousBindings,
+	const std::vector<std::string> & nextBindings,
+	ControllerPrompt::Family family)
+{
+	if(previousBindings.size() != 1 || nextBindings.size() != 1)
+		return "";
+	return bindingLabel(previousBindings.front(), family) + "/"
+		+ bindingLabel(nextBindings.front(), family);
+}
+
+std::string BattleControllerActionPrompt::bindingPairSprite(
+	const std::vector<std::string> & previousBindings,
+	const std::vector<std::string> & nextBindings,
+	ControllerPrompt::Family family)
+{
+	if(previousBindings.size() != 1 || nextBindings.size() != 1)
+		return "";
+	if(previousBindings.front() != "leftshoulder" || nextBindings.front() != "rightshoulder")
+		return "";
+
+	const std::string familyPrefix = family == ControllerPrompt::Family::PLAYSTATION
+		? "playstation"
+		: "generic";
+	return "controllerActionBar/" + familyPrefix + "-shoulders-normal.png";
+}
+
+std::string BattleControllerActionPrompt::buttonSpritePath(
+	const std::vector<std::string> & bindings, ControllerPrompt::Family family, bool pressed)
 {
 	if(bindings.size() != 1)
 		return "";
 
-	std::string result = bindings.front();
-	std::transform(result.begin(), result.end(), result.begin(), [](unsigned char character)
+	const auto & binding = bindings.front();
+	if(family != ControllerPrompt::Family::UNKNOWN && (binding == "a" || binding == "b"))
 	{
-		return static_cast<char>(std::toupper(character));
-	});
-	return result;
+		const std::string familyPrefix = family == ControllerPrompt::Family::PLAYSTATION
+			? "playstation"
+			: "xbox";
+		return "controllerActionBar/" + familyPrefix + "-" + binding + "-"
+			+ (pressed ? "pressed" : "normal") + ".png";
+	}
+
+	const bool faceButton = binding == "a" || binding == "b" || binding == "x" || binding == "y";
+	if(!faceButton || family == ControllerPrompt::Family::PLAYSTATION)
+		return "";
+	return "controllerActionBar/generic-face-" + std::string(pressed ? "pressed" : "normal") + ".png";
 }
 
 BattleControllerActionPrompt::ContentLayout BattleControllerActionPrompt::contentLayout(
-	const Rect & promptRect, int textWidth)
+	const Rect & promptRect, int textWidth, int glyphWidth, int glyphHeight, const Rect & contentBounds)
 {
 	const int clampedTextWidth = std::max(0, textWidth);
-	const int contentWidth = GLYPH_SIZE + GLYPH_TEXT_SPACING + clampedTextWidth;
-	const int glyphX = promptRect.center().x - contentWidth / 2;
-	const int glyphY = promptRect.center().y - GLYPH_SIZE / 2;
+	const int clampedGlyphWidth = std::max(0, glyphWidth);
+	const int clampedGlyphHeight = std::max(0, glyphHeight);
+	const int spacing = clampedGlyphWidth > 0 ? GLYPH_TEXT_SPACING : 0;
+	const int contentWidth = clampedGlyphWidth + spacing + clampedTextWidth;
+	int glyphX = promptRect.center().x - contentWidth / 2;
+	if(contentBounds.w > 0)
+	{
+		const int rightmostX = contentBounds.x + std::max(0, contentBounds.w - contentWidth);
+		glyphX = std::clamp(glyphX, contentBounds.x, rightmostX);
+	}
+	const int glyphY = promptRect.center().y - clampedGlyphHeight / 2;
 	return {
 		Point(glyphX, glyphY),
-		Point(glyphX + GLYPH_SIZE + GLYPH_TEXT_SPACING + clampedTextWidth / 2,
+		Point(glyphX + clampedGlyphWidth + spacing + clampedTextWidth / 2,
 			promptRect.center().y)
 	};
 }
 
-Rect BattleControllerActionPrompt::promptRect(BattleControllerPrimaryAction action,
-	const Rect & anchorRect, const Rect & unobscuredBattlefield)
+BattleControllerActionPrompt::PromptLayout BattleControllerActionPrompt::promptLayout(
+	BattleControllerPrimaryAction action, const Rect & anchorRect, const Rect & unobscuredBattlefield,
+	bool holdInspectAvailable, bool attackDirectionAvailable)
 {
+	const bool primaryAvailable = !textKey(action).empty();
+	attackDirectionAvailable = attackDirectionAvailable && action == BattleControllerPrimaryAction::ATTACK;
+	const int elementCount = static_cast<int>(primaryAvailable)
+		+ static_cast<int>(holdInspectAvailable) + static_cast<int>(attackDirectionAvailable);
+	if(elementCount == 0)
+		return {};
+
 	const int width = std::min(PROMPT_WIDTH, unobscuredBattlefield.w);
-	const int height = std::min(PROMPT_HEIGHT, unobscuredBattlefield.h);
+	const int requestedHeight = (primaryAvailable ? PROMPT_HEIGHT : 0)
+		+ (holdInspectAvailable ? PROMPT_HEIGHT : 0)
+		+ (attackDirectionAvailable ? PROMPT_HEIGHT : 0)
+		+ (elementCount - 1) * PROMPT_GAP;
+	const int height = std::min(requestedHeight, unobscuredBattlefield.h);
 	const int right = unobscuredBattlefield.x + unobscuredBattlefield.w;
 	const int bottom = unobscuredBattlefield.y + unobscuredBattlefield.h;
 
@@ -77,11 +168,25 @@ Rect BattleControllerActionPrompt::promptRect(BattleControllerPrimaryAction acti
 		? anchorRect.y + anchorRect.h + PROMPT_GAP
 		: anchorRect.y - height - PROMPT_GAP;
 	if(y < unobscuredBattlefield.y || y + height > bottom)
+	{
 		y = preferBelow
 			? anchorRect.y - height - PROMPT_GAP
 			: anchorRect.y + anchorRect.h + PROMPT_GAP;
+	}
 	y = std::clamp(y, unobscuredBattlefield.y, bottom - height);
-	return Rect(x, y, width, height);
+
+	PromptLayout result;
+	int elementY = y;
+	auto addPrompt = [&](std::optional<Rect> & target)
+	{
+		target = Rect(x, elementY, width, PROMPT_HEIGHT);
+		elementY += PROMPT_HEIGHT + PROMPT_GAP;
+	};
+
+	if(attackDirectionAvailable) addPrompt(result.attackDirection);
+	if(primaryAvailable) addPrompt(result.primaryAction);
+	if(holdInspectAvailable) addPrompt(result.holdInspect);
+	return result;
 }
 
 Rect BattleControllerActionPrompt::unobscuredBattlefieldRect(const Point & battlefieldOrigin)

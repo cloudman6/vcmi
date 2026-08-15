@@ -96,8 +96,10 @@ BattleWindow::BattleWindow(BattleInterface & Owner)
 	addShortcut(EShortcut::BATTLE_AUTOCOMBAT, std::bind(&BattleWindow::bAutofightf, this));
 	addShortcut(EShortcut::BATTLE_END_WITH_AUTOCOMBAT, std::bind(&BattleWindow::endWithAutocombat, this));
 	addShortcut(EShortcut::BATTLE_CAST_SPELL, std::bind(&BattleWindow::bSpellf, this));
-	addShortcut(EShortcut::BATTLE_WAIT, std::bind(&BattleWindow::bWaitf, this));
-	addShortcut(EShortcut::BATTLE_DEFEND, std::bind(&BattleWindow::bDefencef, this));
+	addShortcut(EShortcut::BATTLE_WAIT, [this](){ if(!this->owner.isControllerNativeMode()) this->bWaitf(); });
+	addShortcut(EShortcut::BATTLE_DEFEND, [this](){ if(!this->owner.isControllerNativeMode()) this->bDefencef(); });
+	addShortcut(EShortcut::BATTLE_CONTROLLER_PREVIOUS_ATTACK_ORIGIN, [this](){ this->owner.handleControllerMeleeOriginPressed(false); });
+	addShortcut(EShortcut::BATTLE_CONTROLLER_NEXT_ATTACK_ORIGIN, [this](){ this->owner.handleControllerMeleeOriginPressed(true); });
 	addShortcut(EShortcut::BATTLE_CONSOLE_UP, std::bind(&BattleWindow::bConsoleUpf, this));
 	addShortcut(EShortcut::BATTLE_CONSOLE_DOWN, std::bind(&BattleWindow::bConsoleDownf, this));
 	addShortcut(EShortcut::BATTLE_TACTICS_NEXT, [this](){ if(!this->owner.isControllerNativeMode()) this->bTacticNextStack(); });
@@ -560,12 +562,18 @@ void BattleWindow::keyPressed(EShortcut key)
 		owner.openingEnd();
 		return;
 	}
+	if(key == EShortcut::GLOBAL_CANCEL && owner.handleControllerInspectPressed())
+		return;
 	InterfaceObjectConfigurable::keyPressed(key);
 }
 
 void BattleWindow::keyReleased(EShortcut key)
 {
 	if(key == EShortcut::GLOBAL_ACCEPT && owner.handleControllerAcceptReleased())
+		return;
+	if(key == EShortcut::BATTLE_CONTROLLER_PREVIOUS_ATTACK_ORIGIN && owner.handleControllerMeleeOriginReleased(false))
+		return;
+	if(key == EShortcut::BATTLE_CONTROLLER_NEXT_ATTACK_ORIGIN && owner.handleControllerMeleeOriginReleased(true))
 		return;
 	InterfaceObjectConfigurable::keyReleased(key);
 }
