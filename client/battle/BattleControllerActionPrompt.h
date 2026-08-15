@@ -27,10 +27,11 @@ class BattleControllerActionPrompt
 	static std::string textKey(BattleControllerPrimaryAction action);
 	static std::string fallbackBindingLabel(const std::vector<std::string> & bindings);
 	static ContentLayout contentLayout(const Rect & promptRect, int textWidth);
-	static Rect promptRect(const Rect & anchorRect, const Rect & unobscuredBattlefield);
+	static Rect promptRect(BattleControllerPrimaryAction action,
+		const Rect & anchorRect, const Rect & unobscuredBattlefield);
 
 public:
 	static Rect unobscuredBattlefieldRect(const Point & battlefieldOrigin);
 	static void draw(Canvas & to, BattleControllerPrimaryAction action,
-		const Rect & anchorRect, const Rect & unobscuredBattlefield);
+		const Rect & anchorRect, const Rect & unobscuredBattlefield, bool pressed);
 };

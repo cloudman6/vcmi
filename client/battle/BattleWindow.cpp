@@ -100,8 +100,8 @@ BattleWindow::BattleWindow(BattleInterface & Owner)
 	addShortcut(EShortcut::BATTLE_DEFEND, std::bind(&BattleWindow::bDefencef, this));
 	addShortcut(EShortcut::BATTLE_CONSOLE_UP, std::bind(&BattleWindow::bConsoleUpf, this));
 	addShortcut(EShortcut::BATTLE_CONSOLE_DOWN, std::bind(&BattleWindow::bConsoleDownf, this));
-	addShortcut(EShortcut::BATTLE_TACTICS_NEXT, std::bind(&BattleWindow::bTacticNextStack, this));
-	addShortcut(EShortcut::BATTLE_TACTICS_END, std::bind(&BattleWindow::bTacticPhaseEnd, this));
+	addShortcut(EShortcut::BATTLE_TACTICS_NEXT, [this](){ if(!this->owner.isControllerNativeMode()) this->bTacticNextStack(); });
+	addShortcut(EShortcut::BATTLE_TACTICS_END, [this](){ if(!this->owner.isControllerNativeMode()) this->bTacticPhaseEnd(); });
 	addShortcut(EShortcut::BATTLE_OPEN_ACTIVE_UNIT, std::bind(&BattleWindow::bOpenActiveUnit, this));
 	addShortcut(EShortcut::BATTLE_OPEN_HOVERED_UNIT, std::bind(&BattleWindow::bOpenHoveredUnit, this));
 
@@ -114,7 +114,7 @@ BattleWindow::BattleWindow(BattleInterface & Owner)
 	addShortcut(EShortcut::BATTLE_TOGGLE_HEROES_STATS, [this](){ this->toggleStickyHeroWindowsVisibility();});
 	addShortcut(EShortcut::BATTLE_USE_CREATURE_SPELL, [this](){ this->owner.actionsController->enterCreatureCastingMode(); });
 	addShortcut(EShortcut::GLOBAL_CANCEL, [this](){ this->owner.actionsController->endCastingSpell(); });
-	addShortcut(EShortcut::GLOBAL_ACCEPT, [this](){ this->owner.handleControllerAccept(); });
+	addShortcut(EShortcut::GLOBAL_ACCEPT, [this](){ this->owner.handleControllerAcceptPressed(); });
 	addShortcut(EShortcut::ADVENTURE_QUICK_LOAD, [this](){
 		//allow quick load only on player turn while no animations are ongoing
 		if (!this->owner.hasAnimations() && this->owner.stacksController->getActiveStack())
@@ -561,6 +561,13 @@ void BattleWindow::keyPressed(EShortcut key)
 		return;
 	}
 	InterfaceObjectConfigurable::keyPressed(key);
+}
+
+void BattleWindow::keyReleased(EShortcut key)
+{
+	if(key == EShortcut::GLOBAL_ACCEPT && owner.handleControllerAcceptReleased())
+		return;
+	InterfaceObjectConfigurable::keyReleased(key);
 }
 
 void BattleWindow::clickPressed(const Point & cursorPosition)

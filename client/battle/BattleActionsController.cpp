@@ -1107,12 +1107,27 @@ PossiblePlayerBattleAction BattleActionsController::selectAction(const BattleHex
 	return possibleActions.front();
 }
 
+bool BattleActionsController::controllerDirectActionsAllowed() const
+{
+	const auto * activeStack = owner.stacksController->getActiveStack();
+	return activeStack != nullptr
+		&& !owner.tacticsMode;
+}
+
+PossiblePlayerBattleAction BattleActionsController::selectControllerAction(const BattleHex & targetHex)
+{
+	if(owner.stacksController->getActiveStack() != nullptr && !controllerDirectActionsAllowed())
+		return PossiblePlayerBattleAction::CREATURE_INFO;
+
+	return selectAction(targetHex);
+}
+
 BattleControllerPrimaryAction BattleActionsController::getControllerPrimaryAction(const BattleHex & focusedHex)
 {
 	if(!focusedHex.isValid() || (owner.stacksController->getActiveStack() == nullptr && monsterCaster == nullptr))
 		return BattleControllerPrimaryAction::NONE;
 
-	const auto action = selectAction(focusedHex);
+	const auto action = selectControllerAction(focusedHex);
 	return classifyBattleControllerPrimaryAction(action.get(), actionIsLegal(action, focusedHex));
 }
 
@@ -1138,7 +1153,9 @@ void BattleActionsController::onHexHovered(const BattleHex & hoveredHex)
 		return;
 	}
 
-	auto action = selectAction(hoveredHex);
+	auto action = owner.isControllerNativeMode()
+		? selectControllerAction(hoveredHex)
+		: selectAction(hoveredHex);
 
 	std::string newConsoleMsg;
 

@@ -25,9 +25,15 @@ constexpr int UNOBSCURED_BOTTOM = 555;
 }
 std::string BattleControllerActionPrompt::textKey(BattleControllerPrimaryAction action)
 {
-	return action == BattleControllerPrimaryAction::INSPECT
-		? "vcmi.battleWindow.controller.inspect"
-		: "";
+	switch(action)
+	{
+	case BattleControllerPrimaryAction::MOVE:
+		return "vcmi.battleWindow.controller.move";
+	case BattleControllerPrimaryAction::INSPECT:
+		return "vcmi.battleWindow.controller.inspect";
+	default:
+		return "";
+	}
 }
 
 std::string BattleControllerActionPrompt::fallbackBindingLabel(const std::vector<std::string> & bindings)
@@ -57,7 +63,8 @@ BattleControllerActionPrompt::ContentLayout BattleControllerActionPrompt::conten
 	};
 }
 
-Rect BattleControllerActionPrompt::promptRect(const Rect & anchorRect, const Rect & unobscuredBattlefield)
+Rect BattleControllerActionPrompt::promptRect(BattleControllerPrimaryAction action,
+	const Rect & anchorRect, const Rect & unobscuredBattlefield)
 {
 	const int width = std::min(PROMPT_WIDTH, unobscuredBattlefield.w);
 	const int height = std::min(PROMPT_HEIGHT, unobscuredBattlefield.h);
@@ -65,11 +72,14 @@ Rect BattleControllerActionPrompt::promptRect(const Rect & anchorRect, const Rec
 	const int bottom = unobscuredBattlefield.y + unobscuredBattlefield.h;
 
 	const int x = std::clamp(anchorRect.center().x - width / 2, unobscuredBattlefield.x, right - width);
-	int y = anchorRect.y - height - PROMPT_GAP;
-	if(y < unobscuredBattlefield.y)
-		y = anchorRect.y + anchorRect.h + PROMPT_GAP;
-	if(y + height > bottom)
-		y = anchorRect.y - height - PROMPT_GAP;
+	const bool preferBelow = action != BattleControllerPrimaryAction::INSPECT;
+	int y = preferBelow
+		? anchorRect.y + anchorRect.h + PROMPT_GAP
+		: anchorRect.y - height - PROMPT_GAP;
+	if(y < unobscuredBattlefield.y || y + height > bottom)
+		y = preferBelow
+			? anchorRect.y - height - PROMPT_GAP
+			: anchorRect.y + anchorRect.h + PROMPT_GAP;
 	y = std::clamp(y, unobscuredBattlefield.y, bottom - height);
 	return Rect(x, y, width, height);
 }

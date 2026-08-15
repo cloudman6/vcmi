@@ -59,10 +59,12 @@ class BattleActionsController
 
 	std::string actionGetStatusMessage(PossiblePlayerBattleAction action, const BattleHex & hoveredHex);
 	std::string actionGetStatusMessageBlocked(PossiblePlayerBattleAction action, const BattleHex & hoveredHex);
+	bool controllerDirectActionsAllowed() const;
 
 	void actionRealize(PossiblePlayerBattleAction action, const BattleHex & hoveredHex);
 
 	PossiblePlayerBattleAction selectAction(const BattleHex & myNumber);
+	PossiblePlayerBattleAction selectControllerAction(const BattleHex & myNumber);
 
 	const CStack * getStackForHex(const BattleHex & myNumber) ;
 

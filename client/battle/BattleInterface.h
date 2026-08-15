@@ -11,6 +11,7 @@
 
 #include "BattleConstants.h"
 #include "BattleNavigationArbiter.h"
+#include "BattleControllerAction.h"
 #include "BattleFocusModel.h"
 #include "BattleFocusNavigation.h"
 #include "BattleUnitNavigation.h"
@@ -55,7 +56,6 @@ class BattleRenderer;
 class BattleWindow;
 class BattleStacksController;
 class BattleActionsController;
-enum class BattleControllerPrimaryAction;
 class BattleEffectsController;
 class BattleConsole;
 
@@ -156,6 +156,7 @@ private:
 	std::unique_ptr<BattleFocusNavigation> focusNavigation;
 	std::unique_ptr<BattleUnitNavigation> unitNavigation;
 	BattleNavigationArbiter navigationArbiter;
+	BattleControllerActionPressState controllerActionPressState;
 	std::optional<uint32_t> controllerInspectUnitId;
 	std::weak_ptr<IShowActivatable> controllerInspectWindow;
 
@@ -180,7 +181,9 @@ public:
 	void updateControllerAxis(uint32_t msPassed);
 	void resetControllerAxis();
 	void controllerInputModeActivated();
-	bool handleControllerAccept();
+	bool handleControllerAcceptPressed();
+	bool handleControllerAcceptReleased();
+	bool isControllerAcceptPressed();
 	void controllerWindowRestored();
 	BattleControllerPrimaryAction getControllerPrimaryAction();
 	bool isControllerNativeMode() const;
@@ -225,6 +228,7 @@ public:
 
 	//call-ins
 	void startAction(const BattleAction & action);
+	void actionRejected();
 	void stackReset(const CStack * stack);
 	void stackAdded(const CStack * stack); //new stack appeared on battlefield
 	void stackRemoved(uint32_t stackID); //stack disappeared from batlefiled

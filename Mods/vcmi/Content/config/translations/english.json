@@ -400,6 +400,7 @@
 	"vcmi.battleWindow.accurateShot.resultDescription.1": "%d %s was killed with an accurate shot!",
 	"vcmi.battleWindow.accurateShot.resultDescription.2": "%d %s were killed by accurate shots!",
 	"vcmi.battleWindow.controller.inspect": "Inspect",
+	"vcmi.battleWindow.controller.move": "Move",
 	"vcmi.battleWindow.damageEstimation.damage": "%d damage",
 	"vcmi.battleWindow.damageEstimation.damage.1": "%d damage",
 	"vcmi.battleWindow.damageEstimation.kills": "%d will perish",
