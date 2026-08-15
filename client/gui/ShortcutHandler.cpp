@@ -131,6 +131,8 @@ EShortcut ShortcutHandler::findShortcut(const std::string & identifier ) const
 		{"mouseCursorY",             EShortcut::MOUSE_CURSOR_Y,           },
 		{"mouseSwipeX",              EShortcut::MOUSE_SWIPE_X,            },
 		{"mouseSwipeY",              EShortcut::MOUSE_SWIPE_Y,            },
+		{"controllerNavigateX",      EShortcut::CONTROLLER_NAVIGATE_X,    },
+		{"controllerNavigateY",      EShortcut::CONTROLLER_NAVIGATE_Y,    },
 		{"globalAccept",             EShortcut::GLOBAL_ACCEPT             },
 		{"globalCancel",             EShortcut::GLOBAL_CANCEL             },
 		{"globalReturn",             EShortcut::GLOBAL_RETURN             },

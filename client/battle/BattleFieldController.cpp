@@ -721,6 +721,15 @@ BattleHex BattleFieldController::getHoveredHex()
 	return hoveredHex;
 }
 
+void BattleFieldController::setControllerFocusedHex(const BattleHex & hex)
+{
+	if(!hex.isValid())
+		return;
+
+	hoveredHex = hex;
+	currentAttackOriginPoint = hexPositionAbsolute(hex).center();
+}
+
 const CStack* BattleFieldController::getQueueHoveredStack() const
 {
 	if(!owner.windowObject->getQueueHoveredUnitId().has_value())
@@ -858,7 +867,8 @@ void BattleFieldController::show(Canvas & to)
 
 	renderBattlefield(to);
 
-	if (isActive() && isGesturing() && getHoveredHex() != BattleHex::INVALID)
+	const bool nativeFocus = owner.isControllerNativeMode() && owner.getControllerFocusedHex().isValid();
+	if (isActive() && (isGesturing() || nativeFocus) && getHoveredHex() != BattleHex::INVALID)
 		to.draw(ENGINE->cursor().getCurrentImage(), hexPositionAbsolute(getHoveredHex()).center() - ENGINE->cursor().getPivotOffset());
 }
 

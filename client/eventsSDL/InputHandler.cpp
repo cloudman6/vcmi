@@ -147,6 +147,8 @@ void InputHandler::setCurrentInputMode(InputMode modi)
 {
 	if(currentInputMode != modi)
 	{
+		if(currentInputMode == InputMode::CONTROLLER && modi != InputMode::CONTROLLER && gameControllerHandler)
+			gameControllerHandler->resetAxisState();
 		currentInputMode = modi;
 		ENGINE->events().dispatchInputModeChanged(modi);
 	}

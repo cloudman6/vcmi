@@ -10,6 +10,8 @@
 #pragma once
 
 #include "BattleConstants.h"
+#include "BattleFocusModel.h"
+#include "BattleFocusNavigation.h"
 
 #include "../gui/CIntObject.h"
 
@@ -22,6 +24,7 @@ class CGHeroInstance;
 class CStack;
 struct BattleResult;
 struct BattleSpellCast;
+struct ControllerAxisEvent;
 struct CObstacleInstance;
 struct SetStackEffect;
 class BattleAction;
@@ -118,6 +121,8 @@ class BattleInterface
 
 	void playIntroSoundAndUnlockInterface();
 	void onIntroSoundPlayed();
+	bool ensureControllerFocus();
+	void syncControllerFocusPresentation();
 public:
 	/// copy of initial armies (for result window)
 	const CCreatureSet *army1;
@@ -142,6 +147,11 @@ public:
 	std::unique_ptr<BattleActionsController> actionsController;
 	std::unique_ptr<BattleEffectsController> effectsController;
 
+private:
+	BattleFocusModel focusModel;
+	std::unique_ptr<BattleFocusNavigation> focusNavigation;
+
+public:
 	std::shared_ptr<BattleHero> attackingHero;
 	std::shared_ptr<BattleHero> defendingHero;
 
@@ -158,6 +168,11 @@ public:
 
 	void trySetActivePlayer( PlayerColor player ); // if in hotseat, will activate interface of chosen player
 	void activateStack(); //sets activeStack to stackToActivate etc. //FIXME: No, it's not clear at all
+	bool handleControllerAxis(const ControllerAxisEvent & event);
+	void updateControllerAxis(uint32_t msPassed);
+	void resetControllerAxis();
+	void controllerInputModeActivated();
+	bool isControllerNativeMode() const;
 	void requestAutofightingAIToTakeAction();
 
 	void giveCommand(EActionType action, const BattleHex & tile = BattleHex(), SpellID spell = SpellID::NONE);
@@ -213,6 +228,8 @@ public:
 	void spellCast(const BattleSpellCast *sc); //called when a hero casts a spell
 	void battleStacksEffectsSet(const SetStackEffect & sse); //called when a specific effect is set to stacks
 	void castThisSpell(SpellID spellID); //called when player has chosen a spell from spellbook
+
+	BattleHex getControllerFocusedHex() const;
 
 	void displayBattleLog(const std::vector<MetaString> & battleLog);
 

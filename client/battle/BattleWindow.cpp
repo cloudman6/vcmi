@@ -24,6 +24,7 @@
 #include "../CPlayerInterface.h"
 #include "../GameEngine.h"
 #include "../GameInstance.h"
+#include "../eventsSDL/InputHandler.h"
 #include "../adventureMap/CInGameConsole.h"
 #include "../adventureMap/TurnTimerWidget.h"
 #include "../gui/CursorHandler.h"
@@ -137,7 +138,7 @@ BattleWindow::BattleWindow(BattleInterface & Owner)
 	else
 		tacticPhaseEnded();
 
-	addUsedEvents(LCLICK | KEYBOARD);
+	addUsedEvents(LCLICK | KEYBOARD | INPUT_MODE_CHANGE);
 }
 
 void BattleWindow::createQueue()
@@ -512,9 +513,37 @@ void BattleWindow::activate()
 
 void BattleWindow::deactivate()
 {
+	controllerAxisReset();
 	ENGINE->setStatusbar(nullptr);
 	CIntObject::deactivate();
 	GAME->interface()->cingconsole->deactivate();
+}
+
+void BattleWindow::inputModeChanged(InputMode mode)
+{
+	if(mode == InputMode::CONTROLLER)
+		owner.controllerInputModeActivated();
+	ENGINE->windows().refreshControllerCursorPolicy();
+}
+
+ControllerAxisRoute BattleWindow::controllerAxisMoved(const ControllerAxisEvent & event)
+{
+	return owner.handleControllerAxis(event) ? ControllerAxisRoute::CAPTURED : ControllerAxisRoute::UNOWNED;
+}
+
+void BattleWindow::controllerAxisUpdate(uint32_t msPassed)
+{
+	owner.updateControllerAxis(msPassed);
+}
+
+void BattleWindow::controllerAxisReset()
+{
+	owner.resetControllerAxis();
+}
+
+bool BattleWindow::controllerCursorAllowed() const
+{
+	return !owner.isControllerNativeMode();
 }
 
 bool BattleWindow::captureThisKey(EShortcut key)

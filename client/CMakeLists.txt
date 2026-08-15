@@ -18,6 +18,8 @@ set(vcmiclientcommon_SRCS
 	battle/BattleConsole.cpp
 	battle/BattleEffectsController.cpp
 	battle/BattleFieldController.cpp
+	battle/BattleFocusModel.cpp
+	battle/BattleFocusNavigation.cpp
 	battle/BattleHero.cpp
 	battle/BattleInterface.cpp
 	battle/BattleObstacleController.cpp
@@ -36,6 +38,7 @@ set(vcmiclientcommon_SRCS
 	battle/UnitActionPanel.cpp
 
 	eventsSDL/NotificationHandler.cpp
+	eventsSDL/ControllerAxisNormalizer.cpp
 	eventsSDL/InputHandler.cpp
 	eventsSDL/InputSourceKeyboard.cpp
 	eventsSDL/InputSourceMouse.cpp
@@ -251,6 +254,8 @@ set(vcmiclientcommon_HEADERS
 	battle/BattleConsole.h
 	battle/BattleEffectsController.h
 	battle/BattleFieldController.h
+	battle/BattleFocusModel.h
+	battle/BattleFocusNavigation.h
 	battle/BattleHero.h
 	battle/BattleInterface.h
 	battle/BattleObstacleController.h
@@ -268,6 +273,7 @@ set(vcmiclientcommon_HEADERS
 	battle/StackQueue.h
 	battle/UnitActionPanel.h
 
+	eventsSDL/ControllerAxisNormalizer.h
 	eventsSDL/ControllerPromptFamily.h
 	eventsSDL/NotificationHandler.h
 	eventsSDL/InputHandler.h
@@ -278,6 +284,7 @@ set(vcmiclientcommon_HEADERS
 	eventsSDL/InputSourceGameController.h
 
 	gui/CIntObject.h
+	gui/ControllerAxisReceiver.h
 	gui/CursorHandler.h
 	gui/EventDispatcher.h
 	gui/EventsReceiver.h
