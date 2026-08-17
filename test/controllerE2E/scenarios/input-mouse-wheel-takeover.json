@@ -1,0 +1,19 @@
+{
+	"schema": "vcmi.controller-e2e/v1",
+	"id": "input.mouse-wheel-takeover",
+	"profile": "dualsense",
+	"timeout_ms": 30000,
+	"fixture": {},
+	"prelude": [
+		{"op": "attach", "device": "pad0", "profile": "dualsense"}
+	],
+	"steps": [
+		{"op": "wait_frames", "frames": 5},
+		{"op": "tap", "device": "pad0", "control": "create"},
+		{"op": "wait_until", "probe": "input", "field": "mode", "equals": "controller", "timeout_ms": 2000},
+		{"op": "scroll_mouse", "x": 0, "y": -1},
+		{"op": "wait_frames", "frames": 5},
+		{"op": "assert", "probe": "input", "field": "mode", "equals": "keyboard_and_mouse"},
+		{"op": "request_shutdown"}
+	]
+}

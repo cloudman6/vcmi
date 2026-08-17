@@ -1,0 +1,35 @@
+{
+	"schema": "vcmi.controller-e2e/v1",
+	"id": "battle.v2.p6.native-remap-axis-block",
+	"profile": "dualsense",
+	"settingsOverride": {
+		"input": {"enableMouse": true},
+		"server": {"seed": 20260822}
+	},
+	"timeout_ms": 90000,
+	"fixture": {
+		"setup": "battle-map-start",
+		"map": "battle-e2e",
+		"autofightPlayers": ["blue"],
+		"joystickAxisBindings": {
+			"controllerNavigateX": [],
+			"controllerNavigateY": []
+		}
+	},
+	"prelude": [
+		{"op": "attach", "device": "pad0", "profile": "dualsense"}
+	],
+	"steps": [
+		{"op": "wait_until", "probe": "runtime", "field": "top_window", "changes": true, "timeout_ms": 60000},
+		{"op": "tap", "device": "pad0", "control": "dpad_up"},
+		{"op": "wait_until", "probe": "battle", "field": "native_mode", "equals": true, "timeout_ms": 3000, "stable_for_frames": 3},
+		{"op": "assert", "probe": "runtime", "field": "cursor_visible", "equals": false},
+		{"op": "checkpoint", "name": "before-remapped-cursor-axis"},
+		{"op": "set_axis", "device": "pad0", "control": "left_stick_x", "value": 1.0},
+		{"op": "assert_unchanged", "probe": "runtime", "field": "cursor_position_x", "frames": 8},
+		{"op": "assert", "probe": "battle", "field": "native_mode", "equals": true},
+		{"op": "assert", "probe": "runtime", "field": "cursor_visible", "equals": false},
+		{"op": "neutralize", "device": "pad0"},
+		{"op": "request_shutdown"}
+	]
+}

@@ -1,0 +1,44 @@
+{
+	"schema": "vcmi.controller-e2e/v1",
+	"id": "battle.v2.p5.shoot-disabled-rule-prohibited",
+	"profile": "dualsense",
+	"settingsOverride": {
+		"input": {"enableMouse": true},
+		"server": {"seed": 20260814}
+	},
+	"timeout_ms": 90000,
+	"fixture": {
+		"setup": "battle-map-start",
+		"map": "battle-e2e",
+		"autofightPlayers": ["blue"],
+		"creatureBonuses": [
+			{"creature": "core:marksman", "bonus": "forgetfulness", "value": 100}
+		]
+	},
+	"prelude": [
+		{"op": "attach", "device": "pad0", "profile": "dualsense"}
+	],
+	"steps": [
+		{"op": "wait_until", "probe": "runtime", "field": "top_window", "changes": true, "timeout_ms": 60000},
+		{"op": "tap", "device": "pad0", "control": "ps"},
+		{"op": "wait_until", "probe": "battle", "field": "focus_hex", "equals": 36, "timeout_ms": 20000, "stable_for_frames": 3},
+		{"op": "set_axis", "device": "pad0", "control": "left_stick_x", "value": 0.5},
+		{"op": "set_axis", "device": "pad0", "control": "left_stick_y", "value": 0.9},
+		{"op": "wait_until", "probe": "battle", "field": "focus_hex", "equals": 54, "timeout_ms": 3000, "stable_for_frames": 3},
+		{"op": "neutralize", "device": "pad0"},
+		{"op": "tap", "device": "pad0", "control": "south"},
+		{"op": "wait_until", "probe": "battle", "field": "stacks_by_id.id_0.position", "equals": 54, "timeout_ms": 20000, "stable_for_frames": 3},
+		{"op": "wait_until", "probe": "battle", "field": "active_stack.id", "equals": 1, "timeout_ms": 20000, "stable_for_frames": 3},
+		{"op": "set_axis", "device": "pad0", "control": "right_stick_x", "value": 1.0},
+		{"op": "wait_until", "probe": "battle", "field": "focus_hex", "equals": 100, "timeout_ms": 3000, "stable_for_frames": 3},
+		{"op": "neutralize", "device": "pad0"},
+		{"op": "assert", "probe": "battle", "field": "primary_action", "equals": "inspect"},
+		{"op": "assert", "probe": "battle", "field": "shoot_disabled_reason", "equals": "rule_prohibited"},
+		{"op": "assert", "probe": "battle", "field": "commands_sent", "equals": 1},
+		{"op": "capture_frame", "name": "p5-shoot-disabled-rule-prohibited"},
+		{"op": "tap", "device": "pad0", "control": "south"},
+		{"op": "wait_until", "probe": "battle", "field": "inspect_open", "equals": true, "timeout_ms": 3000, "stable_for_frames": 3},
+		{"op": "assert", "probe": "battle", "field": "commands_sent", "equals": 1},
+		{"op": "request_shutdown"}
+	]
+}

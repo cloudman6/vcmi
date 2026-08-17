@@ -1,0 +1,42 @@
+{
+	"schema": "vcmi.controller-e2e/v1",
+	"id": "lifecycle.remap-multi",
+	"profile": "dualsense",
+	"timeout_ms": 30000,
+	"fixture": {},
+	"prelude": [
+		{"op": "attach", "device": "pad0", "profile": "synthetic-generic"}
+	],
+	"steps": [
+		{"op": "wait_frames", "frames": 3},
+		{"op": "detach", "device": "pad0"},
+		{"op": "wait_frames", "frames": 3},
+		{"op": "reconnect", "device": "pad0"},
+		{"op": "wait_frames", "frames": 3},
+		{"op": "attach", "device": "pad1", "profile": "dualsense"},
+		{"op": "wait_frames", "frames": 5},
+		{"op": "select_device", "device": "pad1"},
+		{"op": "tap", "device": "pad1", "control": "south"},
+		{"op": "wait_until", "probe": "input", "field": "mode", "equals": "controller", "timeout_ms": 2000},
+		{"op": "wait_until", "probe": "input", "field": "presentation", "equals": "playstation", "timeout_ms": 2000},
+		{"op": "detach", "device": "pad0"},
+		{"op": "wait_frames", "frames": 5},
+		{"op": "remap", "device": "pad1"},
+		{"op": "wait_until", "probe": "events", "field": "counts.device_remapped", "equals": 1, "timeout_ms": 2000},
+		{"op": "wait_frames", "frames": 3},
+		{"op": "assert", "probe": "runtime", "field": "scenario_devices_attached", "equals": 1},
+		{"op": "assert", "probe": "input", "field": "presentation", "equals": "playstation"},
+		{"op": "press", "device": "pad1", "control": "south"},
+		{"op": "wait_frames", "frames": 2},
+		{"op": "assert_event_count", "kind": "controller_button_down", "count": 2},
+		{"op": "remap", "device": "pad1"},
+		{"op": "release", "device": "pad1", "control": "south"},
+		{"op": "wait_frames", "frames": 3},
+		{"op": "assert", "probe": "input", "field": "presentation", "equals": "playstation"},
+		{"op": "tap", "device": "pad1", "control": "south"},
+		{"op": "wait_frames", "frames": 3},
+		{"op": "assert_event_count", "kind": "controller_button_down", "count": 3},
+		{"op": "capture_frame", "name": "remapped-dualsense"},
+		{"op": "request_shutdown"}
+	]
+}

@@ -290,6 +290,16 @@ if(ENABLE_CLIENT)
 		WORKING_DIRECTORY "${CMAKE_BINARY_DIR}/bin/"
 		DISCOVERY_TIMEOUT 60)
 	vcmi_set_output_dir(vcmi_battle_controller_test "")
+
+	add_executable(vcmi_controller_e2e_test
+		controllerE2E/ControllerE2EUnitTest.cpp)
+	target_link_libraries(vcmi_controller_e2e_test PRIVATE gtest_main vcmiclientcommon)
+	target_include_directories(vcmi_controller_e2e_test PRIVATE
+		${GTestSrc}
+		${GTestSrc}/include)
+	gtest_discover_tests(vcmi_controller_e2e_test
+		DISCOVERY_TIMEOUT 60)
+	vcmi_set_output_dir(vcmi_controller_e2e_test "")
 endif()
 
 file (GLOB_RECURSE testdata "testdata/*.*")

@@ -128,6 +128,17 @@ class BattleInterface
 	void playIntroSoundAndUnlockInterface();
 	void onIntroSoundPlayed();
 	bool ensureControllerFocus();
+#ifdef VCMI_CONTROLLER_E2E
+	void registerControllerE2EProbe();
+	int controllerE2ECommandsSent = 0;
+	int controllerE2ELastCommandType = -1;
+	int controllerE2ELastCommandActor = -1;
+	std::vector<BattleHex> controllerE2ELastCommandTargets;
+	int controllerE2EMeleeCycleAttempts = 0;
+	int controllerE2EMeleeCycleSuccesses = 0;
+	int controllerE2EMeleeCycleBeforeSync = -1;
+	int controllerE2EMeleeCycleAfterSync = -1;
+#endif
 	std::vector<BattleUnitNavigationCandidate> getControllerUnitCandidates() const;
 	bool canControllerInspectFocusedStack() const;
 	std::optional<uint32_t> getControllerActionTargetUnitId(BattleControllerPrimaryAction action) const;

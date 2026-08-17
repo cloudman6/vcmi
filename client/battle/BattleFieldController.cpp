@@ -907,9 +907,17 @@ void BattleFieldController::show(Canvas & to)
 		&& owner.getControllerFocusedHex().isValid()
 		&& owner.stacksController->getActiveStack() != nullptr;
 
+#ifdef VCMI_CONTROLLER_E2E
+	controllerE2EFocusCursorDrawn = false;
+	controllerE2EActionPromptDrawn = false;
+#endif
+
 	if(isActive() && (isGesturing() || nativeBrowsePresentation) && getHoveredHex() != BattleHex::INVALID)
 	{
 		to.draw(ENGINE->cursor().getCurrentImage(), hexPositionAbsolute(getHoveredHex()).center() - ENGINE->cursor().getPivotOffset());
+#ifdef VCMI_CONTROLLER_E2E
+		controllerE2EFocusCursorDrawn = nativeBrowsePresentation;
+#endif
 	}
 
 	if(isActive() && nativeBrowsePresentation)
@@ -922,8 +930,23 @@ void BattleFieldController::show(Canvas & to)
 			owner.isControllerAcceptPressed(),
 			owner.hasControllerInspectTarget(),
 			owner.hasControllerMeleeAlternatives());
+#ifdef VCMI_CONTROLLER_E2E
+		controllerE2EActionPromptDrawn = true;
+#endif
 	}
 }
+
+#ifdef VCMI_CONTROLLER_E2E
+bool BattleFieldController::wasControllerFocusCursorDrawnForE2E() const
+{
+	return controllerE2EFocusCursorDrawn;
+}
+
+bool BattleFieldController::wasControllerActionPromptDrawnForE2E() const
+{
+	return controllerE2EActionPromptDrawn;
+}
+#endif
 
 bool BattleFieldController::receiveEvent(const Point & position, int eventType) const
 {

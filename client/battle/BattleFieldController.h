@@ -52,6 +52,11 @@ class BattleFieldController : public CIntObject
 	/// hexes that when in front of a unit cause it's amount box to move back
 	std::array<bool, GameConstants::BFIELD_SIZE> stackCountOutsideHexes;
 
+#ifdef VCMI_CONTROLLER_E2E
+	bool controllerE2EFocusCursorDrawn = false;
+	bool controllerE2EActionPromptDrawn = false;
+#endif
+
 	void showHighlightedHex(Canvas & to, std::shared_ptr<IImage> highlight, const BattleHex & hex, bool darkBorder);
 
 	BattleHexArray getHighlightedHexesForActiveStack();
@@ -108,6 +113,11 @@ class BattleFieldController : public CIntObject
 
 public:
 	BattleFieldController(BattleInterface & owner);
+
+#ifdef VCMI_CONTROLLER_E2E
+	bool wasControllerFocusCursorDrawnForE2E() const;
+	bool wasControllerActionPromptDrawnForE2E() const;
+#endif
 
 	void createHeroes();
 

@@ -518,8 +518,32 @@ if(IOS)
 	)
 endif()
 
+if(ENABLE_TEST)
+	# Controller E2E driver: compiled only for test-enabled builds so
+	# production binaries contain no activatable scenario entry points
+	list(APPEND vcmiclientcommon_SRCS
+		controllerE2E/ControllerE2EVirtualController.cpp
+		controllerE2E/ControllerE2EScenario.cpp
+		controllerE2E/ControllerE2EProbes.cpp
+		controllerE2E/ControllerE2EArtifacts.cpp
+		controllerE2E/ControllerE2EProfiles.cpp
+		controllerE2E/ControllerE2EExecutor.cpp
+	)
+	list(APPEND vcmiclientcommon_HEADERS
+		controllerE2E/ControllerE2EVirtualController.h
+		controllerE2E/ControllerE2EScenario.h
+		controllerE2E/ControllerE2EProbes.h
+		controllerE2E/ControllerE2EArtifacts.h
+		controllerE2E/ControllerE2EExecutor.h
+	)
+endif()
+
 assign_source_group(${vcmiclientcommon_SRCS} ${vcmiclientcommon_HEADERS})
 add_library(vcmiclientcommon STATIC ${vcmiclientcommon_SRCS} ${vcmiclientcommon_HEADERS})
+
+if(ENABLE_TEST)
+	target_compile_definitions(vcmiclientcommon PUBLIC VCMI_CONTROLLER_E2E)
+endif()
 
 if(WIN32)
 	set_target_properties(vcmiclientcommon

@@ -22,6 +22,11 @@
 #include "gui/WindowHandler.h"
 #include "mapView/mapHandler.h"
 
+#ifdef VCMI_CONTROLLER_E2E
+#include "controllerE2E/ControllerE2EExecutor.h"
+#include "../lib/constants/StringConstants.h"
+#endif
+
 #include "../lib/CConfigHandler.h"
 #include "../lib/GameLibrary.h"
 #include "../lib/battle/BattleInfo.h"
@@ -465,8 +470,29 @@ void CClient::battleStarted(const BattleID & battleID)
 		else // def && def->isAutoFightOn
 			endTacticPhaseIfEligible(def.get());
 
+#ifdef VCMI_CONTROLLER_E2E
+		auto * controllerE2E = ControllerE2E::ControllerE2EExecutor::instance();
+		auto autoFightRequestedByScenario = [controllerE2E](const std::shared_ptr<CPlayerInterface> & interface)
+		{
+			return interface && controllerE2E->shouldAutoFightE2E(
+				GameConstants::PLAYER_COLOR_NAMES[interface->playerID.getNum()]);
+		};
+		if(controllerE2E && (autoFightRequestedByScenario(att) || autoFightRequestedByScenario(def)))
+		{
+			if(att && att->isAutoFightOn)
+				att.reset();
+			if(def && def->isAutoFightOn)
+				def.reset();
+		}
+		else
+		{
+			att.reset();
+			def.reset();
+		}
+#else
 		att.reset();
 		def.reset();
+#endif
 	}
 
 	if(!settings["session"]["headless"].Bool())
