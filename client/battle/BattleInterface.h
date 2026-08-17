@@ -129,6 +129,7 @@ class BattleInterface
 	void syncControllerFocusPresentation();
 	std::vector<BattleUnitNavigationCandidate> getControllerUnitCandidates() const;
 	bool canControllerInspectFocusedStack() const;
+	std::optional<uint32_t> getControllerActionTargetUnitId(BattleControllerPrimaryAction action) const;
 	BattleControllerMeleeOriginRepeatContext getControllerMeleeOriginRepeatContext() const;
 	bool cycleControllerMeleeOrigin(bool forward, bool repeated);
 public:
