@@ -92,6 +92,12 @@ public:
 	bool refreshControllerMeleeSelection(BattleMeleeSelection & selection, const BattleHex & focusedHex);
 	bool realizeControllerMeleeSelection(const BattleMeleeSelection & selection);
 	bool realizeControllerShoot(const BattleHex & focusedHex, std::optional<uint32_t> targetUnitId);
+#ifdef VCMI_CONTROLLER_E2E
+	std::string controllerE2EGetShootDisabledReasonTextKey(const BattleHex & focusedHex) const
+	{
+		return getControllerShootDisabledReasonTextKey(focusedHex);
+	}
+#endif
 
 	/// initialize list of potential actions for new active stack
 	void activateStack();

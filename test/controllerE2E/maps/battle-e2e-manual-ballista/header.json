@@ -1,0 +1,66 @@
+{
+	"allowedAbilities" : {},
+	"allowedArtifacts" : {},
+	"allowedHeroes" : {},
+	"allowedSpells" : {},
+	"battleOnly" : true,
+	"defeatIconIndex" : 0,
+	"difficulty" : "NORMAL",
+	"mapLevels" : {
+		"surface" : {
+			"height" : 8,
+			"index" : 0,
+			"width" : 8
+		}
+	},
+	"mods" : [],
+	"name" : "Controller E2E manual ballista battle",
+	"players" : {
+		"blue" : {
+			"canPlay" : "PlayerOrAI",
+			"mainHero" : "lordHaart",
+			"heroes" : {
+				"hero_1" : {
+					"type" : "lordHaart"
+				}
+			}
+		},
+		"red" : {
+			"canPlay" : "PlayerOrAI",
+			"mainHero" : "sorsha",
+			"heroes" : {
+				"hero_0" : {
+					"type" : "sorsha"
+				}
+			}
+		}
+	},
+	"triggeredEvents" : {
+		"standardDefeat" : {
+			"condition" : [
+				"daysWithoutTown",
+				{
+					"value" : 7
+				}
+			],
+			"effect" : {
+				"messageToSend" : "standardDefeat",
+				"type" : "defeat"
+			},
+			"message" : "standardDefeat"
+		},
+		"standardVictory" : {
+			"condition" : [
+				"standardWin"
+			],
+			"effect" : {
+				"messageToSend" : "standardVictory",
+				"type" : "victory"
+			},
+			"message" : "standardVictory"
+		}
+	},
+	"victoryIconIndex" : 0,
+	"versionMajor" : 1,
+	"versionMinor" : 0
+}

@@ -1,0 +1,72 @@
+{
+	"hero_0" : {
+		"l" : 0,
+		"template" : {
+			"animation" : "AH00_",
+			"editorAnimation" : "AH00_E",
+			"mask" : [
+				"VV",
+				"AV"
+			],
+			"visitableFrom" : [
+				"+++",
+				"+-+",
+				"+++"
+			]
+		},
+		"x" : 2,
+		"y" : 2,
+		"type" : "hero",
+		"subtype" : "knight",
+		"options" : {
+			"army" : [
+				{
+					"amount" : 5,
+					"type" : "core:griffin"
+				},
+				{
+					"amount" : 10,
+					"type" : "core:marksman"
+				}
+			],
+			"artifacts" : {
+				"spellbook" : "core:spellBook"
+			},
+			"owner" : "red",
+			"spellBook" : [
+				"core:stoneSkin"
+			],
+			"type" : "sorsha"
+		}
+	},
+	"hero_1" : {
+		"l" : 0,
+		"template" : {
+			"animation" : "AH00_",
+			"editorAnimation" : "AH00_E",
+			"mask" : [
+				"VV",
+				"AV"
+			],
+			"visitableFrom" : [
+				"+++",
+				"+-+",
+				"+++"
+			]
+		},
+		"x" : 6,
+		"y" : 2,
+		"type" : "hero",
+		"subtype" : "knight",
+		"options" : {
+			"army" : [
+				{
+					"amount" : 8,
+					"type" : "core:pikeman"
+				}
+			],
+			"owner" : "blue",
+			"type" : "lordHaart"
+		}
+	}
+}

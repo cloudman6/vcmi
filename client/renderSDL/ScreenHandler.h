@@ -129,4 +129,10 @@ public:
 	void screenShot() const final;
 
 	void setColorScheme(ColorScheme filter) final;
+
+#ifdef VCMI_CONTROLLER_E2E
+	/// Test-only: direct access to the logical screen surface used by the
+	/// controller E2E evidence capture. Ownership stays with ScreenHandler.
+	SDL_Surface * getE2ECaptureSurface() const { return screen; }
+#endif
 };

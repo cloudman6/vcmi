@@ -146,6 +146,9 @@ public:
 
 	InputMode getCurrentInputMode();
 	ControllerPrompt::Family getActiveControllerPromptFamily() const;
+#ifdef VCMI_CONTROLLER_E2E
+	void seedControllerInputModeForE2E();
+#endif
 
 	void copyToClipBoard(const std::string & text);
 	PowerState getPowerState();

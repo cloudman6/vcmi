@@ -1,0 +1,53 @@
+{
+	"schema": "vcmi.controller-e2e/v1",
+	"id": "battle.v2.p1.boundary-navigation",
+	"profile": "dualsense",
+	"settingsOverride": {
+		"input": {
+			"enableMouse": false
+		},
+		"server": {
+			"seed": 20260814
+		}
+	},
+	"timeout_ms": 90000,
+	"fixture": {
+		"setup": "battle-map-start",
+		"map": "battle-e2e",
+		"autofightPlayers": ["blue"]
+	},
+	"prelude": [
+		{"op": "attach", "device": "pad0", "profile": "dualsense"}
+	],
+	"steps": [
+		{"op": "wait_until", "probe": "runtime", "field": "top_window", "changes": true, "timeout_ms": 60000},
+		{"op": "tap", "device": "pad0", "control": "ps"},
+		{"op": "wait_until", "probe": "runtime", "field": "input_mode", "equals": "controller", "timeout_ms": 10000},
+		{"op": "wait_until", "probe": "battle", "field": "focus_hex", "equals": 36, "timeout_ms": 20000, "stable_for_frames": 3},
+
+		{"op": "set_axis", "device": "pad0", "control": "left_stick_y", "value": 1.0},
+		{"op": "wait_until", "probe": "battle", "field": "focus_hex", "equals": 119, "timeout_ms": 5000},
+		{"op": "neutralize", "device": "pad0"},
+		{"op": "set_axis", "device": "pad0", "control": "left_stick_y", "value": 1.0},
+		{"op": "wait_until", "probe": "battle", "field": "focus_hex", "equals": 136, "timeout_ms": 3000},
+		{"op": "neutralize", "device": "pad0"},
+		{"op": "set_axis", "device": "pad0", "control": "left_stick_y", "value": 1.0},
+		{"op": "wait_until", "probe": "battle", "field": "focus_hex", "equals": 170, "timeout_ms": 3000},
+		{"op": "neutralize", "device": "pad0"},
+
+		{"op": "set_axis", "device": "pad0", "control": "left_stick_x", "value": 1.0},
+		{"op": "wait_until", "probe": "battle", "field": "focus_hex", "equals": 186, "timeout_ms": 5000},
+		{"op": "neutralize", "device": "pad0"},
+		{"op": "set_axis", "device": "pad0", "control": "left_stick_y", "value": -1.0},
+		{"op": "wait_until", "probe": "battle", "field": "focus_hex", "equals": 169, "timeout_ms": 3000},
+		{"op": "neutralize", "device": "pad0"},
+		{"op": "set_axis", "device": "pad0", "control": "left_stick_y", "value": -1.0},
+		{"op": "wait_until", "probe": "battle", "field": "focus_hex", "equals": 152, "timeout_ms": 3000},
+		{"op": "neutralize", "device": "pad0"},
+
+		{"op": "assert", "probe": "runtime", "field": "cursor_visible", "equals": false},
+		{"op": "assert", "probe": "battle", "field": "commands_sent", "equals": 0},
+		{"op": "capture_frame", "name": "p1-boundary-navigation"},
+		{"op": "request_shutdown"}
+	]
+}

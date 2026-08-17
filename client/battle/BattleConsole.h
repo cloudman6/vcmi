@@ -76,4 +76,8 @@ public:
 	void clear() override;
 	void setEnteringMode(bool on) override;
 	void setEnteredText(const std::string & text) override;
+
+#ifdef VCMI_CONTROLLER_E2E
+	const std::string & controllerE2EHoverText() const;
+#endif
 };

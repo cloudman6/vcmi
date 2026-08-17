@@ -1,0 +1,21 @@
+{
+	"schema": "vcmi.controller-e2e/v1",
+	"id": "extension.synthetic-profile-no-family-hardcode",
+	"profile": "synthetic-generic",
+	"timeout_ms": 30000,
+	"fixture": {},
+	"prelude": [
+		{"op": "attach", "device": "pad0", "profile": "synthetic-generic"}
+	],
+	"steps": [
+		{"op": "wait_frames", "frames": 5},
+		{"op": "assert", "probe": "runtime", "field": "scenario_devices_attached", "equals": 1},
+		{"op": "press", "device": "pad0", "control": "south"},
+		{"op": "wait_until", "probe": "input", "field": "mode", "equals": "controller", "timeout_ms": 2000},
+		{"op": "assert", "probe": "runtime", "field": "presentation", "equals": "generic"},
+		{"op": "release", "device": "pad0", "control": "south"},
+		{"op": "wait_frames", "frames": 3},
+		{"op": "capture_frame", "name": "synthetic-profile-active"},
+		{"op": "request_shutdown"}
+	]
+}

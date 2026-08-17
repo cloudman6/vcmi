@@ -197,6 +197,13 @@ void BattleConsole::setEnteredText(const std::string & text)
 	redraw();
 }
 
+#ifdef VCMI_CONTROLLER_E2E
+const std::string & BattleConsole::controllerE2EHoverText() const
+{
+	return hoverText;
+}
+#endif
+
 void BattleConsole::write(const std::string & Text)
 {
 	hoverText = Text;
