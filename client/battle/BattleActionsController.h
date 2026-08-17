@@ -60,6 +60,7 @@ class BattleActionsController
 
 	std::string actionGetStatusMessage(PossiblePlayerBattleAction action, const BattleHex & hoveredHex);
 	std::string actionGetStatusMessageBlocked(PossiblePlayerBattleAction action, const BattleHex & hoveredHex);
+	BattleControllerShootDisabledReason getControllerShootDisabledReason(const BattleHex & focusedHex) const;
 	bool controllerDirectActionsAllowed() const;
 
 	void actionRealize(PossiblePlayerBattleAction action, const BattleHex & hoveredHex);
@@ -90,6 +91,7 @@ public:
 	BattleControllerPrimaryAction getControllerPrimaryAction(const BattleHex & focusedHex);
 	bool refreshControllerMeleeSelection(BattleMeleeSelection & selection, const BattleHex & focusedHex);
 	bool realizeControllerMeleeSelection(const BattleMeleeSelection & selection);
+	bool realizeControllerShoot(const BattleHex & focusedHex, std::optional<uint32_t> targetUnitId);
 
 	/// initialize list of potential actions for new active stack
 	void activateStack();

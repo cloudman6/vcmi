@@ -64,6 +64,8 @@ std::string BattleControllerActionPrompt::textKey(BattleControllerPrimaryAction 
 		return "vcmi.battleWindow.controller.move";
 	case BattleControllerPrimaryAction::ATTACK:
 		return "vcmi.battleWindow.controller.attack";
+	case BattleControllerPrimaryAction::SHOOT:
+		return "vcmi.battleWindow.controller.shoot";
 	case BattleControllerPrimaryAction::INSPECT:
 		return "vcmi.battleWindow.controller.inspect";
 	default:

@@ -35,6 +35,20 @@ BattleControllerPrimaryAction classifyBattleControllerPrimaryAction(
 	}
 }
 
+BattleControllerShootDisabledReason classifyBattleControllerShootDisabledReason(
+	bool shootingConcern, bool legal, bool hasAmmo, bool blockedByAdjacentEnemy, bool outsideLimitedRange)
+{
+	if(!shootingConcern || legal)
+		return BattleControllerShootDisabledReason::NONE;
+	if(!hasAmmo)
+		return BattleControllerShootDisabledReason::NO_AMMO;
+	if(blockedByAdjacentEnemy)
+		return BattleControllerShootDisabledReason::BLOCKED_BY_ADJACENT_ENEMY;
+	if(outsideLimitedRange)
+		return BattleControllerShootDisabledReason::OUT_OF_RANGE;
+	return BattleControllerShootDisabledReason::RULE_PROHIBITED;
+}
+
 namespace
 {
 constexpr uint32_t MELEE_ORIGIN_REPEAT_DELAY_MS = 320;

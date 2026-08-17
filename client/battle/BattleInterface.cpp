@@ -859,11 +859,12 @@ bool BattleInterface::handleControllerAcceptPressed()
 	const auto focus = focusModel.getFocusedHex();
 	const bool directAction = action == BattleControllerPrimaryAction::MOVE
 		|| action == BattleControllerPrimaryAction::ATTACK
+		|| action == BattleControllerPrimaryAction::SHOOT
 		|| action == BattleControllerPrimaryAction::INSPECT;
 	const auto candidate = controllerMeleeSelection.getCandidate();
 	if(!directAction || !controllerActionPressState.press(
 		action, focus, candidate.attackFrom, candidate.direction,
-		controllerMeleeSelection.getAction(), controllerMeleeSelection.getTargetUnitId()))
+		controllerMeleeSelection.getAction(), getControllerActionTargetUnitId(action)))
 		return false;
 
 	redrawBattlefield();
@@ -878,9 +879,10 @@ bool BattleInterface::handleControllerAcceptReleased()
 	const auto action = getControllerPrimaryAction();
 	const auto focus = focusModel.getFocusedHex();
 	const auto candidate = controllerMeleeSelection.getCandidate();
+	const auto targetUnitId = getControllerActionTargetUnitId(action);
 	const auto releasedAction = controllerActionPressState.release(
 		action, focus, candidate.attackFrom, candidate.direction,
-		controllerMeleeSelection.getAction(), controllerMeleeSelection.getTargetUnitId());
+		controllerMeleeSelection.getAction(), targetUnitId);
 	redrawBattlefield();
 	if(!isControllerNativeMode())
 		return false;
@@ -892,6 +894,13 @@ bool BattleInterface::handleControllerAcceptReleased()
 	if(releasedAction == BattleControllerPrimaryAction::ATTACK)
 	{
 		const bool submitted = actionsController->realizeControllerMeleeSelection(controllerMeleeSelection);
+		if(!submitted)
+			syncControllerFocusPresentation();
+		return true;
+	}
+	if(releasedAction == BattleControllerPrimaryAction::SHOOT)
+	{
+		const bool submitted = actionsController->realizeControllerShoot(focus, targetUnitId);
 		if(!submitted)
 			syncControllerFocusPresentation();
 		return true;
@@ -927,9 +936,10 @@ bool BattleInterface::handleControllerInspectPressed()
 bool BattleInterface::isControllerAcceptPressed()
 {
 	const auto candidate = controllerMeleeSelection.getCandidate();
+	const auto action = getControllerPrimaryAction();
 	return controllerActionPressState.isPressed(
-		getControllerPrimaryAction(), focusModel.getFocusedHex(), candidate.attackFrom, candidate.direction,
-		controllerMeleeSelection.getAction(), controllerMeleeSelection.getTargetUnitId());
+		action, focusModel.getFocusedHex(), candidate.attackFrom, candidate.direction,
+		controllerMeleeSelection.getAction(), getControllerActionTargetUnitId(action));
 }
 
 bool BattleInterface::hasControllerInspectTarget() const
@@ -1023,6 +1033,20 @@ BattleControllerPrimaryAction BattleInterface::getControllerPrimaryAction()
 	if(!isControllerNativeMode() || !focusModel.hasFocus())
 		return BattleControllerPrimaryAction::NONE;
 	return actionsController->getControllerPrimaryAction(focusModel.getFocusedHex());
+}
+
+std::optional<uint32_t> BattleInterface::getControllerActionTargetUnitId(
+	BattleControllerPrimaryAction action) const
+{
+	if(action == BattleControllerPrimaryAction::ATTACK)
+		return controllerMeleeSelection.getTargetUnitId();
+	if(action != BattleControllerPrimaryAction::SHOOT || !focusModel.hasFocus())
+		return std::nullopt;
+
+	const auto * target = getBattle()->battleGetStackByPos(focusModel.getFocusedHex(), true);
+	return target != nullptr
+		? std::optional<uint32_t>(target->unitId())
+		: std::nullopt;
 }
 
 BattleHex BattleInterface::getControllerFocusedHex() const
