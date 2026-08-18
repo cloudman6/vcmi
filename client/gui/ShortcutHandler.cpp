@@ -26,6 +26,23 @@ void ShortcutHandler::reloadShortcuts()
 	mappedKeyboardShortcuts = loadShortcuts(keyBindingsConfig["keyboard"]);
 	mappedJoystickShortcuts = loadShortcuts(keyBindingsConfig["joystickButtons"]);
 	mappedJoystickAxes = loadShortcuts(keyBindingsConfig["joystickAxes"]);
+	mappedJoystickProfiles.clear();
+	overriddenJoystickActions.clear();
+	for(const auto & [profile, group] : std::map<std::string, std::string>{
+		{"playstation", "joystickButtonsPlayStation"},
+		{"xbox", "joystickButtonsXbox"},
+		{"nintendo", "joystickButtonsNintendo"},
+		{"generic", "joystickButtonsGeneric"}})
+	{
+		mappedJoystickProfiles[profile] = loadShortcuts(keyBindingsConfig[group]);
+		auto & overrides = overriddenJoystickActions[profile];
+		for(const auto & entry : keyBindingsConfig[group].Struct())
+		{
+			const auto shortcut = findShortcut(entry.first);
+			if(shortcut != EShortcut::NONE)
+				overrides.insert(shortcut);
+		}
+	}
 
 #ifndef ENABLE_GOLDMASTER
 	std::vector<EShortcut> assignedShortcuts;
@@ -103,6 +120,27 @@ std::vector<EShortcut> ShortcutHandler::translateJoystickButton(const std::strin
 	return translateShortcut(mappedJoystickShortcuts, key);
 }
 
+std::vector<EShortcut> ShortcutHandler::translateJoystickButton(
+	const std::string & key, const std::string & profile) const
+{
+	auto result = translateJoystickButton(key);
+	const auto overrides = overriddenJoystickActions.find(profile);
+	if(overrides != overriddenJoystickActions.end())
+		vstd::erase_if(result, [&](EShortcut action){ return overrides->second.count(action) != 0; });
+
+	const auto mapped = mappedJoystickProfiles.find(profile);
+	if(mapped != mappedJoystickProfiles.end())
+	{
+		auto additions = translateShortcut(mapped->second, key);
+		for(const auto action : additions)
+			if(action != EShortcut::NONE && !vstd::contains(result, action))
+				result.push_back(action);
+	}
+
+	vstd::erase_if(result, [](EShortcut action){ return action == EShortcut::NONE; });
+	return result.empty() ? std::vector<EShortcut>{EShortcut::NONE} : result;
+}
+
 std::vector<EShortcut> ShortcutHandler::translateJoystickAxis(const std::string & key) const
 {
 	return translateShortcut(mappedJoystickAxes, key);
@@ -143,6 +181,7 @@ EShortcut ShortcutHandler::findShortcut(const std::string & identifier ) const
 		{"globalOptions",            EShortcut::GLOBAL_OPTIONS            },
 		{"globalBackspace",          EShortcut::GLOBAL_BACKSPACE          },
 		{"globalMoveFocus",          EShortcut::GLOBAL_MOVE_FOCUS         },
+		{"toggleCursorMode",         EShortcut::GLOBAL_TOGGLE_CURSOR_MODE },
 		{"moveLeft",                 EShortcut::MOVE_LEFT                 },
 		{"moveRight",                EShortcut::MOVE_RIGHT                },
 		{"moveUp",                   EShortcut::MOVE_UP                   },

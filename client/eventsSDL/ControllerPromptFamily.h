@@ -16,6 +16,8 @@ namespace ControllerPrompt
 enum class Family
 {
 	UNKNOWN,
+	GENERIC,
+	NINTENDO,
 	PLAYSTATION,
 	XBOX
 };

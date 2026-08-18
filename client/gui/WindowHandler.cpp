@@ -191,7 +191,8 @@ void WindowHandler::resetControllerAxis()
 
 void WindowHandler::refreshControllerCursorPolicy()
 {
-	ENGINE->cursor().setControllerNativeHidden(!isControllerCursorAllowed());
+	ENGINE->cursor().setControllerNativeHidden(
+		Cursor::ControllerNativeVisibilityOwner::WINDOW_STACK, !isControllerCursorAllowed());
 }
 
 bool WindowHandler::isControllerCursorAllowed() const
@@ -233,6 +234,7 @@ std::vector<std::shared_ptr<IShowActivatable>> WindowHandler::detachAll()
 	auto result = std::move(windowsStack);
 	windowsStack.clear();
 	disposed.clear();
+	refreshControllerCursorPolicy();
 	return result;
 }
 
@@ -245,5 +247,6 @@ void WindowHandler::attachAll(std::vector<std::shared_ptr<IShowActivatable>> win
 	if(!windowsStack.empty())
 		windowsStack.back()->activate();
 
+	refreshControllerCursorPolicy();
 	totalRedraw();
 }

@@ -20,12 +20,18 @@
 /// Class that handles game controller input from SDL events
 class InputSourceGameController
 {
+	struct PressedShortcut
+	{
+		int instanceID;
+		std::vector<EShortcut> actions;
+	};
+
 	static void gameControllerDeleter(SDL_GameController * gameController);
 	using GameControllerPtr = std::unique_ptr<SDL_GameController, decltype(&gameControllerDeleter)>;
 
 	std::map<int, GameControllerPtr> gameControllerMap;
-	std::map<SDL_GameControllerAxis, int> pressedAxes;
-	std::map<SDL_GameControllerButton, int> pressedButtons;
+	std::map<SDL_GameControllerAxis, PressedShortcut> pressedAxes;
+	std::map<SDL_GameControllerButton, PressedShortcut> pressedButtons;
 	int activeController = -1;
 
 	std::chrono::steady_clock::time_point lastCheckTime;
@@ -49,10 +55,12 @@ class InputSourceGameController
 	const double configAxisScale;
 
 	void openGameController(int index);
+	std::string getBindingProfile(int instanceID) const;
 	int getJoystickIndex(SDL_GameController * controller);
 	double getRealAxisValue(int value) const;
 	void cancelPressedShortcuts();
-	void dispatchAxisShortcuts(const std::vector<EShortcut> & shortcutsVector, int instanceID, SDL_GameControllerAxis axisID, int axisValue, std::string axisName);
+	void dispatchAxisShortcuts(const std::vector<EShortcut> & shortcutsVector, int instanceID,
+		SDL_GameControllerAxis axisID, int axisValue, std::string axisName);
 	void tryToConvertCursor();
 	void doCursorMove(int deltaX, int deltaY);
 	int getMoveDis(float planDis);

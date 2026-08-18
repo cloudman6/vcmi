@@ -21,21 +21,6 @@ enum class BattleControllerPrimaryAction
 	INSPECT
 };
 
-BattleControllerPrimaryAction classifyBattleControllerPrimaryAction(
-	PossiblePlayerBattleAction::Actions action, bool legal);
-
-enum class BattleControllerShootDisabledReason
-{
-	NONE,
-	NO_AMMO,
-	BLOCKED_BY_ADJACENT_ENEMY,
-	OUT_OF_RANGE,
-	RULE_PROHIBITED
-};
-
-BattleControllerShootDisabledReason classifyBattleControllerShootDisabledReason(
-	bool shootingConcern, bool legal, bool hasAmmo, bool blockedByAdjacentEnemy, bool outsideLimitedRange);
-
 /// Tracks a controller primary action from button press to matching release.
 class BattleControllerActionPressState
 {

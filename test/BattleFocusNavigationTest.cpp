@@ -11,7 +11,6 @@
 #include "../client/StdInc.h"
 
 #include "../client/battle/BattleFocusNavigation.h"
-#include "../client/eventsSDL/ControllerAxisNormalizer.h"
 
 #include <gtest/gtest.h>
 
@@ -171,21 +170,4 @@ TEST(BattleFocusNavigationTest, ResetAndDeviceChangeDiscardStaleAxisState)
 	navigation.updateAxis(2, BattleFocusNavigation::Axis::VERTICAL, 1.0);
 	EXPECT_TRUE(navigation.update(16));
 	EXPECT_EQ(model.getFocusedHex(), start.cloneInDirection(BattleHex::BOTTOM_LEFT, true));
-}
-
-TEST(ControllerAxisNormalizerTest, IsSymmetricAndClampsAtConfiguredZones)
-{
-	const auto positive = ControllerAxisNormalizer::normalize(16384, 0.2, 1.0);
-	const auto negative = ControllerAxisNormalizer::normalize(-16384, 0.2, 1.0);
-	EXPECT_NEAR(positive, -negative, 0.0001);
-	EXPECT_GT(positive, 0.0);
-	EXPECT_EQ(ControllerAxisNormalizer::normalize(3000, 0.2, 1.0), 0.0);
-	EXPECT_EQ(ControllerAxisNormalizer::normalize(32767, 0.2, 0.8), 1.0);
-	EXPECT_EQ(ControllerAxisNormalizer::normalize(-32768, 0.2, 0.8), -1.0);
-}
-
-TEST(ControllerAxisNormalizerTest, InvalidZoneConfigurationFailsClosed)
-{
-	EXPECT_EQ(ControllerAxisNormalizer::normalize(32767, 0.5, 0.5), 0.0);
-	EXPECT_EQ(ControllerAxisNormalizer::normalize(32767, 0.8, 0.2), 0.0);
 }

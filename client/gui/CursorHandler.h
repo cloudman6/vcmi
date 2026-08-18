@@ -18,6 +18,12 @@ class CAnimation;
 
 namespace Cursor
 {
+	enum class ControllerNativeVisibilityOwner : int8_t
+	{
+		OBJECT_LIST,
+		WINDOW_STACK
+	};
+
 	enum class Type : int8_t {
 		ADVENTURE, // set of various cursors for adventure map
 		COMBAT,    // set of various cursors for combat
@@ -141,6 +147,7 @@ class CursorHandler final
 	bool showing;
 	bool showingRequested;
 	bool controllerNativeHidden;
+	std::set<Cursor::ControllerNativeVisibilityOwner> controllerNativeVisibilityOwners;
 	bool cursorImageUpdatePending;
 
 	void updateAnimatedCursor();
@@ -175,7 +182,7 @@ public:
 
 	void hide();
 	void show();
-	void setControllerNativeHidden(bool hidden);
+	void setControllerNativeHidden(Cursor::ControllerNativeVisibilityOwner owner, bool hidden);
 	void onScreenResize();
 
 	/// change cursor's positions to (x, y)

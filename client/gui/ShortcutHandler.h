@@ -19,6 +19,8 @@ class ShortcutHandler
 	std::multimap<std::string, EShortcut> mappedKeyboardShortcuts;
 	std::multimap<std::string, EShortcut> mappedJoystickShortcuts;
 	std::multimap<std::string, EShortcut> mappedJoystickAxes;
+	std::map<std::string, std::multimap<std::string, EShortcut>> mappedJoystickProfiles;
+	std::map<std::string, std::set<EShortcut>> overriddenJoystickActions;
 
 	std::multimap<std::string, EShortcut> loadShortcuts(const JsonNode & data) const;
 	std::vector<EShortcut> translateShortcut(const std::multimap<std::string, EShortcut> & options, const std::string & key) const;
@@ -32,6 +34,7 @@ public:
 	std::vector<EShortcut> translateKeycode(const std::string & key) const;
 
 	std::vector<EShortcut> translateJoystickButton(const std::string & key) const;
+	std::vector<EShortcut> translateJoystickButton(const std::string & key, const std::string & profile) const;
 
 	std::vector<EShortcut> translateJoystickAxis(const std::string & key) const;
 

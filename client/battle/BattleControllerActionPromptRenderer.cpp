@@ -7,7 +7,7 @@
  * Full text of license available in license.txt file, in main folder
  */
 
-#include "../StdInc.h"
+#include "StdInc.h"
 
 #include "BattleControllerActionPrompt.h"
 
@@ -32,34 +32,8 @@ constexpr int GLYPH_SIZE = 24;
 constexpr int DIRECTION_GLYPH_WIDTH = 72;
 constexpr int DIRECTION_GLYPH_HEIGHT = 20;
 constexpr int GLYPH_TEXT_SPACING = 4;
+constexpr int TEXT_OUTLINE_WIDTH = 1;
 constexpr ColorRGBA GENERIC_FACE_LABEL_COLOR(58, 40, 20, 255);
-
-std::string bindingLabel(const std::string & binding, ControllerPrompt::Family family)
-{
-	if(family == ControllerPrompt::Family::PLAYSTATION)
-	{
-		if(binding == "a") return "×";
-		if(binding == "b") return "○";
-		if(binding == "x") return "□";
-		if(binding == "y") return "△";
-		if(binding == "leftshoulder") return "L1";
-		if(binding == "rightshoulder") return "R1";
-		if(binding == "lefttrigger") return "L2";
-		if(binding == "righttrigger") return "R2";
-	}
-	else
-	{
-		if(binding == "a") return "A";
-		if(binding == "b") return "B";
-		if(binding == "x") return "X";
-		if(binding == "y") return "Y";
-		if(binding == "leftshoulder") return "LB";
-		if(binding == "rightshoulder") return "RB";
-		if(binding == "lefttrigger") return "LT";
-		if(binding == "righttrigger") return "RT";
-	}
-	return binding;
-}
 
 std::string fitPromptText(const std::string & text, const IFont & font, int maxWidth)
 {
@@ -83,6 +57,26 @@ std::string fitPromptText(const std::string & text, const IFont & font, int maxW
 		index += characterSize;
 	}
 	return result + ellipsis;
+}
+
+int outlinedTextWidth(const IFont & font, const std::string & text)
+{
+	if(text.empty())
+		return 0;
+	return static_cast<int>(font.getStringWidth(text)) + TEXT_OUTLINE_WIDTH * 2;
+}
+
+void drawOutlinedPromptText(Canvas & to, const Point & position, const std::string & text)
+{
+	to.drawText(position + Point(-TEXT_OUTLINE_WIDTH, 0), FONT_MEDIUM,
+		Colors::BLACK, ETextAlignment::CENTER, text);
+	to.drawText(position + Point(TEXT_OUTLINE_WIDTH, 0), FONT_MEDIUM,
+		Colors::BLACK, ETextAlignment::CENTER, text);
+	to.drawText(position + Point(0, -TEXT_OUTLINE_WIDTH), FONT_MEDIUM,
+		Colors::BLACK, ETextAlignment::CENTER, text);
+	to.drawText(position + Point(0, TEXT_OUTLINE_WIDTH), FONT_MEDIUM,
+		Colors::BLACK, ETextAlignment::CENTER, text);
+	to.drawText(position, FONT_MEDIUM, Colors::WHITE, ETextAlignment::CENTER, text);
 }
 }
 
@@ -109,13 +103,14 @@ void BattleControllerActionPrompt::draw(Canvas & to, BattleControllerPrimaryActi
 
 	const auto layout = promptLayout(drawPrimary ? action : BattleControllerPrimaryAction::NONE,
 		anchorRect, unobscuredBattlefield, drawInspect, drawDirection);
-	const auto & font = ENGINE->renderHandler().loadFont(FONT_SMALL);
+	const auto & font = ENGINE->renderHandler().loadFont(FONT_MEDIUM);
 	auto drawButtonPrompt = [&](const Rect & rect, const std::vector<std::string> & bindings,
 		const std::string & text, bool buttonPressed)
 	{
 		const std::string fittedText = fitPromptText(
-			text, *font, std::max(0, unobscuredBattlefield.w - GLYPH_SIZE - GLYPH_TEXT_SPACING));
-		const auto content = contentLayout(rect, static_cast<int>(font->getStringWidth(fittedText)),
+			text, *font, std::max(0, unobscuredBattlefield.w - GLYPH_SIZE
+				- GLYPH_TEXT_SPACING - TEXT_OUTLINE_WIDTH * 2));
+		const auto content = contentLayout(rect, outlinedTextWidth(*font, fittedText),
 			GLYPH_SIZE, GLYPH_SIZE, unobscuredBattlefield);
 		const auto spritePath = buttonSpritePath(bindings, family, buttonPressed);
 		if(!spritePath.empty())
@@ -124,9 +119,11 @@ void BattleControllerActionPrompt::draw(Canvas & to, BattleControllerPrimaryActi
 				ImagePath::builtin(spritePath), EImageBlitMode::COLORKEY);
 			to.draw(sprite, content.glyphTopLeft);
 			if(spritePath.find("generic-face") != std::string::npos)
+			{
 				to.drawText(content.glyphTopLeft + Point(GLYPH_SIZE / 2, GLYPH_SIZE / 2),
-					FONT_SMALL, GENERIC_FACE_LABEL_COLOR, ETextAlignment::CENTER,
-					bindingLabel(bindings.front(), family));
+					FONT_SMALL, GENERIC_FACE_LABEL_COLOR,
+					ETextAlignment::CENTER, bindingLabel(bindings.front(), family));
+			}
 		}
 		else
 		{
@@ -134,7 +131,7 @@ void BattleControllerActionPrompt::draw(Canvas & to, BattleControllerPrimaryActi
 				FONT_SMALL, Colors::WHITE, ETextAlignment::CENTER,
 				bindingLabel(bindings.front(), family));
 		}
-		to.drawText(content.textCenter, FONT_SMALL, Colors::WHITE, ETextAlignment::CENTER, fittedText);
+		drawOutlinedPromptText(to, content.textCenter, fittedText);
 	};
 
 	if(layout.primaryAction)
@@ -147,27 +144,27 @@ void BattleControllerActionPrompt::draw(Canvas & to, BattleControllerPrimaryActi
 		if(!directionSprite.empty())
 		{
 			const std::string fittedText = fitPromptText(directionText, *font,
-				std::max(0, unobscuredBattlefield.w - DIRECTION_GLYPH_WIDTH - GLYPH_TEXT_SPACING));
+				std::max(0, unobscuredBattlefield.w - DIRECTION_GLYPH_WIDTH
+					- GLYPH_TEXT_SPACING - TEXT_OUTLINE_WIDTH * 2));
 			const auto content = contentLayout(
 				*layout.attackDirection,
-				static_cast<int>(font->getStringWidth(fittedText)),
+				outlinedTextWidth(*font, fittedText),
 				DIRECTION_GLYPH_WIDTH,
 				DIRECTION_GLYPH_HEIGHT,
 				unobscuredBattlefield);
 			const auto sprite = ENGINE->renderHandler().loadImage(
 				ImagePath::builtin(directionSprite), EImageBlitMode::COLORKEY);
 			to.draw(sprite, content.glyphTopLeft);
-			to.drawText(content.textCenter, FONT_SMALL, Colors::WHITE,
-				ETextAlignment::CENTER, fittedText);
+			drawOutlinedPromptText(to, content.textCenter, fittedText);
 		}
 		else
 		{
 			const std::string fittedText = fitPromptText(
-				directionBindings + " " + directionText, *font, unobscuredBattlefield.w);
+				directionBindings + " " + directionText, *font,
+				std::max(0, unobscuredBattlefield.w - TEXT_OUTLINE_WIDTH * 2));
 			const auto content = contentLayout(*layout.attackDirection,
-				static_cast<int>(font->getStringWidth(fittedText)), 0, 0, unobscuredBattlefield);
-			to.drawText(content.textCenter, FONT_SMALL, Colors::WHITE,
-				ETextAlignment::CENTER, fittedText);
+				outlinedTextWidth(*font, fittedText), 0, 0, unobscuredBattlefield);
+			drawOutlinedPromptText(to, content.textCenter, fittedText);
 		}
 	}
 	if(layout.holdInspect)

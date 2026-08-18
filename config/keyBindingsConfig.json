@@ -115,6 +115,7 @@
 		"globalFullscreen":         "F4",
 		"globalScreenshot":         "F3",
 		"globalMoveFocus":          "Tab",
+		"toggleCursorMode":         [],
 		"globalOptions":            "O",
 		"globalReturn":             [ "Escape", "Return", "Keypad Enter"],
 		"heroArmySplit":            "S",
@@ -335,6 +336,7 @@
 		
 		"adventureEndTurn" : "back",
 		"battleAutocombatEnd" : "back",
+		"toggleCursorMode" : [],
 		
 		"globalOptions" : "start",
 		"adventureGameOptions" : "start",
@@ -361,6 +363,23 @@
 		"battleToggleHeroesStats" : "leftstick",
 		
 		"adventureToggleGrid" : "rightstick",
-		"battleToggleQueue" : "rightstick",
+		"battleToggleQueue" : "rightstick"
+	},
+
+	"joystickButtonsPlayStation": {
+		"toggleCursorMode": "touchpad",
+		"battleAutocombatEnd": []
+	},
+	"joystickButtonsXbox": {
+		"toggleCursorMode": "back",
+		"battleAutocombatEnd": []
+	},
+	"joystickButtonsNintendo": {
+		"toggleCursorMode": "back",
+		"battleAutocombatEnd": []
+	},
+	"joystickButtonsGeneric": {
+		"toggleCursorMode": "back",
+		"battleAutocombatEnd": []
 	}
 }

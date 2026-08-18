@@ -12,6 +12,7 @@
 #include "BattleConstants.h"
 #include "BattleNavigationArbiter.h"
 #include "BattleControllerAction.h"
+#include "BattleControllerInteractionState.h"
 #include "BattleFocusModel.h"
 #include "BattleMeleeSelection.h"
 #include "BattleFocusNavigation.h"
@@ -29,6 +30,7 @@ class CStack;
 struct BattleResult;
 struct BattleSpellCast;
 struct ControllerAxisEvent;
+enum class PointerEventSource;
 struct CObstacleInstance;
 struct SetStackEffect;
 class BattleAction;
@@ -126,7 +128,6 @@ class BattleInterface
 	void playIntroSoundAndUnlockInterface();
 	void onIntroSoundPlayed();
 	bool ensureControllerFocus();
-	void syncControllerFocusPresentation();
 	std::vector<BattleUnitNavigationCandidate> getControllerUnitCandidates() const;
 	bool canControllerInspectFocusedStack() const;
 	std::optional<uint32_t> getControllerActionTargetUnitId(BattleControllerPrimaryAction action) const;
@@ -164,6 +165,7 @@ private:
 	BattleControllerActionPressState controllerActionPressState;
 	BattleControllerMeleeOriginRepeatState controllerMeleeOriginRepeatState;
 	BattleMeleeSelection controllerMeleeSelection;
+	BattleControllerInteractionState controllerInteractionState;
 	std::optional<uint32_t> controllerInspectUnitId;
 	std::weak_ptr<IShowActivatable> controllerInspectWindow;
 	std::weak_ptr<IShowActivatable> controllerHoldInspectWindow;
@@ -198,8 +200,12 @@ public:
 	bool hasControllerInspectTarget() const;
 	bool hasControllerMeleeAlternatives() const;
 	void controllerWindowRestored();
+	void syncControllerFocusPresentation();
 	BattleControllerPrimaryAction getControllerPrimaryAction();
+	void toggleControllerCursorMode();
 	bool isControllerNativeMode() const;
+	bool isControllerCursorMode() const;
+	bool acceptsPointerPresentation(PointerEventSource source);
 	void requestAutofightingAIToTakeAction();
 
 	void giveCommand(EActionType action, const BattleHex & tile = BattleHex(), SpellID spell = SpellID::NONE);

@@ -34,6 +34,7 @@ enum class EShortcut
 	GLOBAL_OPTIONS,    // 'O' - Open System Options dialog
 	GLOBAL_BACKSPACE,  // Backspace - erase last symbol in text input
 	GLOBAL_MOVE_FOCUS, // Tab - move focus to next text input
+	GLOBAL_TOGGLE_CURSOR_MODE,
 
 	// Movement hotkeys, usually - for moving through lists with slider
 	MOVE_LEFT,
