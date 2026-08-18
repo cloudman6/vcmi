@@ -316,9 +316,14 @@ void CursorHandler::show()
 	cursor->setVisible(true);
 }
 
-void CursorHandler::setControllerNativeHidden(bool hidden)
+void CursorHandler::setControllerNativeHidden(Cursor::ControllerNativeVisibilityOwner owner, bool hidden)
 {
-	controllerNativeHidden = hidden;
+	if(hidden)
+		controllerNativeVisibilityOwners.insert(owner);
+	else
+		controllerNativeVisibilityOwners.erase(owner);
+
+	controllerNativeHidden = !controllerNativeVisibilityOwners.empty();
 	if(!controllerNativeHidden && cursorImageUpdatePending)
 		applyCursorImage();
 

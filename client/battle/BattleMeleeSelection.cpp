@@ -8,7 +8,7 @@
  *
  */
 
-#include "../StdInc.h"
+#include "StdInc.h"
 
 #include "BattleMeleeSelection.h"
 
@@ -27,7 +27,8 @@ bool BattleMeleeSelection::refresh(PossiblePlayerBattleAction::Actions newAction
 		if(!candidate.attackFrom.isValid() || candidate.direction == BattleHex::NONE)
 			continue;
 
-		const auto duplicate = std::find_if(normalizedCandidates.begin(), normalizedCandidates.end(), [&candidate](const Candidate & existing)
+		const auto duplicate = std::find_if(
+			normalizedCandidates.begin(), normalizedCandidates.end(), [&candidate](const Candidate & existing)
 		{
 			return existing.attackFrom == candidate.attackFrom;
 		});
@@ -42,7 +43,10 @@ bool BattleMeleeSelection::refresh(PossiblePlayerBattleAction::Actions newAction
 	}
 
 	const auto previousCandidate = isValid() ? candidates[selectedIndex] : Candidate{};
-	const bool sameSelection = isValid() && action == newAction && target == newTarget && targetUnitId == newTargetUnitId;
+	const bool sameSelection = isValid()
+		&& action == newAction
+		&& target == newTarget
+		&& targetUnitId == newTargetUnitId;
 
 	action = newAction;
 	target = newTarget;
@@ -121,12 +125,12 @@ bool BattleMeleeSelection::isMeleeAction(PossiblePlayerBattleAction::Actions act
 {
 	switch(action)
 	{
-		case PossiblePlayerBattleAction::ATTACK:
-		case PossiblePlayerBattleAction::LONG_WEAPON_ATTACK:
-		case PossiblePlayerBattleAction::WALK_AND_ATTACK:
-		case PossiblePlayerBattleAction::ATTACK_AND_RETURN:
-			return true;
-		default:
-			return false;
+	case PossiblePlayerBattleAction::ATTACK:
+	case PossiblePlayerBattleAction::LONG_WEAPON_ATTACK:
+	case PossiblePlayerBattleAction::WALK_AND_ATTACK:
+	case PossiblePlayerBattleAction::ATTACK_AND_RETURN:
+		return true;
+	default:
+		return false;
 	}
 }

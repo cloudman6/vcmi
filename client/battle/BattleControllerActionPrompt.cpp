@@ -7,7 +7,7 @@
  * Full text of license available in license.txt file, in main folder
  */
 
-#include "../StdInc.h"
+#include "StdInc.h"
 
 #include "BattleControllerActionPrompt.h"
 
@@ -22,7 +22,18 @@ constexpr int UNOBSCURED_TOP = 86;
 constexpr int UNOBSCURED_RIGHT = 721;
 constexpr int UNOBSCURED_BOTTOM = 555;
 
-std::string bindingLabel(const std::string & binding, ControllerPrompt::Family family)
+constexpr bool usesFamilySpecificFaceSprite(ControllerPrompt::Family family)
+{
+	return family == ControllerPrompt::Family::PLAYSTATION;
+}
+
+static_assert(!usesFamilySpecificFaceSprite(ControllerPrompt::Family::XBOX),
+	"Battle Native Xbox prompts must use the generic runtime-label face glyph");
+
+}
+
+std::string BattleControllerActionPrompt::bindingLabel(
+	const std::string & binding, ControllerPrompt::Family family)
 {
 	if(family == ControllerPrompt::Family::PLAYSTATION)
 	{
@@ -34,6 +45,17 @@ std::string bindingLabel(const std::string & binding, ControllerPrompt::Family f
 		if(binding == "rightshoulder") return "R1";
 		if(binding == "lefttrigger") return "L2";
 		if(binding == "righttrigger") return "R2";
+	}
+	else if(family == ControllerPrompt::Family::NINTENDO)
+	{
+		if(binding == "a") return "B";
+		if(binding == "b") return "A";
+		if(binding == "x") return "Y";
+		if(binding == "y") return "X";
+		if(binding == "leftshoulder") return "L";
+		if(binding == "rightshoulder") return "R";
+		if(binding == "lefttrigger") return "ZL";
+		if(binding == "righttrigger") return "ZR";
 	}
 	else
 	{
@@ -53,7 +75,6 @@ std::string bindingLabel(const std::string & binding, ControllerPrompt::Family f
 		return static_cast<char>(std::toupper(character));
 	});
 	return result;
-}
 }
 
 std::string BattleControllerActionPrompt::textKey(BattleControllerPrimaryAction action)
@@ -94,9 +115,10 @@ std::string BattleControllerActionPrompt::bindingPairSprite(
 	if(previousBindings.front() != "leftshoulder" || nextBindings.front() != "rightshoulder")
 		return "";
 
+	if(family == ControllerPrompt::Family::NINTENDO)
+		return "";
 	const std::string familyPrefix = family == ControllerPrompt::Family::PLAYSTATION
-		? "playstation"
-		: "generic";
+		? "playstation" : "generic";
 	return "controllerActionBar/" + familyPrefix + "-shoulders-normal.png";
 }
 
@@ -107,12 +129,9 @@ std::string BattleControllerActionPrompt::buttonSpritePath(
 		return "";
 
 	const auto & binding = bindings.front();
-	if(family != ControllerPrompt::Family::UNKNOWN && (binding == "a" || binding == "b"))
+	if(usesFamilySpecificFaceSprite(family) && (binding == "a" || binding == "b"))
 	{
-		const std::string familyPrefix = family == ControllerPrompt::Family::PLAYSTATION
-			? "playstation"
-			: "xbox";
-		return "controllerActionBar/" + familyPrefix + "-" + binding + "-"
+		return "controllerActionBar/playstation-" + binding + "-"
 			+ (pressed ? "pressed" : "normal") + ".png";
 	}
 

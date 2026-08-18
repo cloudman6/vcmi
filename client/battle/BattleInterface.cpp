@@ -57,12 +57,41 @@
 
 namespace
 {
+class ControllerInspectStackWindow final : public CStackWindow
+{
+public:
+	explicit ControllerInspectStackWindow(const CStack * stack)
+		: CStackWindow(stack, false)
+	{
+	}
+
+	bool captureThisKey(EShortcut key) override
+	{
+		return ENGINE->input().getCurrentInputMode() == InputMode::CONTROLLER
+			&& (key == EShortcut::GLOBAL_ACCEPT || key == EShortcut::GLOBAL_CANCEL);
+	}
+
+	void keyPressed(EShortcut key) override
+	{
+		if(key == EShortcut::GLOBAL_ACCEPT)
+			close();
+		else
+			CStackWindow::keyPressed(key);
+	}
+};
+
 class ControllerHoldStackWindow final : public CStackWindow
 {
 public:
 	explicit ControllerHoldStackWindow(const CStack * stack)
 		: CStackWindow(stack, true)
 	{
+	}
+
+	bool captureThisKey(EShortcut key) override
+	{
+		return ENGINE->input().getCurrentInputMode() == InputMode::CONTROLLER
+			&& key == EShortcut::GLOBAL_CANCEL;
 	}
 
 	void keyReleased(EShortcut key) override
@@ -710,7 +739,18 @@ void BattleInterface::trySetActivePlayer( PlayerColor player )
 
 bool BattleInterface::isControllerNativeMode() const
 {
-	return ENGINE->input().getCurrentInputMode() == InputMode::CONTROLLER;
+	return ENGINE->input().getCurrentInputMode() == InputMode::CONTROLLER
+		&& !controllerInteractionState.isCursorMode();
+}
+
+bool BattleInterface::isControllerCursorMode() const
+{
+	return controllerInteractionState.isCursorMode();
+}
+
+bool BattleInterface::acceptsPointerPresentation(PointerEventSource source)
+{
+	return controllerInteractionState.acceptsPointerPresentation(source);
 }
 
 bool BattleInterface::ensureControllerFocus()
@@ -758,8 +798,15 @@ std::vector<BattleUnitNavigationCandidate> BattleInterface::getControllerUnitCan
 
 bool BattleInterface::handleControllerAxis(const ControllerAxisEvent & event)
 {
-	if(!isControllerNativeMode() || !ensureControllerFocus())
+	if(!isControllerNativeMode())
 		return false;
+	if(stacksController->getActiveStack() == nullptr || !ensureControllerFocus())
+	{
+		focusNavigation->reset();
+		unitNavigation->reset();
+		navigationArbiter.reset();
+		return false;
+	}
 
 	bool consumed = false;
 	for(const auto action : event.actions)
@@ -800,6 +847,13 @@ void BattleInterface::updateControllerAxis(uint32_t msPassed)
 {
 	if(!isControllerNativeMode())
 		return;
+	if(stacksController->getActiveStack() == nullptr)
+	{
+		focusNavigation->reset();
+		unitNavigation->reset();
+		navigationArbiter.reset();
+		return;
+	}
 
 	if(const auto repeatDirection = controllerMeleeOriginRepeatState.update(msPassed);
 		repeatDirection && !cycleControllerMeleeOrigin(*repeatDirection, true))
@@ -810,14 +864,14 @@ void BattleInterface::updateControllerAxis(uint32_t msPassed)
 	bool focusMoved = false;
 	switch(navigationArbiter.owner())
 	{
-		case BattleNavigationArbiter::Source::HEX:
-			focusMoved = focusNavigation->update(msPassed);
-			break;
-		case BattleNavigationArbiter::Source::UNIT:
-			focusMoved = unitNavigation->update(msPassed);
-			break;
-		case BattleNavigationArbiter::Source::NONE:
-			break;
+	case BattleNavigationArbiter::Source::HEX:
+		focusMoved = focusNavigation->update(msPassed);
+		break;
+	case BattleNavigationArbiter::Source::UNIT:
+		focusMoved = unitNavigation->update(msPassed);
+		break;
+	case BattleNavigationArbiter::Source::NONE:
+		break;
 	}
 	const bool presentationLost = focusModel.hasFocus()
 		&& fieldController->getHoveredHex() != focusModel.getFocusedHex();
@@ -843,11 +897,36 @@ void BattleInterface::resetControllerAxis()
 
 void BattleInterface::controllerInputModeActivated()
 {
+	controllerInteractionState.controllerInputActivated();
 	controllerActionPressState.reset();
 	controllerMeleeOriginRepeatState.reset();
 	controllerMeleeSelection.clear();
 	if(ensureControllerFocus())
 		syncControllerFocusPresentation();
+}
+
+void BattleInterface::toggleControllerCursorMode()
+{
+	if(ENGINE->input().getCurrentInputMode() != InputMode::CONTROLLER)
+		return;
+
+	ENGINE->input().resetControllerAxisState();
+	if(!controllerInteractionState.isCursorMode())
+	{
+		controllerInteractionState.enterCursorMode(focusModel.getFocusedHex());
+	}
+	else
+	{
+		const auto * activeStack = stacksController->getActiveStack();
+		const BattleHex activeHex = activeStack != nullptr ? activeStack->getPosition() : BattleHex::INVALID;
+		const BattleHex restoreHex = controllerInteractionState.leaveCursorMode(activeHex);
+		if(restoreHex.isValid())
+			focusModel.setFocus(restoreHex);
+		if(ensureControllerFocus())
+			syncControllerFocusPresentation();
+	}
+	ENGINE->windows().refreshControllerCursorPolicy();
+	redrawBattlefield();
 }
 
 bool BattleInterface::handleControllerAcceptPressed()
@@ -912,7 +991,7 @@ bool BattleInterface::handleControllerAcceptReleased()
 	if(stack == nullptr)
 		return false;
 
-	auto inspectWindow = std::make_shared<CStackWindow>(stack, false);
+	auto inspectWindow = std::make_shared<ControllerInspectStackWindow>(stack);
 	controllerInspectUnitId = stack->unitId();
 	controllerInspectWindow = inspectWindow;
 	ENGINE->windows().pushWindow(inspectWindow);

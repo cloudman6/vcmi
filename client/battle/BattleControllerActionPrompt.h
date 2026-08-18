@@ -33,6 +33,7 @@ class BattleControllerActionPrompt
 	};
 
 	static std::string textKey(BattleControllerPrimaryAction action);
+	static std::string bindingLabel(const std::string & binding, ControllerPrompt::Family family);
 	static std::string bindingPairLabel(const std::vector<std::string> & previousBindings,
 		const std::vector<std::string> & nextBindings, ControllerPrompt::Family family);
 	static std::string bindingPairSprite(const std::vector<std::string> & previousBindings,

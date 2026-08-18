@@ -60,7 +60,7 @@ class BattleActionsController
 
 	std::string actionGetStatusMessage(PossiblePlayerBattleAction action, const BattleHex & hoveredHex);
 	std::string actionGetStatusMessageBlocked(PossiblePlayerBattleAction action, const BattleHex & hoveredHex);
-	BattleControllerShootDisabledReason getControllerShootDisabledReason(const BattleHex & focusedHex) const;
+	std::string getControllerShootDisabledReasonTextKey(const BattleHex & focusedHex) const;
 	bool controllerDirectActionsAllowed() const;
 
 	void actionRealize(PossiblePlayerBattleAction action, const BattleHex & hoveredHex);

@@ -88,20 +88,27 @@ static std::string formatPlural(DamageRange range, const std::string & baseTextI
 	return formatPluralImpl(range.max, rangeString, baseTextID);
 }
 
-static std::string controllerShootDisabledReasonTextKey(BattleControllerShootDisabledReason reason)
+static BattleControllerPrimaryAction classifyControllerPrimaryAction(
+	PossiblePlayerBattleAction::Actions action, bool legal)
 {
-	switch(reason)
+	if(!legal)
+		return BattleControllerPrimaryAction::NONE;
+
+	switch(action)
 	{
-	case BattleControllerShootDisabledReason::NO_AMMO:
-		return "vcmi.battleWindow.controller.shootDisabled.noAmmo";
-	case BattleControllerShootDisabledReason::BLOCKED_BY_ADJACENT_ENEMY:
-		return "vcmi.battleWindow.controller.shootDisabled.blocked";
-	case BattleControllerShootDisabledReason::OUT_OF_RANGE:
-		return "vcmi.battleWindow.controller.shootDisabled.outOfRange";
-	case BattleControllerShootDisabledReason::RULE_PROHIBITED:
-		return "vcmi.battleWindow.controller.shootDisabled.prohibited";
+	case PossiblePlayerBattleAction::MOVE_STACK:
+		return BattleControllerPrimaryAction::MOVE;
+	case PossiblePlayerBattleAction::ATTACK:
+	case PossiblePlayerBattleAction::LONG_WEAPON_ATTACK:
+	case PossiblePlayerBattleAction::WALK_AND_ATTACK:
+	case PossiblePlayerBattleAction::ATTACK_AND_RETURN:
+		return BattleControllerPrimaryAction::ATTACK;
+	case PossiblePlayerBattleAction::SHOOT:
+		return BattleControllerPrimaryAction::SHOOT;
+	case PossiblePlayerBattleAction::CREATURE_INFO:
+		return BattleControllerPrimaryAction::INSPECT;
 	default:
-		return "";
+		return BattleControllerPrimaryAction::NONE;
 	}
 }
 
@@ -246,7 +253,10 @@ void BattleActionsController::endCastingSpell()
 	}
 
 	selectedStack = nullptr;
-	ENGINE->fakeMouseMove();
+	if(owner.isControllerNativeMode())
+		owner.syncControllerFocusPresentation();
+	else
+		ENGINE->fakeMouseMove();
 }
 
 bool BattleActionsController::isActiveStackSpellcaster() const
@@ -811,11 +821,11 @@ std::string BattleActionsController::actionGetStatusMessageBlocked(PossiblePlaye
 	}
 }
 
-BattleControllerShootDisabledReason BattleActionsController::getControllerShootDisabledReason(
+std::string BattleActionsController::getControllerShootDisabledReasonTextKey(
 	const BattleHex & focusedHex) const
 {
 	if(!controllerDirectActionsAllowed())
-		return BattleControllerShootDisabledReason::NONE;
+		return "";
 
 	const auto battle = owner.getBattle();
 	const auto * activeStack = owner.stacksController->getActiveStack();
@@ -828,7 +838,7 @@ BattleControllerShootDisabledReason BattleActionsController::getControllerShootD
 		&& targetStack->alive()
 		&& battle->battleMatchOwner(activeStack, targetStack);
 	if(!shootingConcern)
-		return BattleControllerShootDisabledReason::NONE;
+		return "";
 
 	const bool legal = battle->battleCanShoot(activeStack, focusedHex);
 	const bool hasAmmo = activeStack->shots.canUse();
@@ -842,8 +852,15 @@ BattleControllerShootDisabledReason BattleActionsController::getControllerShootD
 			activeStack->getPosition(), targetStack, limitedRange->val);
 	}
 
-	return classifyBattleControllerShootDisabledReason(
-		shootingConcern, legal, hasAmmo, blockedByAdjacentEnemy, outsideLimitedRange);
+	if(legal)
+		return "";
+	if(!hasAmmo)
+		return "vcmi.battleWindow.controller.shootDisabled.noAmmo";
+	if(blockedByAdjacentEnemy)
+		return "vcmi.battleWindow.controller.shootDisabled.blocked";
+	if(outsideLimitedRange)
+		return "vcmi.battleWindow.controller.shootDisabled.outOfRange";
+	return "vcmi.battleWindow.controller.shootDisabled.prohibited";
 }
 
 bool BattleActionsController::actionIsLegal(PossiblePlayerBattleAction action, const BattleHex & targetHex)
@@ -1181,7 +1198,7 @@ BattleControllerPrimaryAction BattleActionsController::getControllerPrimaryActio
 		return BattleControllerPrimaryAction::NONE;
 
 	const auto action = selectControllerAction(focusedHex);
-	return classifyBattleControllerPrimaryAction(action.get(), actionIsLegal(action, focusedHex));
+	return classifyControllerPrimaryAction(action.get(), actionIsLegal(action, focusedHex));
 }
 
 std::vector<BattleMeleeSelection::Candidate> BattleActionsController::getControllerMeleeCandidates(
@@ -1200,14 +1217,16 @@ std::vector<BattleMeleeSelection::Candidate> BattleActionsController::getControl
 		if(!owner.getBattle()->battleCanAttackHex(availableHexes, attacker, targetHex, attackDirection))
 			continue;
 
-		const auto attackFrom = owner.getBattle()->fromWhichHexAttack(attacker, targetHex, attackDirection, allowLongWeapon);
+		const auto attackFrom = owner.getBattle()->fromWhichHexAttack(
+			attacker, targetHex, attackDirection, allowLongWeapon);
 		if(attackFrom.isValid())
 			result.push_back({attackFrom, attackDirection});
 	}
 	return result;
 }
 
-bool BattleActionsController::refreshControllerMeleeSelection(BattleMeleeSelection & selection, const BattleHex & focusedHex)
+bool BattleActionsController::refreshControllerMeleeSelection(
+	BattleMeleeSelection & selection, const BattleHex & focusedHex)
 {
 	if(!focusedHex.isValid() || !controllerDirectActionsAllowed())
 	{
@@ -1228,7 +1247,8 @@ bool BattleActionsController::refreshControllerMeleeSelection(BattleMeleeSelecti
 		return false;
 	}
 
-	return selection.refresh(action.get(), focusedHex, target->unitId(), getControllerMeleeCandidates(action, focusedHex));
+	return selection.refresh(
+		action.get(), focusedHex, target->unitId(), getControllerMeleeCandidates(action, focusedHex));
 }
 
 bool BattleActionsController::realizeControllerMeleeSelection(const BattleMeleeSelection & selection)
@@ -1319,13 +1339,12 @@ void BattleActionsController::onHexHovered(const BattleHex & hoveredHex)
 		newConsoleMsg = actionGetStatusMessageBlocked(action, hoveredHex);
 	}
 
-	const auto primaryAction = classifyBattleControllerPrimaryAction(action.get(), actionLegal);
+	const auto primaryAction = classifyControllerPrimaryAction(action.get(), actionLegal);
 	if(owner.isControllerNativeMode()
 		&& (primaryAction == BattleControllerPrimaryAction::INSPECT
 			|| primaryAction == BattleControllerPrimaryAction::NONE))
 	{
-		const auto reasonKey = controllerShootDisabledReasonTextKey(
-			getControllerShootDisabledReason(hoveredHex));
+		const auto reasonKey = getControllerShootDisabledReasonTextKey(hoveredHex);
 		if(!reasonKey.empty())
 			newConsoleMsg = LIBRARY->generaltexth->translate(reasonKey);
 	}

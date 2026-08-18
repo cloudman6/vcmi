@@ -13,34 +13,6 @@
 
 #include <gtest/gtest.h>
 
-TEST(BattleControllerActionTest, MapsOnlyLegalBattleActionsToControllerPrimaryActions)
-{
-	using Action = BattleControllerPrimaryAction;
-	using Possible = PossiblePlayerBattleAction;
-
-	EXPECT_EQ(classifyBattleControllerPrimaryAction(Possible::MOVE_STACK, true), Action::MOVE);
-	EXPECT_EQ(classifyBattleControllerPrimaryAction(Possible::MOVE_TACTICS, true), Action::NONE);
-	EXPECT_EQ(classifyBattleControllerPrimaryAction(Possible::ATTACK, true), Action::ATTACK);
-	EXPECT_EQ(classifyBattleControllerPrimaryAction(Possible::WALK_AND_ATTACK, true), Action::ATTACK);
-	EXPECT_EQ(classifyBattleControllerPrimaryAction(Possible::SHOOT, true), Action::SHOOT);
-	EXPECT_EQ(classifyBattleControllerPrimaryAction(Possible::CREATURE_INFO, true), Action::INSPECT);
-	EXPECT_EQ(classifyBattleControllerPrimaryAction(Possible::CREATURE_INFO, false), Action::NONE);
-	EXPECT_EQ(classifyBattleControllerPrimaryAction(Possible::AIMED_SPELL_CREATURE, true), Action::NONE);
-}
-
-TEST(BattleControllerShootDisabledReasonTest, UsesCanonicalLegalityAndStableReasonPriority)
-{
-	using Reason = BattleControllerShootDisabledReason;
-
-	EXPECT_EQ(classifyBattleControllerShootDisabledReason(false, false, false, true, true), Reason::NONE);
-	EXPECT_EQ(classifyBattleControllerShootDisabledReason(true, true, false, true, true), Reason::NONE);
-	EXPECT_EQ(classifyBattleControllerShootDisabledReason(true, false, false, true, true), Reason::NO_AMMO);
-	EXPECT_EQ(classifyBattleControllerShootDisabledReason(true, false, true, true, true),
-		Reason::BLOCKED_BY_ADJACENT_ENEMY);
-	EXPECT_EQ(classifyBattleControllerShootDisabledReason(true, false, true, false, true), Reason::OUT_OF_RANGE);
-	EXPECT_EQ(classifyBattleControllerShootDisabledReason(true, false, true, false, false), Reason::RULE_PROHIBITED);
-}
-
 TEST(BattleControllerActionPressStateTest, MatchingReleaseCommitsOnce)
 {
 	using Action = BattleControllerPrimaryAction;

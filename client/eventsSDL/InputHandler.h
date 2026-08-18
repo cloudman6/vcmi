@@ -36,6 +36,14 @@ enum class InputMode
 	CONTROLLER
 };
 
+enum class PointerEventSource
+{
+	REAL_MOUSE,
+	TOUCH,
+	CONTROLLER_CURSOR,
+	SYNTHETIC_REFRESH
+};
+
 enum class PowerStateMode
 {
 	UNKNOWN,
@@ -62,6 +70,7 @@ class InputHandler
 	const bool enableController;
 
 	InputMode currentInputMode;
+	PointerEventSource pointerEventSource = PointerEventSource::SYNTHETIC_REFRESH;
 	void setCurrentInputMode(InputMode modi);
 
 	std::vector<SDL_Event> acquireEvents();
@@ -97,10 +106,13 @@ public:
 	bool ignoreEventsUntilInput();
 
 	/// Moves cursor by specified distance
-	void moveCursorPosition(const Point & distance);
+	void moveCursorPosition(const Point & distance, PointerEventSource source);
 
 	/// Moves cursor to a specified position
-	void setCursorPosition(const Point & position);
+	void setCursorPosition(const Point & position, PointerEventSource source);
+	void dispatchSyntheticMouseMove();
+	PointerEventSource getPointerEventSource() const;
+	void resetControllerAxisState();
 
 	/// Initiates text input in selected area, potentially creating IME popup (mobile systems only at the moment)
 	void startTextInput(const Rect & where);

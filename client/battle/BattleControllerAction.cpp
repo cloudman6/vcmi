@@ -7,47 +7,9 @@
  * Full text of license available in license.txt file, in main folder
  */
 
-#include "../StdInc.h"
+#include "StdInc.h"
 
 #include "BattleControllerAction.h"
-
-BattleControllerPrimaryAction classifyBattleControllerPrimaryAction(
-	PossiblePlayerBattleAction::Actions action, bool legal)
-{
-	if(!legal)
-		return BattleControllerPrimaryAction::NONE;
-
-	switch(action)
-	{
-		case PossiblePlayerBattleAction::MOVE_STACK:
-			return BattleControllerPrimaryAction::MOVE;
-		case PossiblePlayerBattleAction::ATTACK:
-		case PossiblePlayerBattleAction::LONG_WEAPON_ATTACK:
-		case PossiblePlayerBattleAction::WALK_AND_ATTACK:
-		case PossiblePlayerBattleAction::ATTACK_AND_RETURN:
-			return BattleControllerPrimaryAction::ATTACK;
-		case PossiblePlayerBattleAction::SHOOT:
-			return BattleControllerPrimaryAction::SHOOT;
-		case PossiblePlayerBattleAction::CREATURE_INFO:
-			return BattleControllerPrimaryAction::INSPECT;
-		default:
-			return BattleControllerPrimaryAction::NONE;
-	}
-}
-
-BattleControllerShootDisabledReason classifyBattleControllerShootDisabledReason(
-	bool shootingConcern, bool legal, bool hasAmmo, bool blockedByAdjacentEnemy, bool outsideLimitedRange)
-{
-	if(!shootingConcern || legal)
-		return BattleControllerShootDisabledReason::NONE;
-	if(!hasAmmo)
-		return BattleControllerShootDisabledReason::NO_AMMO;
-	if(blockedByAdjacentEnemy)
-		return BattleControllerShootDisabledReason::BLOCKED_BY_ADJACENT_ENEMY;
-	if(outsideLimitedRange)
-		return BattleControllerShootDisabledReason::OUT_OF_RANGE;
-	return BattleControllerShootDisabledReason::RULE_PROHIBITED;
-}
 
 namespace
 {
@@ -58,13 +20,13 @@ bool isMeleeAction(PossiblePlayerBattleAction::Actions action)
 {
 	switch(action)
 	{
-		case PossiblePlayerBattleAction::ATTACK:
-		case PossiblePlayerBattleAction::LONG_WEAPON_ATTACK:
-		case PossiblePlayerBattleAction::WALK_AND_ATTACK:
-		case PossiblePlayerBattleAction::ATTACK_AND_RETURN:
-			return true;
-		default:
-			return false;
+	case PossiblePlayerBattleAction::ATTACK:
+	case PossiblePlayerBattleAction::LONG_WEAPON_ATTACK:
+	case PossiblePlayerBattleAction::WALK_AND_ATTACK:
+	case PossiblePlayerBattleAction::ATTACK_AND_RETURN:
+		return true;
+	default:
+		return false;
 	}
 }
 }
@@ -131,7 +93,8 @@ void BattleControllerActionPressState::reset()
 	pressedTargetUnitId.reset();
 }
 
-void BattleControllerMeleeOriginRepeatState::press(bool forward, const BattleControllerMeleeOriginRepeatContext & context)
+void BattleControllerMeleeOriginRepeatState::press(
+	bool forward, const BattleControllerMeleeOriginRepeatContext & context)
 {
 	if(pressedDirection == forward && expectedContext == context)
 		return;
@@ -166,7 +129,8 @@ std::optional<bool> BattleControllerMeleeOriginRepeatState::update(uint32_t msPa
 	return pressedDirection;
 }
 
-bool BattleControllerMeleeOriginRepeatState::matchesContext(const BattleControllerMeleeOriginRepeatContext & context) const
+bool BattleControllerMeleeOriginRepeatState::matchesContext(
+	const BattleControllerMeleeOriginRepeatContext & context) const
 {
 	return pressedDirection && expectedContext == context;
 }
@@ -180,7 +144,8 @@ bool BattleControllerMeleeOriginRepeatState::retainContext(const BattleControlle
 	return false;
 }
 
-void BattleControllerMeleeOriginRepeatState::selectionAdvanced(const BattleControllerMeleeOriginRepeatContext & context)
+void BattleControllerMeleeOriginRepeatState::selectionAdvanced(
+	const BattleControllerMeleeOriginRepeatContext & context)
 {
 	if(pressedDirection)
 		expectedContext = context;

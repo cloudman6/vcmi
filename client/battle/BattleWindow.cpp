@@ -98,12 +98,16 @@ BattleWindow::BattleWindow(BattleInterface & Owner)
 	addShortcut(EShortcut::BATTLE_CAST_SPELL, std::bind(&BattleWindow::bSpellf, this));
 	addShortcut(EShortcut::BATTLE_WAIT, [this](){ if(!this->owner.isControllerNativeMode()) this->bWaitf(); });
 	addShortcut(EShortcut::BATTLE_DEFEND, [this](){ if(!this->owner.isControllerNativeMode()) this->bDefencef(); });
-	addShortcut(EShortcut::BATTLE_CONTROLLER_PREVIOUS_ATTACK_ORIGIN, [this](){ this->owner.handleControllerMeleeOriginPressed(false); });
-	addShortcut(EShortcut::BATTLE_CONTROLLER_NEXT_ATTACK_ORIGIN, [this](){ this->owner.handleControllerMeleeOriginPressed(true); });
+	addShortcut(EShortcut::BATTLE_CONTROLLER_PREVIOUS_ATTACK_ORIGIN,
+		[this](){ this->owner.handleControllerMeleeOriginPressed(false); });
+	addShortcut(EShortcut::BATTLE_CONTROLLER_NEXT_ATTACK_ORIGIN,
+		[this](){ this->owner.handleControllerMeleeOriginPressed(true); });
 	addShortcut(EShortcut::BATTLE_CONSOLE_UP, std::bind(&BattleWindow::bConsoleUpf, this));
 	addShortcut(EShortcut::BATTLE_CONSOLE_DOWN, std::bind(&BattleWindow::bConsoleDownf, this));
-	addShortcut(EShortcut::BATTLE_TACTICS_NEXT, [this](){ if(!this->owner.isControllerNativeMode()) this->bTacticNextStack(); });
-	addShortcut(EShortcut::BATTLE_TACTICS_END, [this](){ if(!this->owner.isControllerNativeMode()) this->bTacticPhaseEnd(); });
+	addShortcut(EShortcut::BATTLE_TACTICS_NEXT,
+		[this](){ if(!this->owner.isControllerNativeMode()) this->bTacticNextStack(); });
+	addShortcut(EShortcut::BATTLE_TACTICS_END,
+		[this](){ if(!this->owner.isControllerNativeMode()) this->bTacticPhaseEnd(); });
 	addShortcut(EShortcut::BATTLE_OPEN_ACTIVE_UNIT, std::bind(&BattleWindow::bOpenActiveUnit, this));
 	addShortcut(EShortcut::BATTLE_OPEN_HOVERED_UNIT, std::bind(&BattleWindow::bOpenHoveredUnit, this));
 
@@ -117,6 +121,7 @@ BattleWindow::BattleWindow(BattleInterface & Owner)
 	addShortcut(EShortcut::BATTLE_USE_CREATURE_SPELL, [this](){ this->owner.actionsController->enterCreatureCastingMode(); });
 	addShortcut(EShortcut::GLOBAL_CANCEL, [this](){ this->owner.actionsController->endCastingSpell(); });
 	addShortcut(EShortcut::GLOBAL_ACCEPT, [this](){ this->owner.handleControllerAcceptPressed(); });
+	addShortcut(EShortcut::GLOBAL_TOGGLE_CURSOR_MODE, [this](){ this->owner.toggleControllerCursorMode(); });
 	addShortcut(EShortcut::ADVENTURE_QUICK_LOAD, [this](){
 		//allow quick load only on player turn while no animations are ongoing
 		if (!this->owner.hasAnimations() && this->owner.stacksController->getActiveStack())
@@ -527,12 +532,13 @@ void BattleWindow::inputModeChanged(InputMode mode)
 {
 	if(mode == InputMode::CONTROLLER)
 		owner.controllerInputModeActivated();
-	ENGINE->windows().refreshControllerCursorPolicy();
 }
 
 ControllerAxisRoute BattleWindow::controllerAxisMoved(const ControllerAxisEvent & event)
 {
-	return owner.handleControllerAxis(event) ? ControllerAxisRoute::CAPTURED : ControllerAxisRoute::UNOWNED;
+	if(owner.handleControllerAxis(event))
+		return ControllerAxisRoute::CAPTURED;
+	return owner.isControllerNativeMode() ? ControllerAxisRoute::BLOCKED : ControllerAxisRoute::UNOWNED;
 }
 
 void BattleWindow::controllerAxisUpdate(uint32_t msPassed)

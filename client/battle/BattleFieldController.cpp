@@ -26,22 +26,26 @@
 
 #include "../CPlayerInterface.h"
 #include "../GameEngine.h"
+#include "../eventsSDL/InputHandler.h"
 #include "../GameInstance.h"
 #include "../adventureMap/CInGameConsole.h"
 #include "../render/CAnimation.h"
 #include "../gui/CursorHandler.h"
 #include "../render/CAnimation.h"
 #include "../render/Canvas.h"
+#include "../render/Colors.h"
 #include "../render/IImage.h"
 #include "../render/IRenderHandler.h"
 
 #include "../../lib/BattleFieldHandler.h"
 #include "../../lib/CConfigHandler.h"
 #include "../../lib/CStack.h"
+#include "../../lib/GameLibrary.h"
 #include "../../lib/battle/CPlayerBattleCallback.h"
 #include "../../lib/spells/ISpellMechanics.h"
 #include "../../lib/spells/Problem.h"
 #include "../../lib/spells/CSpell.h"
+#include "../../lib/texts/CGeneralTextHandler.h"
 
 namespace HexMasks
 {
@@ -235,6 +239,9 @@ void BattleFieldController::gesturePanning(const Point & initialPosition, const 
 
 void BattleFieldController::mouseMoved(const Point & cursorPosition, const Point & lastUpdateDistance)
 {
+	if(!owner.acceptsPointerPresentation(ENGINE->input().getPointerEventSource()))
+		return;
+
 	currentAttackOriginPoint = cursorPosition;
 	controllerAttackTarget = BattleHex::INVALID;
 	controllerAttackDirection = BattleHex::NONE;
@@ -883,6 +890,15 @@ void BattleFieldController::show(Canvas & to)
 	CanvasClipRectGuard guard(to, pos);
 
 	renderBattlefield(to);
+	if(owner.isControllerCursorMode() && ENGINE->input().getCurrentInputMode() == InputMode::CONTROLLER)
+	{
+		const Rect unobscured = BattleControllerActionPrompt::unobscuredBattlefieldRect(pos.topLeft());
+		const Rect indicator(unobscured.center().x - 60, unobscured.y + 8, 120, 22);
+		to.drawColorBlended(indicator, ColorRGBA(45, 28, 16, 190));
+		to.drawBorder(indicator, ColorRGBA(198, 164, 104), 1);
+		to.drawText(indicator.center(), FONT_SMALL, Colors::WHITE, ETextAlignment::CENTER,
+			LIBRARY->generaltexth->translate("vcmi.battleWindow.controller.cursorMode"));
+	}
 
 	// Browse presentation belongs to the stack currently choosing its action.
 	// Stable focus remains available while a submitted action is in flight, but

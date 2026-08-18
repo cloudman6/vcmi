@@ -8,7 +8,7 @@
  *
  */
 
-#include "../StdInc.h"
+#include "StdInc.h"
 
 #include "BattleFocusNavigation.h"
 
@@ -25,13 +25,13 @@ double directionAngle(BattleHex::EDir direction)
 {
 	switch(direction)
 	{
-		case BattleHex::RIGHT: return 0.0;
-		case BattleHex::BOTTOM_RIGHT: return 60.0;
-		case BattleHex::BOTTOM_LEFT: return 120.0;
-		case BattleHex::LEFT: return 180.0;
-		case BattleHex::TOP_LEFT: return -120.0;
-		case BattleHex::TOP_RIGHT: return -60.0;
-		default: return 0.0;
+	case BattleHex::RIGHT: return 0.0;
+	case BattleHex::BOTTOM_RIGHT: return 60.0;
+	case BattleHex::BOTTOM_LEFT: return 120.0;
+	case BattleHex::LEFT: return 180.0;
+	case BattleHex::TOP_LEFT: return -120.0;
+	case BattleHex::TOP_RIGHT: return -60.0;
+	default: return 0.0;
 	}
 }
 
@@ -143,11 +143,11 @@ bool BattleFocusNavigation::moveFocusWithVerticalEdgeFallback()
 	BattleHex::EDir fallback = BattleHex::NONE;
 	switch(direction)
 	{
-		case BattleHex::TOP_LEFT: fallback = BattleHex::TOP_RIGHT; break;
-		case BattleHex::TOP_RIGHT: fallback = BattleHex::TOP_LEFT; break;
-		case BattleHex::BOTTOM_LEFT: fallback = BattleHex::BOTTOM_RIGHT; break;
-		case BattleHex::BOTTOM_RIGHT: fallback = BattleHex::BOTTOM_LEFT; break;
-		default: return false;
+	case BattleHex::TOP_LEFT: fallback = BattleHex::TOP_RIGHT; break;
+	case BattleHex::TOP_RIGHT: fallback = BattleHex::TOP_LEFT; break;
+	case BattleHex::BOTTOM_LEFT: fallback = BattleHex::BOTTOM_RIGHT; break;
+	case BattleHex::BOTTOM_RIGHT: fallback = BattleHex::BOTTOM_LEFT; break;
+	default: return false;
 	}
 	return model.moveFocus(fallback);
 }
