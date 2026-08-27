@@ -284,6 +284,7 @@ if(ENABLE_CLIENT)
 		BattleUnitSelectorTest.cpp
 		BattleUnitNavigationTest.cpp
 		BattleControllerActionTest.cpp
+		BattleControllerActionRadialTest.cpp
 		BattleControllerInteractionStateTest.cpp)
 	target_link_libraries(vcmi_battle_controller_test PRIVATE gtest_main vcmiclientcommon)
 	target_include_directories(vcmi_battle_controller_test PRIVATE

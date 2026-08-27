@@ -10,6 +10,7 @@
 #include "StdInc.h"
 
 #include "BattleControllerActionPrompt.h"
+#include "BattleControllerPromptGlyph.h"
 
 namespace
 {
@@ -22,59 +23,6 @@ constexpr int UNOBSCURED_TOP = 86;
 constexpr int UNOBSCURED_RIGHT = 721;
 constexpr int UNOBSCURED_BOTTOM = 555;
 
-constexpr bool usesFamilySpecificFaceSprite(ControllerPrompt::Family family)
-{
-	return family == ControllerPrompt::Family::PLAYSTATION;
-}
-
-static_assert(!usesFamilySpecificFaceSprite(ControllerPrompt::Family::XBOX),
-	"Battle Native Xbox prompts must use the generic runtime-label face glyph");
-
-}
-
-std::string BattleControllerActionPrompt::bindingLabel(
-	const std::string & binding, ControllerPrompt::Family family)
-{
-	if(family == ControllerPrompt::Family::PLAYSTATION)
-	{
-		if(binding == "a") return "×";
-		if(binding == "b") return "○";
-		if(binding == "x") return "□";
-		if(binding == "y") return "△";
-		if(binding == "leftshoulder") return "L1";
-		if(binding == "rightshoulder") return "R1";
-		if(binding == "lefttrigger") return "L2";
-		if(binding == "righttrigger") return "R2";
-	}
-	else if(family == ControllerPrompt::Family::NINTENDO)
-	{
-		if(binding == "a") return "B";
-		if(binding == "b") return "A";
-		if(binding == "x") return "Y";
-		if(binding == "y") return "X";
-		if(binding == "leftshoulder") return "L";
-		if(binding == "rightshoulder") return "R";
-		if(binding == "lefttrigger") return "ZL";
-		if(binding == "righttrigger") return "ZR";
-	}
-	else
-	{
-		if(binding == "a") return "A";
-		if(binding == "b") return "B";
-		if(binding == "x") return "X";
-		if(binding == "y") return "Y";
-		if(binding == "leftshoulder") return "LB";
-		if(binding == "rightshoulder") return "RB";
-		if(binding == "lefttrigger") return "LT";
-		if(binding == "righttrigger") return "RT";
-	}
-
-	std::string result = binding;
-	std::transform(result.begin(), result.end(), result.begin(), [](unsigned char character)
-	{
-		return static_cast<char>(std::toupper(character));
-	});
-	return result;
 }
 
 std::string BattleControllerActionPrompt::textKey(BattleControllerPrimaryAction action)
@@ -101,8 +49,8 @@ std::string BattleControllerActionPrompt::bindingPairLabel(
 {
 	if(previousBindings.size() != 1 || nextBindings.size() != 1)
 		return "";
-	return bindingLabel(previousBindings.front(), family) + "/"
-		+ bindingLabel(nextBindings.front(), family);
+	return BattleControllerPromptGlyph::bindingLabel(previousBindings.front(), family) + "/"
+		+ BattleControllerPromptGlyph::bindingLabel(nextBindings.front(), family);
 }
 
 std::string BattleControllerActionPrompt::bindingPairSprite(
@@ -120,25 +68,6 @@ std::string BattleControllerActionPrompt::bindingPairSprite(
 	const std::string familyPrefix = family == ControllerPrompt::Family::PLAYSTATION
 		? "playstation" : "generic";
 	return "controllerActionBar/" + familyPrefix + "-shoulders-normal.png";
-}
-
-std::string BattleControllerActionPrompt::buttonSpritePath(
-	const std::vector<std::string> & bindings, ControllerPrompt::Family family, bool pressed)
-{
-	if(bindings.size() != 1)
-		return "";
-
-	const auto & binding = bindings.front();
-	if(usesFamilySpecificFaceSprite(family) && (binding == "a" || binding == "b"))
-	{
-		return "controllerActionBar/playstation-" + binding + "-"
-			+ (pressed ? "pressed" : "normal") + ".png";
-	}
-
-	const bool faceButton = binding == "a" || binding == "b" || binding == "x" || binding == "y";
-	if(!faceButton || family == ControllerPrompt::Family::PLAYSTATION)
-		return "";
-	return "controllerActionBar/generic-face-" + std::string(pressed ? "pressed" : "normal") + ".png";
 }
 
 BattleControllerActionPrompt::ContentLayout BattleControllerActionPrompt::contentLayout(

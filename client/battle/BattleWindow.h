@@ -28,6 +28,7 @@ class HeroInfoBasicPanel;
 class StackInfoBasicPanel;
 class QuickSpellPanel;
 class UnitActionPanel;
+struct BattleControllerActionRadialItem;
 
 /// GUI object that handles functionality of panel at the bottom of combat screen
 class BattleWindow : public InterfaceObjectConfigurable, public IControllerAxisReceiver
@@ -64,6 +65,8 @@ class BattleWindow : public InterfaceObjectConfigurable, public IControllerAxisR
 	void bTacticPhaseEnd();
 	void bOpenActiveUnit();
 	void bOpenHoveredUnit();
+	void openControllerActionRadial();
+	std::vector<BattleControllerActionRadialItem> controllerActionRadialItems();
 
 	/// functions for handling actions after they were confirmed by popup window
 	void reallyFlee();
@@ -93,6 +96,10 @@ class BattleWindow : public InterfaceObjectConfigurable, public IControllerAxisR
 	std::shared_ptr<BattleConsole> buildBattleConsole(const JsonNode &) const;
 
 	bool onlyOnePlayerHuman;
+	bool controllerWaitEnabled = false;
+	bool controllerDefendEnabled = false;
+	bool controllerAutocombatVisible = false;
+	bool controllerAutocombatEnabled = false;
 
 	bool hasSpaceForQuickActions() const;
 	bool quickActionsPanelActive() const;

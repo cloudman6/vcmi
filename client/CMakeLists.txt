@@ -17,9 +17,12 @@ set(vcmiclientcommon_SRCS
 	battle/BattleAnimationClasses.cpp
 	battle/BattleConsole.cpp
 	battle/BattleControllerAction.cpp
+	battle/BattleControllerActionRadial.cpp
+	battle/BattleControllerActionRadialState.cpp
 	battle/BattleControllerInteractionState.cpp
 	battle/BattleControllerActionPrompt.cpp
 	battle/BattleControllerActionPromptRenderer.cpp
+	battle/BattleControllerPromptGlyph.cpp
 	battle/BattleEffectsController.cpp
 	battle/BattleFieldController.cpp
 	battle/BattleFocusModel.cpp

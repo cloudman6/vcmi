@@ -64,6 +64,8 @@
 		"battleCastSpell":          "C",
 		"battleConsoleDown":        "Down",
 		"battleConsoleUp":          "Up",
+		"battleControllerActionRadial": [],
+		"battleControllerCastSpell": [],
 		"battleControllerNextAttackOrigin": [],
 		"battleControllerPreviousAttackOrigin": [],
 		"battleDefend":             [ "D", "Space"],
@@ -318,6 +320,7 @@
 		
 		"mouseClickLeft": "x",
 		"mouseClickRight": "y",
+		"battleControllerCastSpell": "x",
 
 		"adventureNextHero" : "leftshoulder",
 		"battleDefend" : "leftshoulder",
@@ -332,7 +335,7 @@
 		"battleUseCreatureSpell" : "lefttrigger",
 
 		"adventureCastSpell" : "righttrigger",
-		"battleCastSpell" : "righttrigger",
+		"battleControllerActionRadial" : "righttrigger",
 		
 		"adventureEndTurn" : "back",
 		"battleAutocombatEnd" : "back",

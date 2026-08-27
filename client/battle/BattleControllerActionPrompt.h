@@ -33,13 +33,10 @@ class BattleControllerActionPrompt
 	};
 
 	static std::string textKey(BattleControllerPrimaryAction action);
-	static std::string bindingLabel(const std::string & binding, ControllerPrompt::Family family);
 	static std::string bindingPairLabel(const std::vector<std::string> & previousBindings,
 		const std::vector<std::string> & nextBindings, ControllerPrompt::Family family);
 	static std::string bindingPairSprite(const std::vector<std::string> & previousBindings,
 		const std::vector<std::string> & nextBindings, ControllerPrompt::Family family);
-	static std::string buttonSpritePath(const std::vector<std::string> & bindings,
-		ControllerPrompt::Family family, bool pressed);
 	static ContentLayout contentLayout(const Rect & promptRect, int textWidth,
 		int glyphWidth = 24, int glyphHeight = 24, const Rect & contentBounds = Rect());
 	static PromptLayout promptLayout(BattleControllerPrimaryAction action,

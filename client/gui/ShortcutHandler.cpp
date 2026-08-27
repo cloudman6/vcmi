@@ -293,6 +293,8 @@ EShortcut ShortcutHandler::findShortcut(const std::string & identifier ) const
 		{"battleCastSpell",          EShortcut::BATTLE_CAST_SPELL         },
 		{"battleWait",               EShortcut::BATTLE_WAIT               },
 		{"battleDefend",             EShortcut::BATTLE_DEFEND             },
+		{"battleControllerActionRadial", EShortcut::BATTLE_CONTROLLER_ACTION_RADIAL},
+		{"battleControllerCastSpell", EShortcut::BATTLE_CONTROLLER_CAST_SPELL},
 		{"battleControllerPreviousAttackOrigin", EShortcut::BATTLE_CONTROLLER_PREVIOUS_ATTACK_ORIGIN},
 		{"battleControllerNextAttackOrigin", EShortcut::BATTLE_CONTROLLER_NEXT_ATTACK_ORIGIN},
 		{"battleConsoleUp",          EShortcut::BATTLE_CONSOLE_UP         },
