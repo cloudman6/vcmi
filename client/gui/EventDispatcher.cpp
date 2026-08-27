@@ -17,6 +17,10 @@
 #include "WindowHandler.h"
 #include "gui/Shortcut.h"
 
+#ifdef VCMI_CONTROLLER_E2E
+#include "../controllerE2E/ControllerE2EExecutor.h"
+#endif
+
 #include "../../lib/CConfigHandler.h"
 #include "../../lib/Rect.h"
 #include "../eventsSDL/InputHandler.h"
@@ -86,7 +90,12 @@ void EventDispatcher::dispatchShortcutPressed(const std::vector<EShortcut> & sho
 	const bool controllerCursorAllowed = ENGINE->windows().isControllerCursorAllowed();
 
 	if(controllerCursorAllowed && vstd::contains(shortcutsVector, EShortcut::MOUSE_LEFT))
+	{
+#ifdef VCMI_CONTROLLER_E2E
+		ControllerE2E::Hooks::recordShortcutMouseLeft(true);
+#endif
 		dispatchMouseLeftButtonPressed(ENGINE->getCursorPosition(), settings["input"]["shortcutToleranceDistance"].Integer());
+	}
 
 	if(controllerCursorAllowed && vstd::contains(shortcutsVector, EShortcut::MOUSE_RIGHT))
 		dispatchShowPopup(ENGINE->getCursorPosition(), settings["input"]["shortcutToleranceDistance"].Integer());
@@ -116,7 +125,12 @@ void EventDispatcher::dispatchShortcutReleased(const std::vector<EShortcut> & sh
 	const bool controllerCursorAllowed = ENGINE->windows().isControllerCursorAllowed();
 
 	if(controllerCursorAllowed && vstd::contains(shortcutsVector, EShortcut::MOUSE_LEFT))
+	{
+#ifdef VCMI_CONTROLLER_E2E
+		ControllerE2E::Hooks::recordShortcutMouseLeft(false);
+#endif
 		dispatchMouseLeftButtonReleased(ENGINE->getCursorPosition(), settings["input"]["shortcutToleranceDistance"].Integer());
+	}
 
 	if(controllerCursorAllowed && vstd::contains(shortcutsVector, EShortcut::MOUSE_RIGHT))
 		dispatchClosePopup(ENGINE->getCursorPosition());

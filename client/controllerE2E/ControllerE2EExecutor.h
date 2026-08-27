@@ -124,6 +124,7 @@ class ControllerE2EExecutor
 	std::string selectedDeviceAlias;
 	uint64_t modeChangeFrame = 0;
 	std::vector<std::string> autofightPlayerColors;
+	std::vector<std::string> manualBattlePlayerColors;
 	bool rejectNextBattleAction = false;
 
 	void registerBuiltinProbes();
@@ -170,6 +171,8 @@ public:
 	void onAfterPresent();
 	/// Hook: every SDL event seen by InputHandler::preprocessEvent
 	void recordSdlEvent(const SDL_Event & event);
+	/// Hook: controller shortcut routing invoked the virtual left mouse action
+	void recordShortcutMouseLeft(bool pressed);
 	/// Hook: the network thread finished applying a battle-only start-info pack
 	void recordBattleOnlyStartInfoApplied(const std::shared_ptr<BattleOnlyModeStartInfo> & startInfo);
 
@@ -181,6 +184,7 @@ public:
 	void pushRemoveSpellFixture();
 	int startBattleMapGame();
 	bool shouldAutoFightE2E(const std::string & colorName) const;
+	bool shouldUseManualBattleE2E(const std::string & colorName) const;
 	bool consumeNextBattleActionRejection();
 
 	/// Writes final manifest and returns the process exit code
@@ -198,6 +202,7 @@ void onBeforeInputHandler();
 void onBeforePoll();
 void onAfterPresent();
 void recordSdlEvent(const SDL_Event & event);
+void recordShortcutMouseLeft(bool pressed);
 void recordBattleOnlyStartInfoApplied(const std::shared_ptr<BattleOnlyModeStartInfo> & startInfo);
 }
 

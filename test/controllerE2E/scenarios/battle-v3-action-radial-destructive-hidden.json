@@ -1,0 +1,28 @@
+{
+	"schema": "vcmi.controller-e2e/v1",
+	"id": "battle.v3.action-radial-destructive-hidden",
+	"profile": "dualsense",
+	"settingsOverride": {
+		"input": {"enableMouse": true},
+		"server": {"seed": 20260827}
+	},
+	"timeout_ms": 90000,
+	"fixture": {"setup": "battle-map-start", "map": "battle-e2e", "autofightPlayers": [], "manualBattlePlayers": ["red"], "endWithAutocombat": true},
+	"prelude": [{"op": "attach", "device": "pad0", "profile": "dualsense"}],
+	"steps": [
+		{"op": "wait_until", "probe": "runtime", "field": "top_window", "changes": true, "timeout_ms": 60000},
+		{"op": "tap", "device": "pad0", "control": "ps"},
+		{"op": "wait_until", "probe": "battle", "field": "focus_hex", "equals": 36, "timeout_ms": 20000, "stable_for_frames": 3},
+		{"op": "assert", "probe": "battle", "field": "end_with_autocombat_setting", "equals": true},
+		{"op": "assert", "probe": "battle", "field": "only_one_player_human", "equals": true},
+		{"op": "set_axis", "device": "pad0", "control": "r2", "value": 1.0},
+		{"op": "wait_until", "probe": "battle", "field": "action_radial.open", "equals": true, "timeout_ms": 3000},
+		{"op": "assert", "probe": "battle", "field": "action_radial.has_autocombat", "equals": false},
+		{"op": "capture_frame", "name": "m3-2-radial-destructive-autocombat-hidden"},
+		{"op": "neutralize", "device": "pad0"},
+		{"op": "set_axis", "device": "pad0", "control": "left_stick_y", "value": 1.0},
+		{"op": "assert", "probe": "battle", "field": "action_radial.selected", "equals": "none"},
+		{"op": "tap", "device": "pad0", "control": "east"},
+		{"op": "request_shutdown"}
+	]
+}

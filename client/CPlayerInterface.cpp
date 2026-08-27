@@ -703,6 +703,12 @@ void CPlayerInterface::battleStart(const BattleID & battleID, const CCreatureSet
 	bool useQuickCombat = settings["adventure"]["quickCombat"].Bool() || GAME->map().getMap()->battleOnly;
 	bool forceQuickCombat = settings["adventure"]["forceQuickCombat"].Bool();
 
+#ifdef VCMI_CONTROLLER_E2E
+	if(auto * controllerE2E = ControllerE2E::ControllerE2EExecutor::instance())
+		if(controllerE2E->shouldUseManualBattleE2E(GameConstants::PLAYER_COLOR_NAMES[playerID.getNum()]))
+			useQuickCombat = false;
+#endif
+
 	if ((replayAllowed && useQuickCombat) || forceQuickCombat)
 	{
 		prepareAutoFightingAI(battleID, army1, army2, tile, hero1, hero2, side);

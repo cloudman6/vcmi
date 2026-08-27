@@ -230,6 +230,8 @@ ControllerE2EExecutor::ControllerE2EExecutor(
 		"mouse_button_down",
 		"mouse_button_up",
 		"mouse_motion",
+		"shortcut_mouse_left_down",
+		"shortcut_mouse_left_up",
 	})
 		eventCounts[eventKind] = 0;
 
@@ -1270,6 +1272,22 @@ void ControllerE2EExecutor::recordSdlEvent(const SDL_Event & event)
 		flushEvents();
 }
 
+void ControllerE2EExecutor::recordShortcutMouseLeft(bool pressed)
+{
+	if(finished)
+		return;
+
+	const std::string kind = pressed ? "shortcut_mouse_left_down" : "shortcut_mouse_left_up";
+	JsonNode entry;
+	entry["frame"].Integer() = static_cast<si64>(frame);
+	entry["kind"].String() = kind;
+	lastEventKind = kind;
+	eventCounts[kind]++;
+	recordedEvents.push_back(std::move(entry));
+	while(recordedEvents.size() > 512)
+		recordedEvents.pop_front();
+}
+
 void ControllerE2EExecutor::recordBattleOnlyStartInfoApplied(
 	const std::shared_ptr<BattleOnlyModeStartInfo> & startInfo)
 {
@@ -1612,6 +1630,17 @@ int ControllerE2EExecutor::startBattleMapGame()
 	}
 
 	const JsonNode & mapNode = scenario.fixture["map"];
+	const JsonNode & endWithAutocombat = scenario.fixture["endWithAutocombat"];
+	if(!endWithAutocombat.isNull())
+	{
+		if(!endWithAutocombat.isBool())
+		{
+			fail(E2E_SCENARIO_ERROR, "battle-map-start fixture endWithAutocombat must be boolean");
+			return exitCode;
+		}
+		Settings setting = settings.write["battle"]["endWithAutocombat"];
+		setting->Bool() = endWithAutocombat.Bool();
+	}
 	if(!mapNode.isString() || mapNode.String().empty())
 	{
 		fail(E2E_SCENARIO_ERROR, "battle-map-start fixture requires a non-empty fixture map name");
@@ -1676,6 +1705,24 @@ int ControllerE2EExecutor::startBattleMapGame()
 			}
 		}
 
+		manualBattlePlayerColors.clear();
+		for(const JsonNode & colorNode : scenario.fixture["manualBattlePlayers"].Vector())
+		{
+			if(!colorNode.isString())
+			{
+				fail(E2E_SCENARIO_ERROR, "battle-map-start fixture manualBattlePlayers must contain strings");
+				return exitCode;
+			}
+			const std::string colorName = colorNode.String();
+			if(std::ranges::find(GameConstants::PLAYER_COLOR_NAMES, colorName)
+				== std::end(GameConstants::PLAYER_COLOR_NAMES))
+			{
+				fail(E2E_SCENARIO_ERROR, "battle-map-start fixture received unknown manual battle player color: " + colorName);
+				return exitCode;
+			}
+			manualBattlePlayerColors.push_back(colorName);
+		}
+
 		ENGINE->input().seedControllerInputModeForE2E();
 
 		while(true)
@@ -1704,6 +1751,11 @@ bool ControllerE2EExecutor::shouldAutoFightE2E(const std::string & colorName) co
 	return vstd::contains(autofightPlayerColors, colorName);
 }
 
+bool ControllerE2EExecutor::shouldUseManualBattleE2E(const std::string & colorName) const
+{
+	return vstd::contains(manualBattlePlayerColors, colorName);
+}
+
 namespace Hooks
 {
 
@@ -1729,6 +1781,12 @@ void recordSdlEvent(const SDL_Event & event)
 {
 	if(auto * executor = ControllerE2EExecutor::instance())
 		executor->recordSdlEvent(event);
+}
+
+void recordShortcutMouseLeft(bool pressed)
+{
+	if(auto * executor = ControllerE2EExecutor::instance())
+		executor->recordShortcutMouseLeft(pressed);
 }
 
 void recordBattleOnlyStartInfoApplied(const std::shared_ptr<BattleOnlyModeStartInfo> & startInfo)

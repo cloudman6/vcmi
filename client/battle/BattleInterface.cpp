@@ -26,8 +26,10 @@
 #include "CreatureAnimation.h"
 
 #ifdef VCMI_CONTROLLER_E2E
+#include "BattleControllerActionRadial.h"
 #include "../controllerE2E/ControllerE2EExecutor.h"
 #include "../controllerE2E/ControllerE2EProbes.h"
+#include "../windows/CSpellWindow.h"
 #endif
 
 #include "../CPlayerInterface.h"
@@ -464,6 +466,19 @@ std::string controllerE2EShootDisabledReasonName(const std::string & textKey)
 		return "rule_prohibited";
 	return "none";
 }
+
+std::string controllerE2ECommandName(int actionType)
+{
+	switch(static_cast<EActionType>(actionType))
+	{
+	case EActionType::WAIT:
+		return "wait";
+	case EActionType::DEFEND:
+		return "defend";
+	default:
+		return "other";
+	}
+}
 }
 
 void BattleInterface::registerControllerE2EProbe()
@@ -501,6 +516,15 @@ void BattleInterface::registerControllerE2EProbe()
 			observed->actionsController->controllerE2EGetShootDisabledReasonTextKey(
 				observed->getControllerFocusedHex()));
 		snapshot["hero_spellcasting_mode"].Bool() = observed->actionsController->heroSpellcastingModeActive();
+		snapshot["autocombat_active"].Bool() = observed->curInt->isAutoFightOn;
+		snapshot["end_with_autocombat_setting"].Bool() = settings["battle"]["endWithAutocombat"].Bool();
+		snapshot["only_one_player_human"].Bool() = observed->windowObject->controllerE2EOnlyOnePlayerHuman();
+		snapshot["spellbook_open"].Bool() = ENGINE->windows().topWindow<CSpellWindow>() != nullptr;
+		const auto actionRadial = ENGINE->windows().topWindow<BattleControllerActionRadial>();
+		if(actionRadial)
+			snapshot["action_radial"] = actionRadial->controllerE2ESnapshot();
+		else
+			snapshot["action_radial"]["open"].Bool() = false;
 		snapshot["status_text"].String() = observed->console ? observed->console->controllerE2EHoverText() : "";
 		snapshot["hold_inspect_available"].Bool() = observed->hasControllerInspectTarget();
 		if(const auto * hero = observed->getBattle()->battleGetMyHero())
@@ -528,6 +552,7 @@ void BattleInterface::registerControllerE2EProbe()
 		{
 			auto & lastCommand = snapshot["last_command"];
 			lastCommand["type"].Integer() = observed->controllerE2ELastCommandType;
+			lastCommand["name"].String() = controllerE2ECommandName(observed->controllerE2ELastCommandType);
 			lastCommand["actor_id"].Integer() = observed->controllerE2ELastCommandActor;
 			lastCommand["target_count"].Integer() = observed->controllerE2ELastCommandTargets.size();
 			auto & targets = lastCommand["targets"].Vector();

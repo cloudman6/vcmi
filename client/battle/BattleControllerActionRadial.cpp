@@ -178,6 +178,54 @@ BattleControllerActionRadial::BattleControllerActionRadial(ItemProvider provider
 	state.open(currentEntries(currentItems()));
 }
 
+#ifdef VCMI_CONTROLLER_E2E
+JsonNode BattleControllerActionRadial::controllerE2ESnapshot() const
+{
+	JsonNode snapshot;
+	snapshot["open"].Bool() = state.isOpen();
+	snapshot["confirm_pressed"].Bool() = confirmPressed;
+	snapshot["axis_x"].Float() = axisX;
+	snapshot["axis_y"].Float() = axisY;
+
+	const auto selected = state.selectedAction();
+	std::string selectedName = "none";
+	if(selected == BattleControllerActionRadialAction::WAIT)
+		selectedName = "wait";
+	else if(selected == BattleControllerActionRadialAction::DEFEND)
+		selectedName = "defend";
+	else if(selected == BattleControllerActionRadialAction::AUTOCOMBAT)
+		selectedName = "autocombat";
+	snapshot["selected"].String() = selectedName;
+
+	auto & items = snapshot["items"].Struct();
+	snapshot["has_wait"].Bool() = false;
+	snapshot["has_defend"].Bool() = false;
+	snapshot["has_autocombat"].Bool() = false;
+	for(const auto & item : currentItems())
+	{
+		std::string name;
+		switch(item.action)
+		{
+		case BattleControllerActionRadialAction::WAIT:
+			name = "wait";
+			snapshot["has_wait"].Bool() = true;
+			break;
+		case BattleControllerActionRadialAction::DEFEND:
+			name = "defend";
+			snapshot["has_defend"].Bool() = true;
+			break;
+		case BattleControllerActionRadialAction::AUTOCOMBAT:
+			name = "autocombat";
+			snapshot["has_autocombat"].Bool() = true;
+			break;
+		}
+		items[name]["enabled"].Bool() = item.enabled;
+		items[name]["active"].Bool() = item.active;
+	}
+	return snapshot;
+}
+#endif
+
 std::vector<BattleControllerActionRadialItem> BattleControllerActionRadial::currentItems() const
 {
 	return itemProvider ? itemProvider() : std::vector<BattleControllerActionRadialItem>{};

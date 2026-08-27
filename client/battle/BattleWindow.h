@@ -108,6 +108,10 @@ class BattleWindow : public InterfaceObjectConfigurable, public IControllerAxisR
 public:
 	BattleWindow(BattleInterface & owner );
 
+#ifdef VCMI_CONTROLLER_E2E
+	bool controllerE2EOnlyOnePlayerHuman() const { return onlyOnePlayerHuman; }
+#endif
+
 	/// Closes window once battle finished
 	void close();
 

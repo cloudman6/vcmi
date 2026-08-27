@@ -52,6 +52,10 @@ private:
 public:
 	explicit BattleControllerActionRadial(ItemProvider itemProvider);
 
+#ifdef VCMI_CONTROLLER_E2E
+	JsonNode controllerE2ESnapshot() const;
+#endif
+
 	bool captureThisKey(EShortcut key) override;
 	void keyPressed(EShortcut key) override;
 	void keyReleased(EShortcut key) override;
