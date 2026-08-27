@@ -9,6 +9,7 @@
  */
 #include "StdInc.h"
 #include "BattleWindow.h"
+#include "BattleControllerActionRadial.h"
 
 #include "BattleActionsController.h"
 #include "BattleConsole.h"
@@ -96,6 +97,10 @@ BattleWindow::BattleWindow(BattleInterface & Owner)
 	addShortcut(EShortcut::BATTLE_AUTOCOMBAT, std::bind(&BattleWindow::bAutofightf, this));
 	addShortcut(EShortcut::BATTLE_END_WITH_AUTOCOMBAT, std::bind(&BattleWindow::endWithAutocombat, this));
 	addShortcut(EShortcut::BATTLE_CAST_SPELL, std::bind(&BattleWindow::bSpellf, this));
+	addShortcut(EShortcut::BATTLE_CONTROLLER_CAST_SPELL,
+		[this](){ if(this->owner.isControllerNativeMode()) this->bSpellf(); });
+	addShortcut(EShortcut::BATTLE_CONTROLLER_ACTION_RADIAL,
+		[this](){ if(this->owner.isControllerNativeMode()) this->openControllerActionRadial(); });
 	addShortcut(EShortcut::BATTLE_WAIT, [this](){ if(!this->owner.isControllerNativeMode()) this->bWaitf(); });
 	addShortcut(EShortcut::BATTLE_DEFEND, [this](){ if(!this->owner.isControllerNativeMode()) this->bDefencef(); });
 	addShortcut(EShortcut::BATTLE_CONTROLLER_PREVIOUS_ATTACK_ORIGIN,
@@ -798,6 +803,43 @@ void BattleWindow::setPossibleActions(const std::vector<PossiblePlayerBattleActi
 	unitActionWindow->setPossibleActions(actions);
 }
 
+void BattleWindow::openControllerActionRadial()
+{
+	ENGINE->windows().createAndPushWindow<BattleControllerActionRadial>(
+		[this](){ return this->controllerActionRadialItems(); });
+}
+
+std::vector<BattleControllerActionRadialItem> BattleWindow::controllerActionRadialItems()
+{
+	std::vector<BattleControllerActionRadialItem> result = {
+		{
+			BattleControllerActionRadialAction::WAIT,
+			LIBRARY->generaltexth->translate("core.help.386", "hover"),
+			controllerWaitEnabled,
+			false,
+			[this](){ this->bWaitf(); }
+		},
+		{
+			BattleControllerActionRadialAction::DEFEND,
+			LIBRARY->generaltexth->translate("core.help.387", "hover"),
+			controllerDefendEnabled,
+			false,
+			[this](){ this->bDefencef(); }
+		}
+	};
+	if(controllerAutocombatVisible)
+	{
+		result.push_back({
+			BattleControllerActionRadialAction::AUTOCOMBAT,
+			LIBRARY->generaltexth->translate("core.help.382", "hover"),
+			controllerAutocombatEnabled,
+			owner.curInt->isAutoFightOn,
+			[this](){ this->bAutofightf(); }
+		});
+	}
+	return result;
+}
+
 void BattleWindow::bAutofightf()
 {
 	if (owner.actionsController->heroSpellcastingModeActive())
@@ -936,6 +978,12 @@ void BattleWindow::blockUI(bool on)
 
 	bool canWait = owner.stacksController->getActiveStack() ? !owner.stacksController->getActiveStack()->waitedThisTurn : false;
 	bool tacticsMode = owner.isInTacticsMode();
+	const bool destructiveAutocombat = settings["battle"]["endWithAutocombat"].Bool() && onlyOnePlayerHuman;
+	controllerWaitEnabled = !(on || tacticsMode || !canWait);
+	controllerDefendEnabled = !(on || tacticsMode);
+	controllerAutocombatVisible = !destructiveAutocombat;
+	controllerAutocombatEnabled = controllerAutocombatVisible
+		&& !owner.actionsController->heroSpellcastingModeActive();
 
 	setShortcutBlocked(EShortcut::GLOBAL_OPTIONS, on);
 	setShortcutBlocked(EShortcut::BATTLE_OPEN_ACTIVE_UNIT, on);
@@ -943,9 +991,12 @@ void BattleWindow::blockUI(bool on)
 	setShortcutBlocked(EShortcut::BATTLE_RETREAT, on || !owner.getBattle()->battleCanFlee());
 	setShortcutBlocked(EShortcut::BATTLE_SURRENDER, on || owner.getBattle()->battleGetSurrenderCost() < 0);
 	setShortcutBlocked(EShortcut::BATTLE_CAST_SPELL, on || tacticsMode || !canCastSpells);
+	setShortcutBlocked(EShortcut::BATTLE_CONTROLLER_CAST_SPELL, on || tacticsMode || !canCastSpells);
 	setShortcutBlocked(EShortcut::BATTLE_WAIT, on || tacticsMode || !canWait);
 	setShortcutBlocked(EShortcut::BATTLE_DEFEND, on || tacticsMode);
-	setShortcutBlocked(EShortcut::BATTLE_AUTOCOMBAT, (settings["battle"]["endWithAutocombat"].Bool() && onlyOnePlayerHuman) ? on || tacticsMode || owner.actionsController->heroSpellcastingModeActive() : owner.actionsController->heroSpellcastingModeActive());
+	setShortcutBlocked(EShortcut::BATTLE_AUTOCOMBAT, destructiveAutocombat
+		? on || tacticsMode || owner.actionsController->heroSpellcastingModeActive()
+		: owner.actionsController->heroSpellcastingModeActive());
 	setShortcutBlocked(EShortcut::BATTLE_END_WITH_AUTOCOMBAT, on || !onlyOnePlayerHuman || owner.actionsController->heroSpellcastingModeActive());
 	setShortcutBlocked(EShortcut::BATTLE_TACTICS_END, on || !tacticsMode);
 	setShortcutBlocked(EShortcut::BATTLE_TACTICS_NEXT, on || !tacticsMode);

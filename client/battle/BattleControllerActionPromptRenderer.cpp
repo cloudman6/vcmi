@@ -10,6 +10,7 @@
 #include "StdInc.h"
 
 #include "BattleControllerActionPrompt.h"
+#include "BattleControllerPromptGlyph.h"
 
 #include "../GameEngine.h"
 #include "../eventsSDL/ControllerPromptFamily.h"
@@ -112,24 +113,24 @@ void BattleControllerActionPrompt::draw(Canvas & to, BattleControllerPrimaryActi
 				- GLYPH_TEXT_SPACING - TEXT_OUTLINE_WIDTH * 2));
 		const auto content = contentLayout(rect, outlinedTextWidth(*font, fittedText),
 			GLYPH_SIZE, GLYPH_SIZE, unobscuredBattlefield);
-		const auto spritePath = buttonSpritePath(bindings, family, buttonPressed);
-		if(!spritePath.empty())
+		const auto glyph = BattleControllerPromptGlyph::resolve(bindings, family, buttonPressed);
+		if(!glyph.spritePath.empty())
 		{
 			const auto sprite = ENGINE->renderHandler().loadImage(
-				ImagePath::builtin(spritePath), EImageBlitMode::COLORKEY);
+				ImagePath::builtin(glyph.spritePath), EImageBlitMode::COLORKEY);
 			to.draw(sprite, content.glyphTopLeft);
-			if(spritePath.find("generic-face") != std::string::npos)
+			if(!glyph.runtimeLabel.empty())
 			{
 				to.drawText(content.glyphTopLeft + Point(GLYPH_SIZE / 2, GLYPH_SIZE / 2),
 					FONT_SMALL, GENERIC_FACE_LABEL_COLOR,
-					ETextAlignment::CENTER, bindingLabel(bindings.front(), family));
+					ETextAlignment::CENTER, glyph.runtimeLabel);
 			}
 		}
 		else
 		{
 			to.drawText(content.glyphTopLeft + Point(GLYPH_SIZE / 2, GLYPH_SIZE / 2),
 				FONT_SMALL, Colors::WHITE, ETextAlignment::CENTER,
-				bindingLabel(bindings.front(), family));
+				glyph.runtimeLabel);
 		}
 		drawOutlinedPromptText(to, content.textCenter, fittedText);
 	};
