@@ -24,6 +24,7 @@
 #include "../CPlayerInterface.h"
 #include "../GameEngine.h"
 #include "../GameInstance.h"
+#include "../eventsSDL/InputHandler.h"
 #include "../adventureMap/CInGameConsole.h"
 #include "../adventureMap/TurnTimerWidget.h"
 #include "../gui/CursorHandler.h"
@@ -95,12 +96,18 @@ BattleWindow::BattleWindow(BattleInterface & Owner)
 	addShortcut(EShortcut::BATTLE_AUTOCOMBAT, std::bind(&BattleWindow::bAutofightf, this));
 	addShortcut(EShortcut::BATTLE_END_WITH_AUTOCOMBAT, std::bind(&BattleWindow::endWithAutocombat, this));
 	addShortcut(EShortcut::BATTLE_CAST_SPELL, std::bind(&BattleWindow::bSpellf, this));
-	addShortcut(EShortcut::BATTLE_WAIT, std::bind(&BattleWindow::bWaitf, this));
-	addShortcut(EShortcut::BATTLE_DEFEND, std::bind(&BattleWindow::bDefencef, this));
+	addShortcut(EShortcut::BATTLE_WAIT, [this](){ if(!this->owner.isControllerNativeMode()) this->bWaitf(); });
+	addShortcut(EShortcut::BATTLE_DEFEND, [this](){ if(!this->owner.isControllerNativeMode()) this->bDefencef(); });
+	addShortcut(EShortcut::BATTLE_CONTROLLER_PREVIOUS_ATTACK_ORIGIN,
+		[this](){ this->owner.handleControllerMeleeOriginPressed(false); });
+	addShortcut(EShortcut::BATTLE_CONTROLLER_NEXT_ATTACK_ORIGIN,
+		[this](){ this->owner.handleControllerMeleeOriginPressed(true); });
 	addShortcut(EShortcut::BATTLE_CONSOLE_UP, std::bind(&BattleWindow::bConsoleUpf, this));
 	addShortcut(EShortcut::BATTLE_CONSOLE_DOWN, std::bind(&BattleWindow::bConsoleDownf, this));
-	addShortcut(EShortcut::BATTLE_TACTICS_NEXT, std::bind(&BattleWindow::bTacticNextStack, this));
-	addShortcut(EShortcut::BATTLE_TACTICS_END, std::bind(&BattleWindow::bTacticPhaseEnd, this));
+	addShortcut(EShortcut::BATTLE_TACTICS_NEXT,
+		[this](){ if(!this->owner.isControllerNativeMode()) this->bTacticNextStack(); });
+	addShortcut(EShortcut::BATTLE_TACTICS_END,
+		[this](){ if(!this->owner.isControllerNativeMode()) this->bTacticPhaseEnd(); });
 	addShortcut(EShortcut::BATTLE_OPEN_ACTIVE_UNIT, std::bind(&BattleWindow::bOpenActiveUnit, this));
 	addShortcut(EShortcut::BATTLE_OPEN_HOVERED_UNIT, std::bind(&BattleWindow::bOpenHoveredUnit, this));
 
@@ -113,6 +120,8 @@ BattleWindow::BattleWindow(BattleInterface & Owner)
 	addShortcut(EShortcut::BATTLE_TOGGLE_HEROES_STATS, [this](){ this->toggleStickyHeroWindowsVisibility();});
 	addShortcut(EShortcut::BATTLE_USE_CREATURE_SPELL, [this](){ this->owner.actionsController->enterCreatureCastingMode(); });
 	addShortcut(EShortcut::GLOBAL_CANCEL, [this](){ this->owner.actionsController->endCastingSpell(); });
+	addShortcut(EShortcut::GLOBAL_ACCEPT, [this](){ this->owner.handleControllerAcceptPressed(); });
+	addShortcut(EShortcut::GLOBAL_TOGGLE_CURSOR_MODE, [this](){ this->owner.toggleControllerCursorMode(); });
 	addShortcut(EShortcut::ADVENTURE_QUICK_LOAD, [this](){
 		//allow quick load only on player turn while no animations are ongoing
 		if (!this->owner.hasAnimations() && this->owner.stacksController->getActiveStack())
@@ -137,7 +146,7 @@ BattleWindow::BattleWindow(BattleInterface & Owner)
 	else
 		tacticPhaseEnded();
 
-	addUsedEvents(LCLICK | KEYBOARD);
+	addUsedEvents(LCLICK | KEYBOARD | INPUT_MODE_CHANGE);
 }
 
 void BattleWindow::createQueue()
@@ -508,13 +517,43 @@ void BattleWindow::activate()
 	ENGINE->setStatusbar(console);
 	CIntObject::activate();
 	GAME->interface()->cingconsole->activate();
+	owner.controllerWindowRestored();
 }
 
 void BattleWindow::deactivate()
 {
+	controllerAxisReset();
 	ENGINE->setStatusbar(nullptr);
 	CIntObject::deactivate();
 	GAME->interface()->cingconsole->deactivate();
+}
+
+void BattleWindow::inputModeChanged(InputMode mode)
+{
+	if(mode == InputMode::CONTROLLER)
+		owner.controllerInputModeActivated();
+}
+
+ControllerAxisRoute BattleWindow::controllerAxisMoved(const ControllerAxisEvent & event)
+{
+	if(owner.handleControllerAxis(event))
+		return ControllerAxisRoute::CAPTURED;
+	return owner.isControllerNativeMode() ? ControllerAxisRoute::BLOCKED : ControllerAxisRoute::UNOWNED;
+}
+
+void BattleWindow::controllerAxisUpdate(uint32_t msPassed)
+{
+	owner.updateControllerAxis(msPassed);
+}
+
+void BattleWindow::controllerAxisReset()
+{
+	owner.resetControllerAxis();
+}
+
+bool BattleWindow::controllerCursorAllowed() const
+{
+	return !owner.isControllerNativeMode();
 }
 
 bool BattleWindow::captureThisKey(EShortcut key)
@@ -529,7 +568,20 @@ void BattleWindow::keyPressed(EShortcut key)
 		owner.openingEnd();
 		return;
 	}
+	if(key == EShortcut::GLOBAL_CANCEL && owner.handleControllerInspectPressed())
+		return;
 	InterfaceObjectConfigurable::keyPressed(key);
+}
+
+void BattleWindow::keyReleased(EShortcut key)
+{
+	if(key == EShortcut::GLOBAL_ACCEPT && owner.handleControllerAcceptReleased())
+		return;
+	if(key == EShortcut::BATTLE_CONTROLLER_PREVIOUS_ATTACK_ORIGIN && owner.handleControllerMeleeOriginReleased(false))
+		return;
+	if(key == EShortcut::BATTLE_CONTROLLER_NEXT_ATTACK_ORIGIN && owner.handleControllerMeleeOriginReleased(true))
+		return;
+	InterfaceObjectConfigurable::keyReleased(key);
 }
 
 void BattleWindow::clickPressed(const Point & cursorPosition)

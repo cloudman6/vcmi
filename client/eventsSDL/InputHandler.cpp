@@ -23,6 +23,7 @@
 #include "../gui/CursorHandler.h"
 #include "../gui/EventDispatcher.h"
 #include "../gui/MouseButton.h"
+#include "../gui/WindowHandler.h"
 #include "../media/IMusicPlayer.h"
 #include "../media/ISoundPlayer.h"
 #include "../CMT.h"
@@ -147,8 +148,11 @@ void InputHandler::setCurrentInputMode(InputMode modi)
 {
 	if(currentInputMode != modi)
 	{
+		if(currentInputMode == InputMode::CONTROLLER && modi != InputMode::CONTROLLER && gameControllerHandler)
+			gameControllerHandler->resetAxisState();
 		currentInputMode = modi;
 		ENGINE->events().dispatchInputModeChanged(modi);
+		ENGINE->windows().refreshControllerCursorPolicy();
 	}
 }
 
@@ -426,15 +430,34 @@ bool InputHandler::isKeyboardShiftDown() const
 	return keyboardHandler->isKeyboardShiftDown();
 }
 
-void InputHandler::moveCursorPosition(const Point & distance)
+void InputHandler::moveCursorPosition(const Point & distance, PointerEventSource source)
 {
-	setCursorPosition(getCursorPosition() + distance);
+	setCursorPosition(getCursorPosition() + distance, source);
 }
 
-void InputHandler::setCursorPosition(const Point & position)
+void InputHandler::setCursorPosition(const Point & position, PointerEventSource source)
 {
 	cursorPosition = position;
+	const auto previousSource = pointerEventSource;
+	pointerEventSource = source;
 	ENGINE->events().dispatchMouseMoved(Point(0, 0), position);
+	pointerEventSource = previousSource;
+}
+
+void InputHandler::dispatchSyntheticMouseMove()
+{
+	setCursorPosition(cursorPosition, PointerEventSource::SYNTHETIC_REFRESH);
+}
+
+PointerEventSource InputHandler::getPointerEventSource() const
+{
+	return pointerEventSource;
+}
+
+void InputHandler::resetControllerAxisState()
+{
+	if(gameControllerHandler)
+		gameControllerHandler->resetAxisState();
 }
 
 void InputHandler::startTextInput(const Rect & where)

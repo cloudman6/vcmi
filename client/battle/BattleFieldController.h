@@ -40,6 +40,8 @@ class BattleFieldController : public CIntObject
 
 	/// direction which will be used to perform attack with current cursor position
 	Point currentAttackOriginPoint;
+	BattleHex controllerAttackTarget = BattleHex::INVALID;
+	BattleHex::EDir controllerAttackDirection = BattleHex::NONE;
 
 	/// hex currently under mouse hover
 	BattleHex hoveredHex;
@@ -120,6 +122,11 @@ public:
 
 	/// Returns ID of currently hovered hex or BattleHex::INVALID if none
 	BattleHex getHoveredHex();
+
+	/// Makes Native controller focus use the existing mouse-hover presentation
+	/// state without synthesizing pointer motion.
+	void setControllerFocusedHex(const BattleHex & hex);
+	void setControllerAttackDirection(const BattleHex & target, BattleHex::EDir direction);
 
 	/// Returns the currently hovered stack
 	const CStack* getHoveredStack();

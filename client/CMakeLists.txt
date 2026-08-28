@@ -16,8 +16,18 @@ set(vcmiclientcommon_SRCS
 	battle/BattleActionsController.cpp
 	battle/BattleAnimationClasses.cpp
 	battle/BattleConsole.cpp
+	battle/BattleControllerAction.cpp
+	battle/BattleControllerInteractionState.cpp
+	battle/BattleControllerActionPrompt.cpp
+	battle/BattleControllerActionPromptRenderer.cpp
 	battle/BattleEffectsController.cpp
 	battle/BattleFieldController.cpp
+	battle/BattleFocusModel.cpp
+	battle/BattleFocusNavigation.cpp
+	battle/BattleMeleeSelection.cpp
+	battle/BattleNavigationArbiter.cpp
+	battle/BattleUnitSelector.cpp
+	battle/BattleUnitNavigation.cpp
 	battle/BattleHero.cpp
 	battle/BattleInterface.cpp
 	battle/BattleObstacleController.cpp
@@ -249,10 +259,17 @@ set(vcmiclientcommon_HEADERS
 	battle/BattleActionsController.h
 	battle/BattleAnimationClasses.h
 	battle/BattleConsole.h
+	battle/BattleControllerAction.h
+	battle/BattleControllerInteractionState.h
+	battle/BattleControllerActionPrompt.h
 	battle/BattleEffectsController.h
 	battle/BattleFieldController.h
+	battle/BattleFocusModel.h
+	battle/BattleFocusNavigation.h
 	battle/BattleHero.h
 	battle/BattleInterface.h
+	battle/BattleMeleeSelection.h
+	battle/BattleNavigationArbiter.h
 	battle/BattleObstacleController.h
 	battle/BattleOverlayLogVisualizer.h
 	battle/BattleProjectileController.h
@@ -260,6 +277,8 @@ set(vcmiclientcommon_HEADERS
 	battle/BattleResultWindow.h
 	battle/BattleSiegeController.h
 	battle/BattleStacksController.h
+	battle/BattleUnitNavigation.h
+	battle/BattleUnitSelector.h
 	battle/BattleWindow.h
 	battle/CreatureAnimation.h
 	battle/HeroInfoWindow.h
@@ -278,6 +297,7 @@ set(vcmiclientcommon_HEADERS
 	eventsSDL/InputSourceGameController.h
 
 	gui/CIntObject.h
+	gui/ControllerAxisReceiver.h
 	gui/CursorHandler.h
 	gui/EventDispatcher.h
 	gui/EventsReceiver.h

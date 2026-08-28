@@ -29,6 +29,8 @@
 #include "../GameEngine.h"
 #include "../CServerHandler.h"
 #include "../GameInstance.h"
+#include "../eventsSDL/InputHandler.h"
+#include "../gui/Shortcut.h"
 #include "../adventureMap/AdventureMapInterface.h"
 #include "../gui/CursorHandler.h"
 #include "../gui/WindowHandler.h"
@@ -36,6 +38,7 @@
 #include "../media/ISoundPlayer.h"
 #include "../render/Canvas.h"
 #include "../windows/CTutorialWindow.h"
+#include "../windows/CCreatureWindow.h"
 
 #include "../../lib/BattleFieldHandler.h"
 #include "../../lib/CConfigHandler.h"
@@ -52,6 +55,53 @@
 #include "../../lib/spells/CSpell.h"
 #include "../../lib/texts/CGeneralTextHandler.h"
 
+namespace
+{
+class ControllerInspectStackWindow final : public CStackWindow
+{
+public:
+	explicit ControllerInspectStackWindow(const CStack * stack)
+		: CStackWindow(stack, false)
+	{
+	}
+
+	bool captureThisKey(EShortcut key) override
+	{
+		return ENGINE->input().getCurrentInputMode() == InputMode::CONTROLLER
+			&& (key == EShortcut::GLOBAL_ACCEPT || key == EShortcut::GLOBAL_CANCEL);
+	}
+
+	void keyPressed(EShortcut key) override
+	{
+		if(key == EShortcut::GLOBAL_ACCEPT)
+			close();
+		else
+			CStackWindow::keyPressed(key);
+	}
+};
+
+class ControllerHoldStackWindow final : public CStackWindow
+{
+public:
+	explicit ControllerHoldStackWindow(const CStack * stack)
+		: CStackWindow(stack, true)
+	{
+	}
+
+	bool captureThisKey(EShortcut key) override
+	{
+		return ENGINE->input().getCurrentInputMode() == InputMode::CONTROLLER
+			&& key == EShortcut::GLOBAL_CANCEL;
+	}
+
+	void keyReleased(EShortcut key) override
+	{
+		if(key == EShortcut::GLOBAL_CANCEL)
+			close();
+	}
+};
+}
+
 BattleInterface::BattleInterface(const BattleID & battleID, const CCreatureSet *army1, const CCreatureSet *army2,
 		const CGHeroInstance *hero1, const CGHeroInstance *hero2,
 		std::shared_ptr<CPlayerInterface> att,
@@ -65,6 +115,11 @@ BattleInterface::BattleInterface(const BattleID & battleID, const CCreatureSet *
 	, battleID(battleID)
 	, battleOpeningDelayActive(true)
 	, round(0)
+	, focusNavigation(std::make_unique<BattleFocusNavigation>(focusModel))
+	, unitNavigation(std::make_unique<BattleUnitNavigation>(focusModel, [this]
+	{
+		return getControllerUnitCandidates();
+	}))
 {
 	if(spectatorInt)
 	{
@@ -215,18 +270,33 @@ void BattleInterface::redrawBattlefield()
 void BattleInterface::stackReset(const CStack * stack)
 {
 	stacksController->stackReset(stack);
+	if(isControllerNativeMode())
+		syncControllerFocusPresentation();
 }
 
 void BattleInterface::stackAdded(const CStack * stack)
 {
 	stacksController->stackAdded(stack, false);
+	if(isControllerNativeMode())
+		syncControllerFocusPresentation();
 }
 
 void BattleInterface::stackRemoved(uint32_t stackID)
 {
 	stacksController->stackRemoved(stackID);
+	if(controllerInspectUnitId && *controllerInspectUnitId == stackID)
+	{
+		if(const auto inspectWindow = controllerInspectWindow.lock();
+			inspectWindow && ENGINE->windows().isTopWindow(inspectWindow))
+			ENGINE->windows().popWindow(inspectWindow);
+		controllerInspectUnitId.reset();
+		controllerInspectWindow.reset();
+		controllerHoldInspectWindow.reset();
+	}
 	fieldController->redrawBackgroundWithHexes();
 	windowObject->updateQueue();
+	if(isControllerNativeMode())
+		syncControllerFocusPresentation();
 }
 
 void BattleInterface::stackActivated(const CStack *stack)
@@ -240,6 +310,8 @@ void BattleInterface::stackMoved(const CStack *stack, const BattleHexArray & des
 		stacksController->stackTeleported(stack, destHex, distance);
 	else
 		stacksController->stackMoved(stack, destHex, distance);
+	if(isControllerNativeMode())
+		syncControllerFocusPresentation();
 }
 
 void BattleInterface::stacksAreAttacked(std::vector<StackAttackedInfo> attackedInfos)
@@ -665,8 +737,407 @@ void BattleInterface::trySetActivePlayer( PlayerColor player )
 		curInt = defenderInt;
 }
 
+bool BattleInterface::isControllerNativeMode() const
+{
+	return ENGINE->input().getCurrentInputMode() == InputMode::CONTROLLER
+		&& !controllerInteractionState.isCursorMode();
+}
+
+bool BattleInterface::isControllerCursorMode() const
+{
+	return controllerInteractionState.isCursorMode();
+}
+
+bool BattleInterface::acceptsPointerPresentation(PointerEventSource source)
+{
+	return controllerInteractionState.acceptsPointerPresentation(source);
+}
+
+bool BattleInterface::ensureControllerFocus()
+{
+	if(focusModel.hasFocus())
+		return true;
+
+	const auto * activeStack = stacksController->getActiveStack();
+	return activeStack != nullptr && focusModel.setFocus(activeStack->getPosition());
+}
+
+void BattleInterface::syncControllerFocusPresentation()
+{
+	if(!isControllerNativeMode() || !focusModel.hasFocus())
+		return;
+
+	const auto focus = focusModel.getFocusedHex();
+	fieldController->setControllerFocusedHex(focus);
+	actionsController->refreshControllerMeleeSelection(controllerMeleeSelection, focus);
+	if(controllerMeleeOriginRepeatState.hasPendingRepeat())
+		controllerMeleeOriginRepeatState.retainContext(getControllerMeleeOriginRepeatContext());
+	fieldController->setControllerAttackDirection(
+		controllerMeleeSelection.getTarget(), controllerMeleeSelection.getCandidate().direction);
+	actionsController->onHexHovered(focus);
+	redrawBattlefield();
+}
+
+std::vector<BattleUnitNavigationCandidate> BattleInterface::getControllerUnitCandidates() const
+{
+	std::vector<BattleUnitNavigationCandidate> result;
+	for(const auto * unit : getBattle()->battleAliveUnits())
+	{
+		const auto headHex = unit->getPosition();
+		if(!unit->isValidTarget(false) || !headHex.isValid())
+			continue;
+
+		result.push_back({
+			unit->unitId(),
+			headHex,
+			unit->doubleWide() ? unit->occupiedHex() : BattleHex::INVALID
+		});
+	}
+	return result;
+}
+
+bool BattleInterface::handleControllerAxis(const ControllerAxisEvent & event)
+{
+	if(!isControllerNativeMode())
+		return false;
+	if(stacksController->getActiveStack() == nullptr || !ensureControllerFocus())
+	{
+		focusNavigation->reset();
+		unitNavigation->reset();
+		navigationArbiter.reset();
+		return false;
+	}
+
+	bool consumed = false;
+	for(const auto action : event.actions)
+	{
+		if(action == EShortcut::CONTROLLER_NAVIGATE_X)
+		{
+			focusNavigation->updateAxis(event.instanceId, BattleFocusNavigation::Axis::HORIZONTAL, event.value);
+			navigationArbiter.update(BattleNavigationArbiter::Source::HEX,
+				focusNavigation->isActive(), unitNavigation->isActive());
+			consumed = true;
+		}
+		if(action == EShortcut::CONTROLLER_NAVIGATE_Y)
+		{
+			focusNavigation->updateAxis(event.instanceId, BattleFocusNavigation::Axis::VERTICAL, event.value);
+			navigationArbiter.update(BattleNavigationArbiter::Source::HEX,
+				focusNavigation->isActive(), unitNavigation->isActive());
+			consumed = true;
+		}
+		if(action == EShortcut::CONTROLLER_UNIT_NAVIGATE_X)
+		{
+			unitNavigation->updateAxis(event.instanceId, BattleUnitNavigation::Axis::HORIZONTAL, event.value);
+			navigationArbiter.update(BattleNavigationArbiter::Source::UNIT,
+				unitNavigation->isActive(), focusNavigation->isActive());
+			consumed = true;
+		}
+		if(action == EShortcut::CONTROLLER_UNIT_NAVIGATE_Y)
+		{
+			unitNavigation->updateAxis(event.instanceId, BattleUnitNavigation::Axis::VERTICAL, event.value);
+			navigationArbiter.update(BattleNavigationArbiter::Source::UNIT,
+				unitNavigation->isActive(), focusNavigation->isActive());
+			consumed = true;
+		}
+	}
+	return consumed;
+}
+
+void BattleInterface::updateControllerAxis(uint32_t msPassed)
+{
+	if(!isControllerNativeMode())
+		return;
+	if(stacksController->getActiveStack() == nullptr)
+	{
+		focusNavigation->reset();
+		unitNavigation->reset();
+		navigationArbiter.reset();
+		return;
+	}
+
+	if(const auto repeatDirection = controllerMeleeOriginRepeatState.update(msPassed);
+		repeatDirection && !cycleControllerMeleeOrigin(*repeatDirection, true))
+	{
+		controllerMeleeOriginRepeatState.reset();
+	}
+
+	bool focusMoved = false;
+	switch(navigationArbiter.owner())
+	{
+	case BattleNavigationArbiter::Source::HEX:
+		focusMoved = focusNavigation->update(msPassed);
+		break;
+	case BattleNavigationArbiter::Source::UNIT:
+		focusMoved = unitNavigation->update(msPassed);
+		break;
+	case BattleNavigationArbiter::Source::NONE:
+		break;
+	}
+	const bool presentationLost = focusModel.hasFocus()
+		&& fieldController->getHoveredHex() != focusModel.getFocusedHex();
+	if(focusMoved || presentationLost)
+		syncControllerFocusPresentation();
+}
+
+void BattleInterface::resetControllerAxis()
+{
+	focusNavigation->reset();
+	unitNavigation->reset();
+	navigationArbiter.reset();
+	controllerActionPressState.reset();
+	controllerMeleeOriginRepeatState.reset();
+	controllerMeleeSelection.clear();
+	if(const auto inspectWindow = controllerHoldInspectWindow.lock();
+		inspectWindow && ENGINE->windows().isTopWindow(inspectWindow))
+	{
+		controllerHoldInspectWindow.reset();
+		ENGINE->windows().popWindow(inspectWindow);
+	}
+}
+
+void BattleInterface::controllerInputModeActivated()
+{
+	controllerInteractionState.controllerInputActivated();
+	controllerActionPressState.reset();
+	controllerMeleeOriginRepeatState.reset();
+	controllerMeleeSelection.clear();
+	if(ensureControllerFocus())
+		syncControllerFocusPresentation();
+}
+
+void BattleInterface::toggleControllerCursorMode()
+{
+	if(ENGINE->input().getCurrentInputMode() != InputMode::CONTROLLER)
+		return;
+
+	ENGINE->input().resetControllerAxisState();
+	if(!controllerInteractionState.isCursorMode())
+	{
+		controllerInteractionState.enterCursorMode(focusModel.getFocusedHex());
+	}
+	else
+	{
+		const auto * activeStack = stacksController->getActiveStack();
+		const BattleHex activeHex = activeStack != nullptr ? activeStack->getPosition() : BattleHex::INVALID;
+		const BattleHex restoreHex = controllerInteractionState.leaveCursorMode(activeHex);
+		if(restoreHex.isValid())
+			focusModel.setFocus(restoreHex);
+		if(ensureControllerFocus())
+			syncControllerFocusPresentation();
+	}
+	ENGINE->windows().refreshControllerCursorPolicy();
+	redrawBattlefield();
+}
+
+bool BattleInterface::handleControllerAcceptPressed()
+{
+	if(!isControllerNativeMode())
+		return false;
+
+	const auto action = getControllerPrimaryAction();
+	const auto focus = focusModel.getFocusedHex();
+	const bool directAction = action == BattleControllerPrimaryAction::MOVE
+		|| action == BattleControllerPrimaryAction::ATTACK
+		|| action == BattleControllerPrimaryAction::SHOOT
+		|| action == BattleControllerPrimaryAction::INSPECT;
+	const auto candidate = controllerMeleeSelection.getCandidate();
+	if(!directAction || !controllerActionPressState.press(
+		action, focus, candidate.attackFrom, candidate.direction,
+		controllerMeleeSelection.getAction(), getControllerActionTargetUnitId(action)))
+		return false;
+
+	redrawBattlefield();
+	return true;
+}
+
+bool BattleInterface::handleControllerAcceptReleased()
+{
+	if(!controllerActionPressState.hasPendingAction())
+		return false;
+
+	const auto action = getControllerPrimaryAction();
+	const auto focus = focusModel.getFocusedHex();
+	const auto candidate = controllerMeleeSelection.getCandidate();
+	const auto targetUnitId = getControllerActionTargetUnitId(action);
+	const auto releasedAction = controllerActionPressState.release(
+		action, focus, candidate.attackFrom, candidate.direction,
+		controllerMeleeSelection.getAction(), targetUnitId);
+	redrawBattlefield();
+	if(!isControllerNativeMode())
+		return false;
+	if(releasedAction == BattleControllerPrimaryAction::MOVE)
+	{
+		actionsController->onHexLeftClicked(focus);
+		return true;
+	}
+	if(releasedAction == BattleControllerPrimaryAction::ATTACK)
+	{
+		const bool submitted = actionsController->realizeControllerMeleeSelection(controllerMeleeSelection);
+		if(!submitted)
+			syncControllerFocusPresentation();
+		return true;
+	}
+	if(releasedAction == BattleControllerPrimaryAction::SHOOT)
+	{
+		const bool submitted = actionsController->realizeControllerShoot(focus, targetUnitId);
+		if(!submitted)
+			syncControllerFocusPresentation();
+		return true;
+	}
+	if(releasedAction != BattleControllerPrimaryAction::INSPECT)
+		return false;
+
+	const auto * stack = getBattle()->battleGetStackByPos(focus, true);
+	if(stack == nullptr)
+		return false;
+
+	auto inspectWindow = std::make_shared<ControllerInspectStackWindow>(stack);
+	controllerInspectUnitId = stack->unitId();
+	controllerInspectWindow = inspectWindow;
+	ENGINE->windows().pushWindow(inspectWindow);
+	return true;
+}
+
+bool BattleInterface::handleControllerInspectPressed()
+{
+	if(!canControllerInspectFocusedStack())
+		return false;
+
+	const auto * stack = getBattle()->battleGetStackByPos(focusModel.getFocusedHex(), true);
+	auto inspectWindow = std::make_shared<ControllerHoldStackWindow>(stack);
+	controllerInspectUnitId = stack->unitId();
+	controllerInspectWindow = inspectWindow;
+	controllerHoldInspectWindow = inspectWindow;
+	ENGINE->windows().pushWindow(inspectWindow);
+	return true;
+}
+
+bool BattleInterface::isControllerAcceptPressed()
+{
+	const auto candidate = controllerMeleeSelection.getCandidate();
+	const auto action = getControllerPrimaryAction();
+	return controllerActionPressState.isPressed(
+		action, focusModel.getFocusedHex(), candidate.attackFrom, candidate.direction,
+		controllerMeleeSelection.getAction(), getControllerActionTargetUnitId(action));
+}
+
+bool BattleInterface::hasControllerInspectTarget() const
+{
+	return canControllerInspectFocusedStack();
+}
+
+bool BattleInterface::canControllerInspectFocusedStack() const
+{
+	if(!isControllerNativeMode() || !focusModel.hasFocus())
+		return false;
+	if(!stacksController || stacksController->getActiveStack() == nullptr)
+		return false;
+	if(actionsController->heroSpellcastingModeActive() || actionsController->creatureSpellcastingModeActive())
+		return false;
+	return getBattle()->battleGetStackByPos(focusModel.getFocusedHex(), true) != nullptr;
+}
+
+bool BattleInterface::hasControllerMeleeAlternatives() const
+{
+	return isControllerNativeMode() && controllerMeleeSelection.hasAlternativeCandidates();
+}
+
+bool BattleInterface::handleControllerMeleeOriginPressed(bool forward)
+{
+	if(!cycleControllerMeleeOrigin(forward, false))
+	{
+		controllerMeleeOriginRepeatState.reset();
+		return false;
+	}
+
+	controllerMeleeOriginRepeatState.press(forward, getControllerMeleeOriginRepeatContext());
+	return true;
+}
+
+bool BattleInterface::handleControllerMeleeOriginReleased(bool forward)
+{
+	const bool hadPressedDirection = controllerMeleeOriginRepeatState.release(forward);
+	return hadPressedDirection || isControllerNativeMode();
+}
+
+bool BattleInterface::cycleControllerMeleeOrigin(bool forward, bool repeated)
+{
+	if(!isControllerNativeMode() || !focusModel.hasFocus())
+		return false;
+	if(repeated && !controllerMeleeOriginRepeatState.retainContext(getControllerMeleeOriginRepeatContext()))
+		return false;
+
+	if(!actionsController->refreshControllerMeleeSelection(controllerMeleeSelection, focusModel.getFocusedHex()))
+		return false;
+	if(repeated && !controllerMeleeOriginRepeatState.retainContext(getControllerMeleeOriginRepeatContext()))
+	{
+		syncControllerFocusPresentation();
+		return false;
+	}
+	if(!controllerMeleeSelection.cycle(forward))
+		return false;
+	if(repeated)
+		controllerMeleeOriginRepeatState.selectionAdvanced(getControllerMeleeOriginRepeatContext());
+
+	syncControllerFocusPresentation();
+	return true;
+}
+
+BattleControllerMeleeOriginRepeatContext BattleInterface::getControllerMeleeOriginRepeatContext() const
+{
+	const auto candidate = controllerMeleeSelection.getCandidate();
+	return {
+		controllerMeleeSelection.getAction(),
+		controllerMeleeSelection.getTarget(),
+		controllerMeleeSelection.getTargetUnitId(),
+		candidate.attackFrom,
+		candidate.direction
+	};
+}
+
+void BattleInterface::controllerWindowRestored()
+{
+	if(!controllerInspectUnitId)
+		return;
+
+	controllerInspectUnitId.reset();
+	controllerInspectWindow.reset();
+	controllerHoldInspectWindow.reset();
+	if(isControllerNativeMode() && ensureControllerFocus())
+		syncControllerFocusPresentation();
+}
+
+BattleControllerPrimaryAction BattleInterface::getControllerPrimaryAction()
+{
+	if(!isControllerNativeMode() || !focusModel.hasFocus())
+		return BattleControllerPrimaryAction::NONE;
+	return actionsController->getControllerPrimaryAction(focusModel.getFocusedHex());
+}
+
+std::optional<uint32_t> BattleInterface::getControllerActionTargetUnitId(
+	BattleControllerPrimaryAction action) const
+{
+	if(action == BattleControllerPrimaryAction::ATTACK)
+		return controllerMeleeSelection.getTargetUnitId();
+	if(action != BattleControllerPrimaryAction::SHOOT || !focusModel.hasFocus())
+		return std::nullopt;
+
+	const auto * target = getBattle()->battleGetStackByPos(focusModel.getFocusedHex(), true);
+	return target != nullptr
+		? std::optional<uint32_t>(target->unitId())
+		: std::nullopt;
+}
+
+BattleHex BattleInterface::getControllerFocusedHex() const
+{
+	return focusModel.getFocusedHex();
+}
+
 void BattleInterface::activateStack()
 {
+	controllerActionPressState.reset();
+	controllerMeleeOriginRepeatState.reset();
+	controllerMeleeSelection.clear();
 	stacksController->activateStack();
 
 	const CStack * s = stacksController->getActiveStack();
@@ -677,7 +1148,15 @@ void BattleInterface::activateStack()
 	windowObject->blockUI(false);
 	fieldController->redrawBackgroundWithHexes();
 	actionsController->activateStack();
-	ENGINE->fakeMouseMove();
+	if(isControllerNativeMode())
+	{
+		focusModel.setFocus(s->getPosition());
+		syncControllerFocusPresentation();
+	}
+	else
+	{
+		ENGINE->fakeMouseMove();
+	}
 }
 
 bool BattleInterface::makingTurn() const
@@ -742,6 +1221,21 @@ void BattleInterface::startAction(const BattleAction & action)
 	assert(getBattle()->battleGetStackByID(action.stackNumber));
 	windowObject->updateQueue();
 	effectsController->startAction(action);
+}
+
+void BattleInterface::actionRejected()
+{
+	controllerActionPressState.reset();
+	controllerMeleeOriginRepeatState.reset();
+	controllerMeleeSelection.clear();
+
+	const auto * authoritativeUnit = getBattle()->battleActiveUnit();
+	if(!authoritativeUnit || authoritativeUnit->unitOwner() != curInt->playerID)
+		return;
+
+	const auto * authoritativeStack = getBattle()->battleGetStackByID(authoritativeUnit->unitId());
+	if(authoritativeStack)
+		stacksController->stackActivated(authoritativeStack);
 }
 
 void BattleInterface::tacticPhaseEnd()

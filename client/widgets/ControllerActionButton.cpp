@@ -15,6 +15,7 @@
 #include "../GameEngine.h"
 #include "../eventsSDL/InputHandler.h"
 #include "../gui/ShortcutHandler.h"
+#include "../gui/TextAlignment.h"
 #include "../render/Canvas.h"
 #include "../render/Colors.h"
 #include "../render/EFont.h"
@@ -28,6 +29,7 @@ namespace
 const Point promptSpritePosition(12, 4);
 constexpr int promptTextLeft = 44;
 constexpr int promptTextWidth = 68;
+constexpr ColorRGBA genericFaceLabelColor(58, 40, 20, 255);
 
 enum class PromptState
 {
@@ -42,6 +44,11 @@ std::optional<std::string> resolvePromptSprite(ControllerPrompt::Family family,
 	if(family == ControllerPrompt::Family::UNKNOWN || bindings.size() != 1
 		|| (bindings.front() != "a" && bindings.front() != "b"))
 		return std::nullopt;
+	if(family == ControllerPrompt::Family::GENERIC || family == ControllerPrompt::Family::NINTENDO)
+	{
+		const std::string stateSuffix = state == PromptState::PRESSED ? "pressed" : "normal";
+		return "controllerActionBar/generic-face-" + stateSuffix + ".png";
+	}
 
 	const std::string familyPrefix = family == ControllerPrompt::Family::PLAYSTATION ? "playstation" : "xbox";
 
@@ -62,12 +69,23 @@ std::optional<std::string> resolvePromptSprite(ControllerPrompt::Family family,
 	return "controllerActionBar/" + familyPrefix + "-" + bindings.front() + "-" + stateSuffix + ".png";
 }
 
+std::string resolvePromptLabel(ControllerPrompt::Family family, const std::vector<std::string> & bindings)
+{
+	if((family != ControllerPrompt::Family::GENERIC && family != ControllerPrompt::Family::NINTENDO)
+		|| bindings.size() != 1)
+		return "";
+	if(family == ControllerPrompt::Family::NINTENDO)
+		return bindings.front() == "a" ? "B" : "A";
+	return bindings.front() == "a" ? "A" : "B";
+}
+
 }
 
 class CControllerActionButton::PromptOverlay final : public CIntObject
 {
 	std::shared_ptr<IImage> sprite;
 	std::optional<std::string> spriteName;
+	std::string spriteLabel;
 	std::string text;
 
 public:
@@ -82,7 +100,7 @@ public:
 		text = newText;
 	}
 
-	void setPresentation(const std::optional<std::string> & newSpriteName)
+	void setPresentation(const std::optional<std::string> & newSpriteName, const std::string & newSpriteLabel)
 	{
 		if(spriteName != newSpriteName)
 		{
@@ -91,6 +109,7 @@ public:
 				? ENGINE->renderHandler().loadImage(ImagePath::builtin(*spriteName), EImageBlitMode::COLORKEY)
 				: nullptr;
 		}
+		spriteLabel = newSpriteLabel;
 	}
 
 	void showAll(Canvas & to) override
@@ -99,6 +118,11 @@ public:
 			return;
 
 		to.draw(sprite, pos.topLeft() + promptSpritePosition);
+		if(!spriteLabel.empty())
+		{
+			to.drawText(pos.topLeft() + promptSpritePosition + Point(12, 12), EFonts::FONT_SMALL,
+				genericFaceLabelColor, ETextAlignment::CENTER, spriteLabel);
+		}
 
 		const auto & font = ENGINE->renderHandler().loadFont(EFonts::FONT_SMALL);
 		const int textTop = pos.y + (pos.h - static_cast<int>(font->getLineHeight())) / 2;
@@ -186,7 +210,7 @@ void CControllerActionButton::refreshPresentation(InputMode inputMode)
 			controllerPromptVisibilityChanged();
 	}
 
-	promptOverlay->setPresentation(spriteName);
+	promptOverlay->setPresentation(spriteName, resolvePromptLabel(promptFamily, bindings));
 	redraw();
 }
 
@@ -203,7 +227,9 @@ void CControllerActionButton::refreshPromptState()
 		state = PromptState::PRESSED;
 
 	promptOverlay->moveTo(pos.topLeft());
-	promptOverlay->setPresentation(resolvePromptSprite(promptFamily, promptBindings, state));
+	promptOverlay->setPresentation(
+		resolvePromptSprite(promptFamily, promptBindings, state),
+		resolvePromptLabel(promptFamily, promptBindings));
 	redraw();
 }
 
@@ -245,7 +271,11 @@ void CControllerActionButton::clickPressed(const Point & cursorPosition)
 void CControllerActionButton::clickReleased(const Point & cursorPosition)
 {
 	if(controllerPromptVisible && isPressed())
-		promptOverlay->setPresentation(resolvePromptSprite(promptFamily, promptBindings, PromptState::NORMAL));
+	{
+		promptOverlay->setPresentation(
+			resolvePromptSprite(promptFamily, promptBindings, PromptState::NORMAL),
+			resolvePromptLabel(promptFamily, promptBindings));
+	}
 
 	// CButton::clickReleased invokes the callback, which may destroy this button.
 	CButton::clickReleased(cursorPosition);
@@ -255,7 +285,9 @@ void CControllerActionButton::clickCancel(const Point & cursorPosition)
 {
 	if(controllerPromptVisible && isPressed())
 	{
-		promptOverlay->setPresentation(resolvePromptSprite(promptFamily, promptBindings, PromptState::NORMAL));
+		promptOverlay->setPresentation(
+			resolvePromptSprite(promptFamily, promptBindings, PromptState::NORMAL),
+			resolvePromptLabel(promptFamily, promptBindings));
 	}
 	CButton::clickCancel(cursorPosition);
 }

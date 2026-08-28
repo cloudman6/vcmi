@@ -82,7 +82,7 @@ void InputSourceTouch::handleEventFingerMotion(const SDL_TouchFingerEvent & tfin
 				static_cast<int>(screenSize.y * params.relativeModeSpeedFactor * motionAccumulatedY[tfinger.fingerId])
 			};
 
-			ENGINE->input().moveCursorPosition(moveDistance);
+			ENGINE->input().moveCursorPosition(moveDistance, PointerEventSource::TOUCH);
 			ENGINE->cursor().cursorMove(ENGINE->getCursorPosition().x * scalingFactor, ENGINE->getCursorPosition().y * scalingFactor);
 
 			break;
@@ -162,21 +162,21 @@ void InputSourceTouch::handleEventFingerDown(const SDL_TouchFingerEvent & tfinge
 		case TouchState::IDLE:
 		{
 			lastTapPosition = convertTouchToMouse(tfinger);
-			ENGINE->input().setCursorPosition(lastTapPosition);
+			ENGINE->input().setCursorPosition(lastTapPosition, PointerEventSource::TOUCH);
 			ENGINE->events().dispatchTouchPress(lastTapPosition, true, params.touchToleranceDistance);
 			state = TouchState::TAP_DOWN_SHORT;
 			break;
 		}
 		case TouchState::TAP_DOWN_SHORT:
 		{
-			ENGINE->input().setCursorPosition(convertTouchToMouse(tfinger));
+			ENGINE->input().setCursorPosition(convertTouchToMouse(tfinger), PointerEventSource::TOUCH);
 			ENGINE->events().dispatchGesturePanningStarted(lastTapPosition);
 			state = TouchState::TAP_DOWN_DOUBLE;
 			break;
 		}
 		case TouchState::TAP_DOWN_PANNING:
 		{
-			ENGINE->input().setCursorPosition(convertTouchToMouse(tfinger));
+			ENGINE->input().setCursorPosition(convertTouchToMouse(tfinger), PointerEventSource::TOUCH);
 			state = TouchState::TAP_DOWN_DOUBLE;
 			break;
 		}
@@ -221,7 +221,7 @@ void InputSourceTouch::handleEventFingerUp(const SDL_TouchFingerEvent & tfinger)
 		}
 		case TouchState::TAP_DOWN_SHORT:
 		{
-			ENGINE->input().setCursorPosition(convertTouchToMouse(tfinger));
+			ENGINE->input().setCursorPosition(convertTouchToMouse(tfinger), PointerEventSource::TOUCH);
 			if(tfinger.timestamp - lastLeftClickTimeTicks < params.doubleTouchTimeMilliseconds && (convertTouchToMouse(tfinger) - lastLeftClickPosition).length() < params.doubleTouchToleranceDistance)
 			{
 				ENGINE->events().dispatchMouseDoubleClick(convertTouchToMouse(tfinger), params.touchToleranceDistance);
@@ -273,7 +273,7 @@ void InputSourceTouch::handleEventFingerUp(const SDL_TouchFingerEvent & tfinger)
 		{
 			if (SDL_GetNumTouchFingers(tfinger.touchId) == 0)
 			{
-				ENGINE->input().setCursorPosition(convertTouchToMouse(tfinger));
+				ENGINE->input().setCursorPosition(convertTouchToMouse(tfinger), PointerEventSource::TOUCH);
 				ENGINE->events().dispatchClosePopup(convertTouchToMouse(tfinger));
 				state = TouchState::IDLE;
 			}

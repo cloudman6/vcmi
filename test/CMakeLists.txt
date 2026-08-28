@@ -274,6 +274,25 @@ vcmi_set_output_dir(vcmitest "")
 
 enable_pch(vcmitest)
 
+if(ENABLE_CLIENT)
+	add_executable(vcmi_battle_controller_test
+		BattleNavigationArbiterTest.cpp
+		BattleFocusModelTest.cpp
+		BattleFocusNavigationTest.cpp
+		BattleMeleeSelectionTest.cpp
+		BattleUnitSelectorTest.cpp
+		BattleUnitNavigationTest.cpp
+		BattleControllerActionTest.cpp
+		BattleControllerInteractionStateTest.cpp)
+	target_link_libraries(vcmi_battle_controller_test PRIVATE gtest_main vcmiclientcommon)
+	target_include_directories(vcmi_battle_controller_test PRIVATE
+		${GTestSrc}/include)
+	gtest_discover_tests(vcmi_battle_controller_test
+		WORKING_DIRECTORY "${CMAKE_BINARY_DIR}/bin/"
+		DISCOVERY_TIMEOUT 60)
+	vcmi_set_output_dir(vcmi_battle_controller_test "")
+endif()
+
 file (GLOB_RECURSE testdata "testdata/*.*")
 foreach(resource ${testdata})
 	get_filename_component(filename ${resource} NAME)

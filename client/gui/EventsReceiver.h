@@ -77,6 +77,7 @@ public:
 
 	virtual void keyPressed(EShortcut key) {}
 	virtual void keyReleased(EShortcut key) {}
+	virtual void keyCancelled(EShortcut key) {}
 
 	virtual void keyPressed(const std::string & keyName) {}
 	virtual void keyReleased(const std::string & keyName) {}

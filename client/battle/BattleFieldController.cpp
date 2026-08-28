@@ -10,6 +10,8 @@
 #include "StdInc.h"
 #include "BattleFieldController.h"
 
+#include "BattleControllerActionPrompt.h"
+
 #include "BattleActionsController.h"
 #include "BattleEffectsController.h"
 #include "BattleInterface.h"
@@ -24,22 +26,26 @@
 
 #include "../CPlayerInterface.h"
 #include "../GameEngine.h"
+#include "../eventsSDL/InputHandler.h"
 #include "../GameInstance.h"
 #include "../adventureMap/CInGameConsole.h"
 #include "../render/CAnimation.h"
 #include "../gui/CursorHandler.h"
 #include "../render/CAnimation.h"
 #include "../render/Canvas.h"
+#include "../render/Colors.h"
 #include "../render/IImage.h"
 #include "../render/IRenderHandler.h"
 
 #include "../../lib/BattleFieldHandler.h"
 #include "../../lib/CConfigHandler.h"
 #include "../../lib/CStack.h"
+#include "../../lib/GameLibrary.h"
 #include "../../lib/battle/CPlayerBattleCallback.h"
 #include "../../lib/spells/ISpellMechanics.h"
 #include "../../lib/spells/Problem.h"
 #include "../../lib/spells/CSpell.h"
+#include "../../lib/texts/CGeneralTextHandler.h"
 
 namespace HexMasks
 {
@@ -224,6 +230,8 @@ void BattleFieldController::gesturePanning(const Point & initialPosition, const 
 		hoveredHex = BattleHex::INVALID;
 
 	currentAttackOriginPoint = currentPosition;
+	controllerAttackTarget = BattleHex::INVALID;
+	controllerAttackDirection = BattleHex::NONE;
 
 	if (pos.isInside(initialPosition))
 		owner.actionsController->onHexHovered(getHoveredHex());
@@ -231,7 +239,12 @@ void BattleFieldController::gesturePanning(const Point & initialPosition, const 
 
 void BattleFieldController::mouseMoved(const Point & cursorPosition, const Point & lastUpdateDistance)
 {
+	if(!owner.acceptsPointerPresentation(ENGINE->input().getPointerEventSource()))
+		return;
+
 	currentAttackOriginPoint = cursorPosition;
+	controllerAttackTarget = BattleHex::INVALID;
+	controllerAttackDirection = BattleHex::NONE;
 
 	// hex rects of the bottom rows extend under the command panel, so only treat the cursor as hovering a hex
 	// when it is actually over the battlefield - otherwise hovering the panel leaks a unit range highlight.
@@ -721,6 +734,23 @@ BattleHex BattleFieldController::getHoveredHex()
 	return hoveredHex;
 }
 
+void BattleFieldController::setControllerFocusedHex(const BattleHex & hex)
+{
+	if(!hex.isValid())
+		return;
+
+	hoveredHex = hex;
+	currentAttackOriginPoint = hexPositionAbsolute(hex).center();
+	controllerAttackTarget = BattleHex::INVALID;
+	controllerAttackDirection = BattleHex::NONE;
+}
+
+void BattleFieldController::setControllerAttackDirection(const BattleHex & target, BattleHex::EDir direction)
+{
+	controllerAttackTarget = target;
+	controllerAttackDirection = direction;
+}
+
 const CStack* BattleFieldController::getQueueHoveredStack() const
 {
 	if(!owner.windowObject->getQueueHoveredUnitId().has_value())
@@ -773,6 +803,9 @@ BattleHex BattleFieldController::getHexAtPosition(Point hoverPos)
 
 BattleHex::EDir BattleFieldController::selectAttackDirection(const BattleHex & myNumber) const
 {
+	if(controllerAttackTarget == myNumber && controllerAttackDirection != BattleHex::NONE)
+		return controllerAttackDirection;
+
 	auto attacker = owner.stacksController->getActiveStack();
 	assert(attacker);
 
@@ -857,9 +890,39 @@ void BattleFieldController::show(Canvas & to)
 	CanvasClipRectGuard guard(to, pos);
 
 	renderBattlefield(to);
+	if(owner.isControllerCursorMode() && ENGINE->input().getCurrentInputMode() == InputMode::CONTROLLER)
+	{
+		const Rect unobscured = BattleControllerActionPrompt::unobscuredBattlefieldRect(pos.topLeft());
+		const Rect indicator(unobscured.center().x - 60, unobscured.y + 8, 120, 22);
+		to.drawColorBlended(indicator, ColorRGBA(45, 28, 16, 190));
+		to.drawBorder(indicator, ColorRGBA(198, 164, 104), 1);
+		to.drawText(indicator.center(), FONT_SMALL, Colors::WHITE, ETextAlignment::CENTER,
+			LIBRARY->generaltexth->translate("vcmi.battleWindow.controller.cursorMode"));
+	}
 
-	if (isActive() && isGesturing() && getHoveredHex() != BattleHex::INVALID)
+	// Browse presentation belongs to the stack currently choosing its action.
+	// Stable focus remains available while a submitted action is in flight, but
+	// must not be rendered as a software cursor until the next stack is active.
+	const bool nativeBrowsePresentation = owner.isControllerNativeMode()
+		&& owner.getControllerFocusedHex().isValid()
+		&& owner.stacksController->getActiveStack() != nullptr;
+
+	if(isActive() && (isGesturing() || nativeBrowsePresentation) && getHoveredHex() != BattleHex::INVALID)
+	{
 		to.draw(ENGINE->cursor().getCurrentImage(), hexPositionAbsolute(getHoveredHex()).center() - ENGINE->cursor().getPivotOffset());
+	}
+
+	if(isActive() && nativeBrowsePresentation)
+	{
+		BattleControllerActionPrompt::draw(
+			to,
+			owner.getControllerPrimaryAction(),
+			hexPositionAbsolute(owner.getControllerFocusedHex()),
+			BattleControllerActionPrompt::unobscuredBattlefieldRect(pos.topLeft()),
+			owner.isControllerAcceptPressed(),
+			owner.hasControllerInspectTarget(),
+			owner.hasControllerMeleeAlternatives());
+	}
 }
 
 bool BattleFieldController::receiveEvent(const Point & position, int eventType) const

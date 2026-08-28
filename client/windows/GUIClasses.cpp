@@ -1908,7 +1908,7 @@ void CObjectListWindow::activate()
 void CObjectListWindow::deactivate()
 {
 	if(controllerActionPromptsConfigured)
-		ENGINE->cursor().setControllerNativeHidden(false);
+		ENGINE->cursor().setControllerNativeHidden(Cursor::ControllerNativeVisibilityOwner::OBJECT_LIST, false);
 	CWindowObject::deactivate();
 }
 
@@ -1921,7 +1921,7 @@ void CObjectListWindow::updateControllerCursorVisibility()
 		&& ENGINE->input().getCurrentInputMode() == InputMode::CONTROLLER
 		&& ok->isControllerPromptVisible()
 		&& exit->isControllerPromptVisible();
-	ENGINE->cursor().setControllerNativeHidden(shouldHide);
+	ENGINE->cursor().setControllerNativeHidden(Cursor::ControllerNativeVisibilityOwner::OBJECT_LIST, shouldHide);
 }
 
 void CObjectListWindow::trimTextIfTooWide(std::string & text, bool preserveCountSuffix) const

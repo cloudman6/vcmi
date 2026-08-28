@@ -20,6 +20,10 @@ enum class EShortcut
 	MOUSE_CURSOR_Y,
 	MOUSE_SWIPE_X,
 	MOUSE_SWIPE_Y,
+	CONTROLLER_NAVIGATE_X,
+	CONTROLLER_NAVIGATE_Y,
+	CONTROLLER_UNIT_NAVIGATE_X,
+	CONTROLLER_UNIT_NAVIGATE_Y,
 
 	// Global hotkeys that are available in multiple dialogs
 	GLOBAL_ACCEPT,     // Return - Accept query
@@ -30,6 +34,7 @@ enum class EShortcut
 	GLOBAL_OPTIONS,    // 'O' - Open System Options dialog
 	GLOBAL_BACKSPACE,  // Backspace - erase last symbol in text input
 	GLOBAL_MOVE_FOCUS, // Tab - move focus to next text input
+	GLOBAL_TOGGLE_CURSOR_MODE,
 
 	// Movement hotkeys, usually - for moving through lists with slider
 	MOVE_LEFT,
@@ -199,6 +204,8 @@ enum class EShortcut
 	BATTLE_CAST_SPELL,
 	BATTLE_WAIT,
 	BATTLE_DEFEND,
+	BATTLE_CONTROLLER_PREVIOUS_ATTACK_ORIGIN,
+	BATTLE_CONTROLLER_NEXT_ATTACK_ORIGIN,
 	BATTLE_CONSOLE_UP,
 	BATTLE_CONSOLE_DOWN,
 	BATTLE_TACTICS_NEXT,

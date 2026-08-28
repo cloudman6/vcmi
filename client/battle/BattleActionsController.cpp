@@ -96,6 +96,30 @@ static std::string formatPlural(DamageRange range, const std::string & baseTextI
 	return formatPluralImpl(range.max, rangeString, baseTextID);
 }
 
+static BattleControllerPrimaryAction classifyControllerPrimaryAction(
+	PossiblePlayerBattleAction::Actions action, bool legal)
+{
+	if(!legal)
+		return BattleControllerPrimaryAction::NONE;
+
+	switch(action)
+	{
+	case PossiblePlayerBattleAction::MOVE_STACK:
+		return BattleControllerPrimaryAction::MOVE;
+	case PossiblePlayerBattleAction::ATTACK:
+	case PossiblePlayerBattleAction::LONG_WEAPON_ATTACK:
+	case PossiblePlayerBattleAction::WALK_AND_ATTACK:
+	case PossiblePlayerBattleAction::ATTACK_AND_RETURN:
+		return BattleControllerPrimaryAction::ATTACK;
+	case PossiblePlayerBattleAction::SHOOT:
+		return BattleControllerPrimaryAction::SHOOT;
+	case PossiblePlayerBattleAction::CREATURE_INFO:
+		return BattleControllerPrimaryAction::INSPECT;
+	default:
+		return BattleControllerPrimaryAction::NONE;
+	}
+}
+
 static std::string formatAttack(const DamageEstimation & estimation, const std::string & creatureName, const std::string & baseTextID, int shotsLeft)
 {
 	TextReplacementList replacements = {
@@ -237,7 +261,10 @@ void BattleActionsController::endCastingSpell()
 	}
 
 	selectedStack = nullptr;
-	ENGINE->fakeMouseMove();
+	if(owner.isControllerNativeMode())
+		owner.syncControllerFocusPresentation();
+	else
+		ENGINE->fakeMouseMove();
 }
 
 bool BattleActionsController::isActiveStackSpellcaster() const
@@ -812,6 +839,48 @@ std::string BattleActionsController::actionGetStatusMessageBlocked(PossiblePlaye
 	}
 }
 
+std::string BattleActionsController::getControllerShootDisabledReasonTextKey(
+	const BattleHex & focusedHex) const
+{
+	if(!controllerDirectActionsAllowed())
+		return "";
+
+	const auto battle = owner.getBattle();
+	const auto * activeStack = owner.stacksController->getActiveStack();
+	const auto * targetStack = focusedHex.isValid()
+		? battle->battleGetStackByPos(focusedHex, true)
+		: nullptr;
+	const bool shootingConcern = activeStack != nullptr
+		&& activeStack->isShooter()
+		&& targetStack != nullptr
+		&& targetStack->alive()
+		&& battle->battleMatchOwner(activeStack, targetStack);
+	if(!shootingConcern)
+		return "";
+
+	const bool legal = battle->battleCanShoot(activeStack, focusedHex);
+	const bool hasAmmo = activeStack->shots.canUse();
+	const bool blockedByAdjacentEnemy = activeStack->canShoot()
+		&& !activeStack->canShootBlocked()
+		&& battle->battleIsUnitBlocked(activeStack);
+	bool outsideLimitedRange = false;
+	if(const auto limitedRange = activeStack->getBonus(Selector::type()(BonusType::LIMITED_SHOOTING_RANGE)))
+	{
+		outsideLimitedRange = !battle->isEnemyUnitWithinSpecifiedRange(
+			activeStack->getPosition(), targetStack, limitedRange->val);
+	}
+
+	if(legal)
+		return "";
+	if(!hasAmmo)
+		return "vcmi.battleWindow.controller.shootDisabled.noAmmo";
+	if(blockedByAdjacentEnemy)
+		return "vcmi.battleWindow.controller.shootDisabled.blocked";
+	if(outsideLimitedRange)
+		return "vcmi.battleWindow.controller.shootDisabled.outOfRange";
+	return "vcmi.battleWindow.controller.shootDisabled.prohibited";
+}
+
 bool BattleActionsController::actionIsLegal(PossiblePlayerBattleAction action, const BattleHex & targetHex)
 {
 	const CStack * targetStack = getStackForHex(targetHex);
@@ -1125,6 +1194,129 @@ PossiblePlayerBattleAction BattleActionsController::selectAction(const BattleHex
 	return possibleActions.front();
 }
 
+bool BattleActionsController::controllerDirectActionsAllowed() const
+{
+	const auto * activeStack = owner.stacksController->getActiveStack();
+	return activeStack != nullptr
+		&& !owner.isInTacticsMode()
+		&& !activeStack->hasBonusOfType(BonusType::SIEGE_WEAPON);
+}
+
+PossiblePlayerBattleAction BattleActionsController::selectControllerAction(const BattleHex & targetHex)
+{
+	if(owner.stacksController->getActiveStack() != nullptr && !controllerDirectActionsAllowed())
+		return PossiblePlayerBattleAction::CREATURE_INFO;
+
+	return selectAction(targetHex);
+}
+
+BattleControllerPrimaryAction BattleActionsController::getControllerPrimaryAction(const BattleHex & focusedHex)
+{
+	if(!focusedHex.isValid() || (owner.stacksController->getActiveStack() == nullptr && monsterCaster == nullptr))
+		return BattleControllerPrimaryAction::NONE;
+
+	const auto action = selectControllerAction(focusedHex);
+	return classifyControllerPrimaryAction(action.get(), actionIsLegal(action, focusedHex));
+}
+
+std::vector<BattleMeleeSelection::Candidate> BattleActionsController::getControllerMeleeCandidates(
+	PossiblePlayerBattleAction action, const BattleHex & targetHex) const
+{
+	std::vector<BattleMeleeSelection::Candidate> result;
+	const auto * attacker = owner.stacksController->getActiveStack();
+	if(!attacker || !targetHex.isValid())
+		return result;
+
+	const bool allowLongWeapon = action.get() == PossiblePlayerBattleAction::LONG_WEAPON_ATTACK;
+	const auto availableHexes = owner.getBattle()->battleGetAvailableHexes(attacker, false);
+	for(int direction = 0; direction < 8; ++direction)
+	{
+		const auto attackDirection = static_cast<BattleHex::EDir>(direction);
+		if(!owner.getBattle()->battleCanAttackHex(availableHexes, attacker, targetHex, attackDirection))
+			continue;
+
+		const auto attackFrom = owner.getBattle()->fromWhichHexAttack(
+			attacker, targetHex, attackDirection, allowLongWeapon);
+		if(attackFrom.isValid())
+			result.push_back({attackFrom, attackDirection});
+	}
+	return result;
+}
+
+bool BattleActionsController::refreshControllerMeleeSelection(
+	BattleMeleeSelection & selection, const BattleHex & focusedHex)
+{
+	if(!focusedHex.isValid() || !controllerDirectActionsAllowed())
+	{
+		selection.clear();
+		return false;
+	}
+
+	const auto action = selectAction(focusedHex);
+	if(!actionIsLegal(action, focusedHex))
+	{
+		selection.clear();
+		return false;
+	}
+	const auto * target = owner.getBattle()->battleGetStackByPos(focusedHex, true);
+	if(target == nullptr)
+	{
+		selection.clear();
+		return false;
+	}
+
+	return selection.refresh(
+		action.get(), focusedHex, target->unitId(), getControllerMeleeCandidates(action, focusedHex));
+}
+
+bool BattleActionsController::realizeControllerMeleeSelection(const BattleMeleeSelection & selection)
+{
+	if(!selection.isValid() || !controllerDirectActionsAllowed())
+		return false;
+	const auto * target = owner.getBattle()->battleGetStackByPos(selection.getTarget(), true);
+	if(target == nullptr || selection.getTargetUnitId() != target->unitId())
+		return false;
+
+	const auto action = selectAction(selection.getTarget());
+	if(action.get() != selection.getAction() || !actionIsLegal(action, selection.getTarget()))
+		return false;
+
+	const auto candidates = getControllerMeleeCandidates(action, selection.getTarget());
+	const auto selectedCandidate = selection.getCandidate();
+	if(std::find(candidates.begin(), candidates.end(), selectedCandidate) == candidates.end())
+		return false;
+
+	const auto * attacker = owner.stacksController->getActiveStack();
+	if(!attacker)
+		return false;
+
+	auto command = BattleAction::makeMeleeAttack(
+		attacker, selection.getTarget(), selectedCandidate.attackFrom, selection.returnsAfterAttack());
+	owner.sendCommand(command, attacker);
+	return true;
+}
+
+bool BattleActionsController::realizeControllerShoot(
+	const BattleHex & focusedHex, std::optional<uint32_t> targetUnitId)
+{
+	if(!focusedHex.isValid() || !controllerDirectActionsAllowed())
+		return false;
+
+	const auto * target = owner.getBattle()->battleGetStackByPos(focusedHex, true);
+	const auto liveTargetUnitId = target != nullptr
+		? std::optional<uint32_t>(target->unitId())
+		: std::nullopt;
+	if(liveTargetUnitId != targetUnitId)
+		return false;
+
+	const auto action = selectAction(focusedHex);
+	if(action.get() != PossiblePlayerBattleAction::SHOOT || !actionIsLegal(action, focusedHex))
+		return false;
+
+	actionRealize(action, focusedHex);
+	return true;
+}
+
 void BattleActionsController::onHexHovered(const BattleHex & hoveredHex)
 {
 	if (owner.openingPlaying())
@@ -1147,11 +1339,14 @@ void BattleActionsController::onHexHovered(const BattleHex & hoveredHex)
 		return;
 	}
 
-	auto action = selectAction(hoveredHex);
+	auto action = owner.isControllerNativeMode()
+		? selectControllerAction(hoveredHex)
+		: selectAction(hoveredHex);
+	const bool actionLegal = actionIsLegal(action, hoveredHex);
 
 	std::string newConsoleMsg;
 
-	if (actionIsLegal(action, hoveredHex))
+	if (actionLegal)
 	{
 		actionSetCursor(action, hoveredHex);
 		newConsoleMsg = actionGetStatusMessage(action, hoveredHex);
@@ -1160,6 +1355,16 @@ void BattleActionsController::onHexHovered(const BattleHex & hoveredHex)
 	{
 		actionSetCursorBlocked(action, hoveredHex);
 		newConsoleMsg = actionGetStatusMessageBlocked(action, hoveredHex);
+	}
+
+	const auto primaryAction = classifyControllerPrimaryAction(action.get(), actionLegal);
+	if(owner.isControllerNativeMode()
+		&& (primaryAction == BattleControllerPrimaryAction::INSPECT
+			|| primaryAction == BattleControllerPrimaryAction::NONE))
+	{
+		const auto reasonKey = getControllerShootDisabledReasonTextKey(hoveredHex);
+		if(!reasonKey.empty())
+			newConsoleMsg = LIBRARY->generaltexth->translate(reasonKey);
 	}
 
 	if (owner.siegeController && owner.siegeController->isTowerHex(hoveredHex))

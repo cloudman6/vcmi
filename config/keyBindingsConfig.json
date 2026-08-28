@@ -64,6 +64,8 @@
 		"battleCastSpell":          "C",
 		"battleConsoleDown":        "Down",
 		"battleConsoleUp":          "Up",
+		"battleControllerNextAttackOrigin": [],
+		"battleControllerPreviousAttackOrigin": [],
 		"battleDefend":             [ "D", "Space"],
 		"battleOpenActiveUnit":     "I",
 		"battleOpenHoveredUnit":    "V",
@@ -113,6 +115,7 @@
 		"globalFullscreen":         "F4",
 		"globalScreenshot":         "F3",
 		"globalMoveFocus":          "Tab",
+		"toggleCursorMode":         [],
 		"globalOptions":            "O",
 		"globalReturn":             [ "Escape", "Return", "Keypad Enter"],
 		"heroArmySplit":            "S",
@@ -281,6 +284,10 @@
 		"mouseClickRight":          [],
 		"mouseSwipeX":              [],
 		"mouseSwipeY":              [],
+		"controllerNavigateX":      [],
+		"controllerNavigateY":      [],
+		"controllerUnitNavigateX":  [],
+		"controllerUnitNavigateY":  [],
 
 	},
 	
@@ -288,6 +295,10 @@
 	{
 		"mouseCursorX" : "leftx",
 		"mouseCursorY" : "lefty",
+		"controllerNavigateX" : "leftx",
+		"controllerNavigateY" : "lefty",
+		"controllerUnitNavigateX" : "rightx",
+		"controllerUnitNavigateY" : "righty",
 		"mouseSwipeX" : "rightx",
 		"mouseSwipeY" : "righty"
 	},
@@ -310,9 +321,11 @@
 
 		"adventureNextHero" : "leftshoulder",
 		"battleDefend" : "leftshoulder",
+		"battleControllerPreviousAttackOrigin" : "leftshoulder",
 
 		"adventureNextTown" : "rightshoulder",
 		"battleWait" : "rightshoulder",
+		"battleControllerNextAttackOrigin" : "rightshoulder",
 
 		"adventureVisitObject" : "lefttrigger",
 		"battleTacticsNext" : "lefttrigger",
@@ -323,6 +336,7 @@
 		
 		"adventureEndTurn" : "back",
 		"battleAutocombatEnd" : "back",
+		"toggleCursorMode" : [],
 		
 		"globalOptions" : "start",
 		"adventureGameOptions" : "start",
@@ -349,6 +363,23 @@
 		"battleToggleHeroesStats" : "leftstick",
 		
 		"adventureToggleGrid" : "rightstick",
-		"battleToggleQueue" : "rightstick",
+		"battleToggleQueue" : "rightstick"
+	},
+
+	"joystickButtonsPlayStation": {
+		"toggleCursorMode": "touchpad",
+		"battleAutocombatEnd": []
+	},
+	"joystickButtonsXbox": {
+		"toggleCursorMode": "back",
+		"battleAutocombatEnd": []
+	},
+	"joystickButtonsNintendo": {
+		"toggleCursorMode": "back",
+		"battleAutocombatEnd": []
+	},
+	"joystickButtonsGeneric": {
+		"toggleCursorMode": "back",
+		"battleAutocombatEnd": []
 	}
 }

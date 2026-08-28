@@ -10,6 +10,13 @@
 #pragma once
 
 #include "BattleConstants.h"
+#include "BattleNavigationArbiter.h"
+#include "BattleControllerAction.h"
+#include "BattleControllerInteractionState.h"
+#include "BattleFocusModel.h"
+#include "BattleMeleeSelection.h"
+#include "BattleFocusNavigation.h"
+#include "BattleUnitNavigation.h"
 
 #include "../gui/CIntObject.h"
 
@@ -22,6 +29,8 @@ class CGHeroInstance;
 class CStack;
 struct BattleResult;
 struct BattleSpellCast;
+struct ControllerAxisEvent;
+enum class PointerEventSource;
 struct CObstacleInstance;
 struct SetStackEffect;
 class BattleAction;
@@ -118,6 +127,12 @@ class BattleInterface
 
 	void playIntroSoundAndUnlockInterface();
 	void onIntroSoundPlayed();
+	bool ensureControllerFocus();
+	std::vector<BattleUnitNavigationCandidate> getControllerUnitCandidates() const;
+	bool canControllerInspectFocusedStack() const;
+	std::optional<uint32_t> getControllerActionTargetUnitId(BattleControllerPrimaryAction action) const;
+	BattleControllerMeleeOriginRepeatContext getControllerMeleeOriginRepeatContext() const;
+	bool cycleControllerMeleeOrigin(bool forward, bool repeated);
 public:
 	/// copy of initial armies (for result window)
 	const CCreatureSet *army1;
@@ -142,6 +157,20 @@ public:
 	std::unique_ptr<BattleActionsController> actionsController;
 	std::unique_ptr<BattleEffectsController> effectsController;
 
+private:
+	BattleFocusModel focusModel;
+	std::unique_ptr<BattleFocusNavigation> focusNavigation;
+	std::unique_ptr<BattleUnitNavigation> unitNavigation;
+	BattleNavigationArbiter navigationArbiter;
+	BattleControllerActionPressState controllerActionPressState;
+	BattleControllerMeleeOriginRepeatState controllerMeleeOriginRepeatState;
+	BattleMeleeSelection controllerMeleeSelection;
+	BattleControllerInteractionState controllerInteractionState;
+	std::optional<uint32_t> controllerInspectUnitId;
+	std::weak_ptr<IShowActivatable> controllerInspectWindow;
+	std::weak_ptr<IShowActivatable> controllerHoldInspectWindow;
+
+public:
 	std::shared_ptr<BattleHero> attackingHero;
 	std::shared_ptr<BattleHero> defendingHero;
 
@@ -158,6 +187,25 @@ public:
 
 	void trySetActivePlayer( PlayerColor player ); // if in hotseat, will activate interface of chosen player
 	void activateStack(); //sets activeStack to stackToActivate etc. //FIXME: No, it's not clear at all
+	bool handleControllerAxis(const ControllerAxisEvent & event);
+	void updateControllerAxis(uint32_t msPassed);
+	void resetControllerAxis();
+	void controllerInputModeActivated();
+	bool handleControllerAcceptPressed();
+	bool handleControllerAcceptReleased();
+	bool handleControllerInspectPressed();
+	bool handleControllerMeleeOriginPressed(bool forward);
+	bool handleControllerMeleeOriginReleased(bool forward);
+	bool isControllerAcceptPressed();
+	bool hasControllerInspectTarget() const;
+	bool hasControllerMeleeAlternatives() const;
+	void controllerWindowRestored();
+	void syncControllerFocusPresentation();
+	BattleControllerPrimaryAction getControllerPrimaryAction();
+	void toggleControllerCursorMode();
+	bool isControllerNativeMode() const;
+	bool isControllerCursorMode() const;
+	bool acceptsPointerPresentation(PointerEventSource source);
 	void requestAutofightingAIToTakeAction();
 
 	void giveCommand(EActionType action, const BattleHex & tile = BattleHex(), SpellID spell = SpellID::NONE);
@@ -199,6 +247,7 @@ public:
 
 	//call-ins
 	void startAction(const BattleAction & action);
+	void actionRejected();
 	void stackReset(const CStack * stack);
 	void stackAdded(const CStack * stack); //new stack appeared on battlefield
 	void stackRemoved(uint32_t stackID); //stack disappeared from batlefiled
@@ -213,6 +262,8 @@ public:
 	void spellCast(const BattleSpellCast *sc); //called when a hero casts a spell
 	void battleStacksEffectsSet(const SetStackEffect & sse); //called when a specific effect is set to stacks
 	void castThisSpell(SpellID spellID); //called when player has chosen a spell from spellbook
+
+	BattleHex getControllerFocusedHex() const;
 
 	void displayBattleLog(const std::vector<MetaString> & battleLog);
 

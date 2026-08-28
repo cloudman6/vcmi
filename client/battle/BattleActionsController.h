@@ -9,6 +9,9 @@
  */
 #pragma once
 
+#include "BattleControllerAction.h"
+#include "BattleMeleeSelection.h"
+
 #include "../../lib/battle/CBattleInfoCallback.h"
 
 class BattleAction;
@@ -57,10 +60,15 @@ class BattleActionsController
 
 	std::string actionGetStatusMessage(PossiblePlayerBattleAction action, const BattleHex & hoveredHex);
 	std::string actionGetStatusMessageBlocked(PossiblePlayerBattleAction action, const BattleHex & hoveredHex);
+	std::string getControllerShootDisabledReasonTextKey(const BattleHex & focusedHex) const;
+	bool controllerDirectActionsAllowed() const;
 
 	void actionRealize(PossiblePlayerBattleAction action, const BattleHex & hoveredHex);
 
 	PossiblePlayerBattleAction selectAction(const BattleHex & myNumber);
+	PossiblePlayerBattleAction selectControllerAction(const BattleHex & myNumber);
+	std::vector<BattleMeleeSelection::Candidate> getControllerMeleeCandidates(
+		PossiblePlayerBattleAction action, const BattleHex & targetHex) const;
 
 	const CStack * getStackForHex(const BattleHex & myNumber) ;
 
@@ -79,6 +87,11 @@ class BattleActionsController
 
 public:
 	BattleActionsController(BattleInterface & owner);
+
+	BattleControllerPrimaryAction getControllerPrimaryAction(const BattleHex & focusedHex);
+	bool refreshControllerMeleeSelection(BattleMeleeSelection & selection, const BattleHex & focusedHex);
+	bool realizeControllerMeleeSelection(const BattleMeleeSelection & selection);
+	bool realizeControllerShoot(const BattleHex & focusedHex, std::optional<uint32_t> targetUnitId);
 
 	/// initialize list of potential actions for new active stack
 	void activateStack();
