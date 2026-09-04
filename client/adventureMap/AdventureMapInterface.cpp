@@ -281,13 +281,19 @@ bool AdventureMapInterface::controllerAxisMoved(int instanceId, const std::vecto
 			handled = true;
 			break;
 		case EShortcut::MOUSE_SWIPE_X:
-			controllerObjectNavigation.update(true, value);
-			updateControllerNavigationOwner(ControllerNavigationOwner::OBJECT);
+			if(getState() != EAdventureState::WORLD_VIEW)
+			{
+				controllerObjectNavigation.update(true, value);
+				updateControllerNavigationOwner(ControllerNavigationOwner::OBJECT);
+			}
 			handled = true;
 			break;
 		case EShortcut::MOUSE_SWIPE_Y:
-			controllerObjectNavigation.update(false, value);
-			updateControllerNavigationOwner(ControllerNavigationOwner::OBJECT);
+			if(getState() != EAdventureState::WORLD_VIEW)
+			{
+				controllerObjectNavigation.update(false, value);
+				updateControllerNavigationOwner(ControllerNavigationOwner::OBJECT);
+			}
 			handled = true;
 			break;
 		default:
@@ -485,7 +491,8 @@ void AdventureMapInterface::centerControllerCamera()
 
 void AdventureMapInterface::toggleControllerCursorMode()
 {
-	if(ENGINE->input().getCurrentInputMode() != InputMode::CONTROLLER)
+	if(ENGINE->input().getCurrentInputMode() != InputMode::CONTROLLER
+		|| getState() != EAdventureState::MAKING_TURN)
 		return;
 	ENGINE->input().clearControllerAxisMotion();
 	controllerInputReset();
@@ -765,14 +772,17 @@ void AdventureMapInterface::keyPressed(EShortcut key)
 		}
 		if(key == EShortcut::ADVENTURE_CONTROLLER_CAMERA)
 		{
-			const auto direction = controllerTileNavigation.direction();
-			controllerTileNavigation.reset();
-			if(controllerNavigationOwner == ControllerNavigationOwner::TILE)
-				controllerNavigationOwner = controllerObjectNavigation.isActive()
-					? ControllerNavigationOwner::OBJECT : ControllerNavigationOwner::NONE;
-			controllerModeState.setCameraHeld(true);
-			controllerModeState.updateCameraAxis(true, direction.first);
-			controllerModeState.updateCameraAxis(false, direction.second);
+			if(getState() == EAdventureState::MAKING_TURN)
+			{
+				const auto direction = controllerTileNavigation.direction();
+				controllerTileNavigation.reset();
+				if(controllerNavigationOwner == ControllerNavigationOwner::TILE)
+					controllerNavigationOwner = controllerObjectNavigation.isActive()
+						? ControllerNavigationOwner::OBJECT : ControllerNavigationOwner::NONE;
+				controllerModeState.setCameraHeld(true);
+				controllerModeState.updateCameraAxis(true, direction.first);
+				controllerModeState.updateCameraAxis(false, direction.second);
+			}
 			return;
 		}
 		if(key == EShortcut::ADVENTURE_CONTROLLER_RECENTER)
