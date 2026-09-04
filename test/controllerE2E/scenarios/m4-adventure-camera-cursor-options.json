@@ -1,0 +1,33 @@
+{
+	"schema": "vcmi.controller-e2e/v1",
+	"id": "m4.adventure.camera-cursor-options",
+	"profile": "dualsense",
+	"settingsOverride": {"input": {"enableMouse": true}, "server": {"seed": 20260904}},
+	"timeout_ms": 90000,
+	"fixture": {"setup": "battle-map-start", "map": "adventure-visible-enemy-e2e", "autofightPlayers": []},
+	"prelude": [{"op": "attach", "device": "pad0", "profile": "dualsense"}],
+	"steps": [
+		{"op": "wait_until", "probe": "scene", "field": "adventure_ready", "equals": true, "timeout_ms": 60000, "stable_for_frames": 3},
+		{"op": "assert", "probe": "controller_object_focus", "field": "native_mode", "equals": true},
+		{"op": "assert", "probe": "runtime", "field": "cursor_visible", "equals": false},
+		{"op": "set_axis", "device": "pad0", "control": "l2", "value": 1.0},
+		{"op": "wait_until", "probe": "controller_object_focus", "field": "camera_held", "equals": true, "timeout_ms": 3000},
+		{"op": "set_axis", "device": "pad0", "control": "left_stick_x", "value": 1.0},
+		{"op": "wait_until", "probe": "controller_object_focus", "field": "camera_center_x", "changes": true, "timeout_ms": 3000, "stable_for_frames": 3},
+		{"op": "neutralize", "device": "pad0"},
+		{"op": "assert", "probe": "controller_object_focus", "field": "camera_held", "equals": false},
+		{"op": "tap", "device": "pad0", "control": "left_stick_click"},
+		{"op": "wait_until", "probe": "controller_object_focus", "field": "camera_center_x", "equals": 12, "timeout_ms": 3000, "stable_for_frames": 3},
+		{"op": "tap", "device": "pad0", "control": "touchpad_click"},
+		{"op": "wait_until", "probe": "controller_object_focus", "field": "cursor_mode", "equals": true, "timeout_ms": 3000},
+		{"op": "assert", "probe": "controller_object_focus", "field": "native_mode", "equals": false},
+		{"op": "assert", "probe": "runtime", "field": "cursor_visible", "equals": true},
+		{"op": "tap", "device": "pad0", "control": "touchpad_click"},
+		{"op": "wait_until", "probe": "controller_object_focus", "field": "native_mode", "equals": true, "timeout_ms": 3000},
+		{"op": "assert", "probe": "runtime", "field": "cursor_visible", "equals": false},
+		{"op": "tap", "device": "pad0", "control": "options"},
+		{"op": "wait_until", "probe": "scene", "field": "adventure_options_open", "equals": true, "timeout_ms": 3000, "stable_for_frames": 3},
+		{"op": "capture_frame", "name": "adventure-options-single-push"},
+		{"op": "request_shutdown"}
+	]
+}

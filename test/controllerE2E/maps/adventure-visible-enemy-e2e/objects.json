@@ -7,8 +7,8 @@
 			"mask": ["VV", "AV"],
 			"visitableFrom": ["+++", "+-+", "+++"]
 		},
-		"x": 2,
-		"y": 6,
+		"x": 12,
+		"y": 18,
 		"type": "hero",
 		"subtype": "knight",
 		"options": {
@@ -27,14 +27,53 @@
 			"mask": ["VV", "AV"],
 			"visitableFrom": ["+++", "+-+", "+++"]
 		},
-		"x": 6,
-		"y": 4,
+		"x": 17,
+		"y": 14,
 		"type": "hero",
 		"subtype": "knight",
 		"options": {
 			"army": [{"amount": 10, "type": "core:pikeman"}],
 			"owner": "blue",
 			"type": "lordHaart"
+		}
+	},
+	"hero_2": {
+		"l": 0,
+		"template": {
+			"animation": "AH00_",
+			"editorAnimation": "AH00_E",
+			"mask": ["VV", "AV"],
+			"visitableFrom": ["+++", "+-+", "+++"]
+		},
+		"x": 10,
+		"y": 14,
+		"type": "hero",
+		"subtype": "knight",
+		"options": {
+			"army": [{"amount": 10, "type": "core:pikeman"}],
+			"owner": "red",
+			"type": "catherine"
+		}
+	},
+	"town_0": {
+		"l": 0,
+		"template": {
+			"animation": "AVCCASX0",
+			"editorAnimation": "AVCCASX0",
+			"mask": ["A"],
+			"visitableFrom": ["+++", "+-+", "+++"]
+		},
+		"x": 14,
+		"y": 17,
+		"type": "town",
+		"subtype": "castle",
+		"options": {
+			"army": [],
+			"buildings": {},
+			"hasFort": false,
+			"owner": "red",
+			"spells": {},
+			"tightFormation": "tight"
 		}
 	}
 }

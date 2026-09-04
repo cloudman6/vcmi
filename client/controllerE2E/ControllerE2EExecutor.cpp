@@ -21,6 +21,7 @@
 #include "../CServerHandler.h"
 #include "../adventureMap/AdventureMapInterface.h"
 #include "../adventureMap/AdventureMapWidget.h"
+#include "../adventureMap/AdventureOptions.h"
 #include "../battle/BattleInterface.h"
 #include "../eventsSDL/InputHandler.h"
 #include "../eventsSDL/InputSourceGameController.h"
@@ -416,6 +417,8 @@ void ControllerE2EExecutor::registerBuiltinProbes()
 		snapshot["battle_open"].Bool() = player && CPlayerInterface::battleInt;
 		snapshot["adventure_ready"].Bool() = player && player->makingTurn
 			&& !CPlayerInterface::battleInt && adventureInt && adventureInt->isActive();
+		snapshot["adventure_options_open"].Bool() = ENGINE
+			&& ENGINE->windows().topWindow<AdventureOptions>() != nullptr;
 		return snapshot;
 	});
 
@@ -434,10 +437,21 @@ void ControllerE2EExecutor::registerBuiltinProbes()
 		snapshot["path_end_x"].Integer() = -1;
 		snapshot["path_end_y"].Integer() = -1;
 		snapshot["visible_enemy_hero_count"].Integer() = 0;
+		snapshot["native_mode"].Bool() = false;
+		snapshot["cursor_mode"].Bool() = false;
+		snapshot["camera_held"].Bool() = false;
+		snapshot["camera_center_x"].Integer() = -1;
+		snapshot["camera_center_y"].Integer() = -1;
 
 		const auto * player = GAME ? GAME->interface() : nullptr;
 		if(!player || !player->localState || !adventureInt)
 			return snapshot;
+		snapshot["native_mode"].Bool() = adventureInt->isControllerNativeMode();
+		snapshot["cursor_mode"].Bool() = adventureInt->controllerModeState.cursorMode();
+		snapshot["camera_held"].Bool() = adventureInt->controllerModeState.cameraHeld();
+		const auto cameraCenter = adventureInt->getMapViewCenter();
+		snapshot["camera_center_x"].Integer() = cameraCenter.x;
+		snapshot["camera_center_y"].Integer() = cameraCenter.y;
 
 		if(const auto * actor = player->localState->getCurrentArmy())
 		{
