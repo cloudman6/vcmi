@@ -65,8 +65,10 @@ class BattleWindow : public InterfaceObjectConfigurable
 	void bTacticPhaseEnd();
 	void bOpenActiveUnit();
 	void bOpenHoveredUnit();
+	void openControllerActionRadial();
 	void openControllerSpellRadial();
 	Rect controllerRadialBounds() const;
+	std::vector<BattleControllerRadialItem> controllerActionRadialItems();
 	std::vector<BattleControllerRadialItem> controllerSpellRadialItems();
 	void drawControllerShortcutPrompts(Canvas & to);
 	void inputModeChanged(InputMode inputMode) override;

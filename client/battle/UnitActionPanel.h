@@ -19,17 +19,28 @@ class CToggleButton;
 class CLabel;
 class BattleInterface;
 
+struct BattleUnitActionGroup
+{
+	std::vector<PossiblePlayerBattleAction> actions;
+	ImagePath iconImage;
+	AnimationPath iconAnimation;
+	int32_t iconFrame = 0;
+	std::string descriptionTextID;
+	std::optional<SpellID> spell;
+};
+
 class UnitActionPanel : public CIntObject
 {
 private:
 	std::shared_ptr<CFilledTexture> background;
 	std::shared_ptr<TransparentFilledRectangle> rect;
 	std::vector<std::shared_ptr<CToggleButton>> buttons;
+	std::vector<BattleUnitActionGroup> groups;
 
 	BattleInterface & owner;
 
-	void testAndAddAction(const std::vector<PossiblePlayerBattleAction> & allActions, const std::vector<PossiblePlayerBattleAction::Actions> & actionFilter, const ImagePath & iconPath, const std::string & descriptionTextID );
-	void testAndAddSpell(const std::vector<PossiblePlayerBattleAction> & allActions, const SpellID & spellFilter );
+	static std::vector<BattleUnitActionGroup> buildActionGroups(const std::vector<PossiblePlayerBattleAction> & actions);
+	void addActionGroup(const BattleUnitActionGroup & group);
 
 	void restoreAllActions();
 	void setActions(int buttonIndex, const std::vector<PossiblePlayerBattleAction> & newActions);
@@ -39,6 +50,8 @@ public:
 	UnitActionPanel(BattleInterface & owner);
 
 	void setPossibleActions(const std::vector<PossiblePlayerBattleAction> & actions);
+	const std::vector<BattleUnitActionGroup> & getActionGroups() const;
+	bool selectActionGroup(const std::vector<PossiblePlayerBattleAction> & actions);
 
 	std::vector<std::tuple<SpellID, bool>> getSpells() const;
 

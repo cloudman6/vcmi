@@ -206,6 +206,7 @@ BattleWindow::BattleWindow(BattleInterface & Owner)
 	addShortcut(EShortcut::BATTLE_CAST_SPELL, std::bind(&BattleWindow::bSpellf, this));
 	// Controller X also emits MOUSE_LEFT; keep Native Spellbook intent separate from the button hotkey.
 	addShortcut(EShortcut::BATTLE_CONTROLLER_CAST_SPELL, std::bind(&BattleWindow::bSpellf, this));
+	addShortcut(EShortcut::BATTLE_ACTION_RADIAL, std::bind(&BattleWindow::openControllerActionRadial, this));
 	addShortcut(EShortcut::BATTLE_SPELL_RADIAL, std::bind(&BattleWindow::openControllerSpellRadial, this));
 	addShortcut(EShortcut::BATTLE_WAIT, std::bind(&BattleWindow::bWaitf, this));
 	addShortcut(EShortcut::BATTLE_DEFEND, std::bind(&BattleWindow::bDefencef, this));
@@ -648,7 +649,7 @@ bool BattleWindow::captureThisKey(EShortcut key)
 		return true;
 	if(!owner.fieldController->isControllerNativeMode())
 		return false;
-	if(key == EShortcut::BATTLE_SPELL_RADIAL || key == EShortcut::BATTLE_CONTROLLER_CAST_SPELL)
+	if(key == EShortcut::BATTLE_ACTION_RADIAL || key == EShortcut::BATTLE_SPELL_RADIAL || key == EShortcut::BATTLE_CONTROLLER_CAST_SPELL)
 		return true;
 	if(key == EShortcut::GLOBAL_ACCEPT || key == EShortcut::GLOBAL_CANCEL
 		|| key == EShortcut::MOUSE_LEFT || key == EShortcut::MOUSE_RIGHT
@@ -683,6 +684,11 @@ void BattleWindow::keyPressed(EShortcut key)
 			return;
 		if(owner.fieldController->isControllerNativeMode())
 		{
+			if(key == EShortcut::BATTLE_ACTION_RADIAL)
+			{
+				InterfaceObjectConfigurable::keyPressed(key);
+				return;
+			}
 			if(key == EShortcut::BATTLE_SPELL_RADIAL)
 			{
 				InterfaceObjectConfigurable::keyPressed(key);
@@ -879,7 +885,8 @@ void BattleWindow::bSurrenderf()
 
 	if(ownHeroLossEndsScenario())
 	{
-		owner.curInt->showInfoDialog(LIBRARY->generaltexth->translate("vcmi.battle.escapeImpossibleCritical"));
+		CInfoWindow::showInfoDialog(
+			LIBRARY->generaltexth->translate("vcmi.battle.escapeImpossibleCritical"), {}, owner.curInt->playerID);
 		return;
 	}
 
@@ -928,7 +935,8 @@ void BattleWindow::bFleef()
 
 	if(ownHeroLossEndsScenario())
 	{
-		owner.curInt->showInfoDialog(LIBRARY->generaltexth->translate("vcmi.battle.escapeImpossibleCritical"));
+		CInfoWindow::showInfoDialog(
+			LIBRARY->generaltexth->translate("vcmi.battle.escapeImpossibleCritical"), {}, owner.curInt->playerID);
 		return;
 	}
 
@@ -953,7 +961,7 @@ void BattleWindow::bFleef()
 		txt.replaceTextID(heroNameTextID);
 
 		//printing message
-		owner.curInt->showInfoDialog(txt.toString(&GAME->translator()), comps);
+		CInfoWindow::showInfoDialog(txt.toString(&GAME->translator()), comps, owner.curInt->playerID);
 	}
 }
 
@@ -987,7 +995,7 @@ void BattleWindow::offerMarketplaceForSurrender()
 	const CGTownInstance * townWithMarket = findTownWithMarketplace();
 	if(!townWithMarket)
 	{
-		owner.curInt->showInfoDialog(LIBRARY->generaltexth->allTexts[29]); //You don't have enough gold!
+		CInfoWindow::showInfoDialog(LIBRARY->generaltexth->allTexts[29], {}, owner.curInt->playerID); //You don't have enough gold!
 		return;
 	}
 
@@ -1020,9 +1028,10 @@ void BattleWindow::reallySurrender(bool allowMarketplaceOffer, bool marketplaceS
 		if(allowMarketplaceOffer && canOfferMarketplaceForSurrender())
 			offerMarketplaceForSurrender();
 		else if(marketplaceSaleFailed)
-			owner.curInt->showInfoDialog(LIBRARY->generaltexth->translate("vcmi.battle.surrender.marketplaceFailed"));
+			CInfoWindow::showInfoDialog(
+				LIBRARY->generaltexth->translate("vcmi.battle.surrender.marketplaceFailed"), {}, owner.curInt->playerID);
 		else
-			owner.curInt->showInfoDialog(LIBRARY->generaltexth->allTexts[29]); //You don't have enough gold!
+			CInfoWindow::showInfoDialog(LIBRARY->generaltexth->allTexts[29], {}, owner.curInt->playerID); //You don't have enough gold!
 	}
 	else
 	{
@@ -1042,6 +1051,158 @@ Rect BattleWindow::controllerRadialBounds() const
 	return Rect(pos.topLeft(), Point(pos.w, battleToolbar->pos.top() - pos.top()));
 }
 
+void BattleWindow::openControllerActionRadial()
+{
+	ENGINE->windows().createAndPushWindow<BattleControllerRadial>(
+		[this](){ return this->controllerActionRadialItems(); },
+		[this](){ return this->controllerRadialBounds(); },
+		EShortcut::BATTLE_ACTION_RADIAL
+	);
+}
+
+std::vector<BattleControllerRadialItem> BattleWindow::controllerActionRadialItems()
+{
+	if(owner.isInTacticsMode())
+	{
+		return {
+			{
+				EShortcut::BATTLE_TACTICS_NEXT,
+				LIBRARY->generaltexth->translate("core.help.388.hover"),
+				!isShortcutBlocked(EShortcut::BATTLE_ACTION_RADIAL),
+				9,
+				0,
+				[this](){ this->bTacticNextStack(); },
+				"icm011"
+			},
+			{
+				EShortcut::BATTLE_TACTICS_END,
+				LIBRARY->generaltexth->translate("core.help.389.hover"),
+				!isShortcutBlocked(EShortcut::BATTLE_ACTION_RADIAL),
+				3,
+				0,
+				[this](){ this->bTacticPhaseEnd(); },
+				"icm012"
+			}
+		};
+	}
+
+	std::vector<BattleControllerRadialItem> result = {
+		{
+			EShortcut::BATTLE_WAIT,
+			LIBRARY->generaltexth->translate("core.help.386.hover"),
+			!isShortcutBlocked(EShortcut::BATTLE_WAIT),
+			3,
+			0,
+			[this](){ this->bWaitf(); },
+			"icm006"
+		},
+		{
+			EShortcut::BATTLE_DEFEND,
+			LIBRARY->generaltexth->translate("core.help.387.hover"),
+			!isShortcutBlocked(EShortcut::BATTLE_DEFEND),
+			9,
+			0,
+			[this](){ this->bDefencef(); },
+			"icm007"
+		}
+	};
+	const bool destructiveAutocombat = settings["battle"]["endWithAutocombat"].Bool() && onlyOnePlayerHuman;
+	if(!destructiveAutocombat)
+	{
+		std::string autocombatLabel = LIBRARY->generaltexth->translate("core.help.382.hover");
+		autocombatLabel += " " + LIBRARY->generaltexth->translate(owner.curInt->isAutoFightOn
+			? "vcmi.battleWindow.controller.actionRadial.on"
+			: "vcmi.battleWindow.controller.actionRadial.off");
+		result.push_back({
+			EShortcut::BATTLE_AUTOCOMBAT,
+			std::move(autocombatLabel),
+			!isShortcutBlocked(EShortcut::BATTLE_AUTOCOMBAT),
+			6,
+			0,
+			[this](){ this->bAutofightf(); },
+			"icm004"
+		});
+	}
+	if(owner.getBattle()->battleGetMyHero() != nullptr)
+	{
+		result.push_back({
+			EShortcut::BATTLE_RETREAT,
+			LIBRARY->generaltexth->translate("core.help.380.hover"),
+			!isShortcutBlocked(EShortcut::BATTLE_RETREAT),
+			7,
+			0,
+			[this](){ this->bFleef(); },
+			"icm002"
+		});
+	}
+	if(owner.getBattle()->battleGetMyHero() != nullptr && owner.getBattle()->battleGetSurrenderCost() >= 0)
+	{
+		result.push_back({
+			EShortcut::BATTLE_SURRENDER,
+			LIBRARY->generaltexth->translate("core.help.379.hover"),
+			!isShortcutBlocked(EShortcut::BATTLE_SURRENDER),
+			5,
+			0,
+			[this](){ this->bSurrenderf(); },
+			"icm001"
+		});
+	}
+	if(destructiveAutocombat)
+	{
+		result.push_back({
+			EShortcut::BATTLE_END_WITH_AUTOCOMBAT,
+			LIBRARY->generaltexth->translate("vcmi.battleWindow.controller.actionRadial.finishWithAutocombat"),
+			!isShortcutBlocked(EShortcut::BATTLE_END_WITH_AUTOCOMBAT),
+			6,
+			0,
+			[this](){ this->endWithAutocombat(); },
+			"icm004"
+		});
+	}
+
+	const auto & groups = unitActionWindow->getActionGroups();
+	constexpr std::array<size_t, 7> PAGE_ZERO_CONTEXT_SLOTS = {0, 1, 11, 2, 10, 4, 8};
+	std::vector<std::pair<size_t, size_t>> availableSlots;
+	for(const auto slot : PAGE_ZERO_CONTEXT_SLOTS)
+		availableSlots.emplace_back(0, slot);
+	const size_t pageZeroSlotCount = availableSlots.size();
+	for(size_t index = pageZeroSlotCount; index < groups.size(); ++index)
+	{
+		const size_t overflow = index - pageZeroSlotCount;
+		availableSlots.emplace_back(1 + overflow / BattleControllerRadialState::SLOT_COUNT,
+			overflow % BattleControllerRadialState::SLOT_COUNT);
+	}
+
+	for(size_t index = 0; index < groups.size(); ++index)
+	{
+		const auto & group = groups[index];
+		const auto & action = group.actions.front();
+		const auto itemId = group.spell
+			? BattleControllerRadialItemId(EShortcut::BATTLE_USE_CREATURE_SPELL, group.spell->getNum())
+			: BattleControllerRadialItemId(EShortcut::BATTLE_ACTION_RADIAL, static_cast<int32_t>(action.get()));
+
+		BattleControllerRadialItem item = {
+			itemId,
+			LIBRARY->generaltexth->translate(group.descriptionTextID),
+			!owner.curInt->isAutoFightOn && !isShortcutBlocked(EShortcut::BATTLE_ACTION_RADIAL),
+			availableSlots[index].second,
+			availableSlots[index].first,
+			[this, actions = group.actions](){ this->unitActionWindow->selectActionGroup(actions); },
+			group.iconAnimation.getOriginalName(),
+			group.iconFrame
+		};
+
+		item.iconImage = group.iconImage.getOriginalName();
+		if(group.spell)
+		{
+			const auto * spell = group.spell->toSpell();
+			item.label = spell->getNameTranslated();
+			item.detailDescription = compactSpellDescription(spell->getDescriptionTranslated(0));
+		}
+		result.push_back(std::move(item));
+	}
+	return result;
+}
 void BattleWindow::openControllerSpellRadial()
 {
 	const auto * hero = owner.getBattle()->battleGetMyHero();
@@ -1293,6 +1454,8 @@ void BattleWindow::blockUI(bool on)
 
 	bool canWait = owner.stacksController->getActiveStack() ? !owner.stacksController->getActiveStack()->waitedThisTurn : false;
 	bool tacticsMode = owner.isInTacticsMode();
+	const bool destructiveAutocombat = settings["battle"]["endWithAutocombat"].Bool() && onlyOnePlayerHuman;
+	const bool autocombatCanBeCancelled = !destructiveAutocombat && owner.curInt->isAutoFightOn;
 	setShortcutBlocked(EShortcut::GLOBAL_OPTIONS, on);
 	setShortcutBlocked(EShortcut::BATTLE_OPEN_ACTIVE_UNIT, on);
 	setShortcutBlocked(EShortcut::BATTLE_OPEN_HOVERED_UNIT, on);
@@ -1300,10 +1463,14 @@ void BattleWindow::blockUI(bool on)
 	setShortcutBlocked(EShortcut::BATTLE_SURRENDER, on || owner.getBattle()->battleGetSurrenderCost() < 0);
 	setShortcutBlocked(EShortcut::BATTLE_CAST_SPELL, on || tacticsMode || !canCastSpells);
 	setShortcutBlocked(EShortcut::BATTLE_CONTROLLER_CAST_SPELL, on || tacticsMode || !canCastSpells);
+	setShortcutBlocked(EShortcut::BATTLE_ACTION_RADIAL,
+		(on && !autocombatCanBeCancelled) || owner.actionsController->heroSpellcastingModeActive());
 	setShortcutBlocked(EShortcut::BATTLE_SPELL_RADIAL, on || tacticsMode || !canCastSpells);
 	setShortcutBlocked(EShortcut::BATTLE_WAIT, on || tacticsMode || !canWait);
 	setShortcutBlocked(EShortcut::BATTLE_DEFEND, on || tacticsMode);
-	setShortcutBlocked(EShortcut::BATTLE_AUTOCOMBAT, (settings["battle"]["endWithAutocombat"].Bool() && onlyOnePlayerHuman) ? on || tacticsMode || owner.actionsController->heroSpellcastingModeActive() : owner.actionsController->heroSpellcastingModeActive());
+	setShortcutBlocked(EShortcut::BATTLE_AUTOCOMBAT, destructiveAutocombat
+		? on || tacticsMode || owner.actionsController->heroSpellcastingModeActive()
+		: owner.actionsController->heroSpellcastingModeActive());
 	setShortcutBlocked(EShortcut::BATTLE_END_WITH_AUTOCOMBAT, on || !onlyOnePlayerHuman || owner.actionsController->heroSpellcastingModeActive());
 	setShortcutBlocked(EShortcut::BATTLE_TACTICS_END, on || !tacticsMode);
 	setShortcutBlocked(EShortcut::BATTLE_TACTICS_NEXT, on || !tacticsMode);
@@ -1410,6 +1577,7 @@ void BattleWindow::drawControllerShortcutPrompts(Canvas & to)
 	};
 
 	drawTrigger(quickSpellWindow, EShortcut::BATTLE_SPELL_RADIAL);
+	drawTrigger(unitActionWindow, EShortcut::BATTLE_ACTION_RADIAL);
 
 	const auto spellbookBindings = ENGINE->shortcuts().getJoystickButtonBindings(EShortcut::BATTLE_CONTROLLER_CAST_SPELL);
 	const auto spellbookButton = widget<CButton>("cast");
