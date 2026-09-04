@@ -274,6 +274,18 @@ vcmi_set_output_dir(vcmitest "")
 
 enable_pch(vcmitest)
 
+if(ENABLE_CLIENT)
+	add_executable(vcmi_battle_radial_test
+		BattleControllerRadialStateTest.cpp)
+	target_link_libraries(vcmi_battle_radial_test PRIVATE gtest_main vcmiclientcommon)
+	target_include_directories(vcmi_battle_radial_test PRIVATE
+		${GTestSrc}/include)
+	gtest_discover_tests(vcmi_battle_radial_test
+		WORKING_DIRECTORY "${CMAKE_BINARY_DIR}/bin/"
+		DISCOVERY_TIMEOUT 60)
+	vcmi_set_output_dir(vcmi_battle_radial_test "")
+endif()
+
 file (GLOB_RECURSE testdata "testdata/*.*")
 foreach(resource ${testdata})
 	get_filename_component(filename ${resource} NAME)

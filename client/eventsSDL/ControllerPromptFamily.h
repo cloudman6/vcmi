@@ -110,4 +110,16 @@ inline std::optional<std::string> faceButtonSprite(Family family, const std::str
 	return "controllerActionBar/playstation-" + binding + "-" + stateSuffix(state) + ".png";
 }
 
+inline std::optional<std::string>
+shoulderPairSprite(Family family, const std::vector<std::string> & previousBindings, const std::vector<std::string> & nextBindings, State state = State::NORMAL)
+{
+	if(previousBindings.size() != 1 || nextBindings.size() != 1 || previousBindings.front() != "leftshoulder" || nextBindings.front() != "rightshoulder")
+		return std::nullopt;
+	if(family == Family::PLAYSTATION)
+		return "controllerActionBar/playstation-shoulders-" + stateSuffix(state) + ".png";
+	if(family == Family::GENERIC || family == Family::XBOX)
+		return "controllerActionBar/generic-shoulders-" + stateSuffix(state) + ".png";
+	return std::nullopt;
+}
+
 }

@@ -16,6 +16,8 @@ set(vcmiclientcommon_SRCS
 	battle/BattleActionsController.cpp
 	battle/BattleAnimationClasses.cpp
 	battle/BattleConsole.cpp
+	battle/BattleControllerRadial.cpp
+	battle/BattleControllerRadialState.cpp
 	battle/BattleEffectsController.cpp
 	battle/BattleFieldController.cpp
 	battle/BattleHero.cpp
@@ -249,6 +251,8 @@ set(vcmiclientcommon_HEADERS
 	battle/BattleActionsController.h
 	battle/BattleAnimationClasses.h
 	battle/BattleConsole.h
+	battle/BattleControllerRadial.h
+	battle/BattleControllerRadialState.h
 	battle/BattleEffectsController.h
 	battle/BattleFieldController.h
 	battle/BattleHero.h
