@@ -365,7 +365,8 @@ void BattleControllerRadial::releaseConfirm()
 
 bool BattleControllerRadial::captureThisKey(EShortcut key)
 {
-	return key == openingShortcut || key == EShortcut::BATTLE_DEFEND || key == EShortcut::BATTLE_WAIT || key == EShortcut::GLOBAL_ACCEPT
+	return key == openingShortcut || key == EShortcut::BATTLE_SPELL_RADIAL
+		|| key == EShortcut::BATTLE_CONTROLLER_CAST_SPELL || key == EShortcut::BATTLE_DEFEND || key == EShortcut::BATTLE_WAIT || key == EShortcut::GLOBAL_ACCEPT
 		|| key == EShortcut::GLOBAL_CANCEL || key == EShortcut::MOUSE_LEFT || key == EShortcut::MOVE_LEFT || key == EShortcut::MOVE_RIGHT
 		|| key == EShortcut::MOVE_UP || key == EShortcut::MOVE_DOWN;
 }

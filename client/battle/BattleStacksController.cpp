@@ -79,6 +79,7 @@ BattleStacksController::BattleStacksController(BattleInterface & owner):
 	owner(owner),
 	activeStack(nullptr),
 	stackToActivate(nullptr),
+	stackActivationPending(false),
 	animIDhelper(0)
 {
 	//preparing graphics for displaying amounts of creatures
@@ -408,7 +409,11 @@ void BattleStacksController::updateBattleAnimations(uint32_t msPassed)
 		owner.executeStagedAnimations();
 
 	if (hadAnimations && currentAnimations.empty())
+	{
 		owner.onAnimationsFinished();
+		if(stackActivationPending)
+			owner.activateStack();
+	}
 
 	initializeBattleAnimations();
 }
@@ -430,6 +435,11 @@ void BattleStacksController::stackRemoved(uint32_t stackID)
 {
 	if (getActiveStack() && getActiveStack()->unitId() == stackID)
 		setActiveStack(nullptr);
+	if (stackToActivate && stackToActivate->unitId() == stackID)
+	{
+		stackToActivate = nullptr;
+		stackActivationPending = false;
+	}
 
 	// guard so a repeated removal call-in won't restart the fade-out
 	if (!fadingStacks.insert(stackID).second)
@@ -797,15 +807,22 @@ void BattleStacksController::deactivateStack()
 void BattleStacksController::activateStack()
 {
 	if ( !currentAnimations.empty())
+	{
+		stackActivationPending = true;
 		return;
+	}
 
 	if ( !stackToActivate)
+	{
+		stackActivationPending = false;
 		return;
+	}
 
 	owner.trySetActivePlayer(stackToActivate->unitOwner());
 
 	setActiveStack(stackToActivate);
 	stackToActivate = nullptr;
+	stackActivationPending = false;
 
 	const CStack * s = getActiveStack();
 	if(!s)

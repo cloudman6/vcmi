@@ -75,6 +75,7 @@
 		"battleToggleStackInfo":     "F5",
 		"battleToggleCursorMode":    [],
 		"battleControllerCastSpell": [],
+		"battleSpellRadial":         [],
 		"battleSpellShortcut0":     "1",
 		"battleSpellShortcut1":     "2",
 		"battleSpellShortcut2":     "3",
@@ -319,11 +320,12 @@
 
 		"adventureVisitObject" : "lefttrigger",
 		"battleTacticsNext" : "lefttrigger",
-		"battleUseCreatureSpell" : "lefttrigger",
+		"battleUseCreatureSpell" : [],
 
 		"adventureCastSpell" : "righttrigger",
 		"battleCastSpell" : "righttrigger",
 		"battleControllerCastSpell" : "x",
+		"battleSpellRadial" : "lefttrigger",
 		
 		"adventureEndTurn" : "back",
 		"battleAutocombatEnd" : "back",

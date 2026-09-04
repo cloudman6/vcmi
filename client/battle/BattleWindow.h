@@ -28,6 +28,7 @@ class StackInfoBasicPanel;
 class QuickSpellPanel;
 class UnitActionPanel;
 class CStackWindow;
+struct BattleControllerRadialItem;
 
 /// GUI object that handles functionality of panel at the bottom of combat screen
 class BattleWindow : public InterfaceObjectConfigurable
@@ -64,6 +65,9 @@ class BattleWindow : public InterfaceObjectConfigurable
 	void bTacticPhaseEnd();
 	void bOpenActiveUnit();
 	void bOpenHoveredUnit();
+	void openControllerSpellRadial();
+	Rect controllerRadialBounds() const;
+	std::vector<BattleControllerRadialItem> controllerSpellRadialItems();
 	void drawControllerShortcutPrompts(Canvas & to);
 	void inputModeChanged(InputMode inputMode) override;
 
@@ -100,6 +104,7 @@ class BattleWindow : public InterfaceObjectConfigurable
 	bool quickActionsPanelActive() const;
 	bool placeInfoWindowsOutside() const;
 	void openControllerHoldInspect();
+	void openControllerHoldInspect(const CStack * stack);
 	void closeControllerHoldInspect();
 	std::weak_ptr<CStackWindow> controllerHoldInspectWindow;
 	std::optional<BattleHex> controllerInspectRestoreHex;
@@ -169,5 +174,5 @@ public:
 	void endWithAutocombat();
 
 	/// Opens the canonical persistent stack info view with Battle Native button ownership.
-	void openControllerInspect();
+	void openControllerInspect(const CStack * stack);
 };

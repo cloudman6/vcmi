@@ -107,6 +107,17 @@ inline std::optional<std::string> faceButtonSprite(Family family, const std::str
 	return std::nullopt;
 }
 
+inline std::optional<std::string> triggerSprite(Family family, const std::string & binding, State state)
+{
+	if(binding != "lefttrigger" && binding != "righttrigger")
+		return std::nullopt;
+	if(family == Family::PLAYSTATION)
+		return "controllerActionBar/playstation-" + binding + "-" + stateSuffix(state) + ".png";
+	if(family == Family::XBOX || family == Family::GENERIC)
+		return "controllerActionBar/generic-" + binding + "-" + stateSuffix(state) + ".png";
+	return std::nullopt;
+}
+
 inline std::optional<std::string> directionalPadSprite(const std::string & binding)
 {
 	if(binding == "dpup")

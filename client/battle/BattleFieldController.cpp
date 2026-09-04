@@ -121,15 +121,9 @@ std::optional<std::string> battleShoulderSprite(
 	const std::vector<std::string> & nextBindings,
 	bool pressed = false)
 {
-	if(previousBindings.size() != 1 || nextBindings.size() != 1
-		|| previousBindings.front() != "leftshoulder" || nextBindings.front() != "rightshoulder")
-		return std::nullopt;
-	const std::string state = pressed ? "pressed" : "normal";
-	if(family == ControllerPrompt::Family::PLAYSTATION)
-		return "controllerActionBar/playstation-shoulders-" + state + ".png";
-	if(family == ControllerPrompt::Family::GENERIC || family == ControllerPrompt::Family::XBOX)
-		return "controllerActionBar/generic-shoulders-" + state + ".png";
-	return std::nullopt;
+	return ControllerPrompt::shoulderPairSprite(
+		family, previousBindings, nextBindings, pressed ? ControllerPrompt::State::PRESSED : ControllerPrompt::State::NORMAL
+	);
 }
 }
 
@@ -386,6 +380,9 @@ void BattleFieldController::activate()
 	{
 		ENGINE->cursor().setControllerNativeHidden(true);
 		ensureControllerFocus();
+		// Modal windows replace the global cursor with a generic pointer when opened.
+		// Recompute the canonical battle cursor before Native mode draws it at the restored focus.
+		refreshControllerPresentation();
 	}
 }
 
@@ -610,7 +607,7 @@ void BattleFieldController::resetControllerInput()
 	navigationOwner = NavigationOwner::NONE;
 	controllerInstance = -1;
 	controllerPressedHex = BattleHex::INVALID;
-	controllerPressedAction = PossiblePlayerBattleAction::INVALID;
+	controllerPressedAction.reset();
 	controllerMeleeRepeatDirection.reset();
 	controllerMeleeRepeat.reset();
 	if(presentationChanged)
@@ -691,8 +688,14 @@ bool BattleFieldController::browseControllerUnit()
 
 	for(const CStack * stack : owner.getBattle()->battleGetAllStacks())
 	{
-		if(!stack->isValidTarget(false) || !stack->getPosition().isValid())
+		if(!stack->getPosition().isValid())
 			continue;
+		if(!stack->isValidTarget(false))
+		{
+			const auto action = controllerActionAt(stack->getPosition());
+			if(!action || !action->spellcast())
+				continue;
+		}
 		if(originStack && stack->unitId() == originStack->unitId())
 			continue;
 
@@ -730,26 +733,15 @@ void BattleFieldController::refreshControllerPresentation()
 {
 	if(!isControllerNativeMode() || !hoveredHex.isValid())
 		return;
-	const auto action = controllerActionAt(hoveredHex);
-	if(action)
-		owner.actionsController->onHexHovered(hoveredHex, *action);
-	else
-		owner.actionsController->onHexHovered(hoveredHex);
+	owner.actionsController->onHexHovered(hoveredHex);
 	redraw();
 }
 
 std::optional<PossiblePlayerBattleAction> BattleFieldController::controllerActionAt(const BattleHex & hex) const
 {
-	if(!isControllerNativeMode() || !hex.isValid() || owner.stacksController->getActiveStack() == nullptr)
+	if(!isControllerNativeMode() || !hex.isValid())
 		return std::nullopt;
 
-	const CStack * activeStack = owner.stacksController->getActiveStack();
-	if(owner.isInTacticsMode() || activeStack->hasBonusOfType(BonusType::SIEGE_WEAPON))
-	{
-		if(owner.getBattle()->battleGetStackByPos(hex, true) != nullptr)
-			return PossiblePlayerBattleAction(PossiblePlayerBattleAction::CREATURE_INFO);
-		return std::nullopt;
-	}
 	return owner.actionsController->legalActionAt(hex);
 }
 
@@ -759,7 +751,7 @@ bool BattleFieldController::controllerPrimaryPressed()
 	if(!action)
 		return false;
 	controllerPressedHex = hoveredHex;
-	controllerPressedAction = action->get();
+	controllerPressedAction = action;
 	redraw();
 	return true;
 }
@@ -769,22 +761,14 @@ bool BattleFieldController::controllerPrimaryReleased()
 	const BattleHex pressedHex = controllerPressedHex;
 	const auto pressedAction = controllerPressedAction;
 	controllerPressedHex = BattleHex::INVALID;
-	controllerPressedAction = PossiblePlayerBattleAction::INVALID;
+	controllerPressedAction.reset();
 	const auto action = controllerActionAt(hoveredHex);
 	redraw();
-	if(!action || hoveredHex != pressedHex || action->get() != pressedAction)
+	if(!action || !pressedAction || hoveredHex != pressedHex || *action != *pressedAction)
 		return false;
 
-	if(pressedAction == PossiblePlayerBattleAction::CREATURE_INFO)
-	{
-		const CStack * stack = owner.getBattle()->battleGetStackByPos(hoveredHex, true);
-		if(stack == nullptr)
-			return false;
-		owner.windowObject->openControllerInspect();
-		return true;
-	}
-
-	owner.actionsController->onHexLeftClicked(hoveredHex);
+	owner.actionsController->onHexLeftClicked(hoveredHex,
+		[this](const CStack * stack){ this->owner.windowObject->openControllerInspect(stack); });
 	return true;
 }
 
@@ -792,8 +776,7 @@ bool BattleFieldController::controllerInspectAvailable() const
 {
 	return ENGINE->input().getCurrentInputMode() == InputMode::CONTROLLER && hoveredHex.isValid()
 		&& owner.stacksController->getActiveStack() != nullptr
-		&& !owner.actionsController->heroSpellcastingModeActive()
-		&& !owner.actionsController->creatureSpellcastingModeActive()
+		&& !owner.actionsController->rightClickCancelsAction()
 		&& owner.getBattle()->battleGetStackByPos(hoveredHex, true) != nullptr;
 }
 
@@ -900,14 +883,24 @@ std::string BattleFieldController::getControllerPrimaryActionName() const
 	const auto action = controllerActionAt(hoveredHex);
 	if(!action)
 		return "none";
+
+	// Controller prompts only adapt the canonical hover action to a short label.
+	// Action selection, legality and execution remain owned by BattleActionsController.
+	if(action->spellcast() || action->get() == PossiblePlayerBattleAction::RANDOM_GENIE_SPELL)
+		return "cast";
+
 	switch(action->get())
 	{
+	case PossiblePlayerBattleAction::CHOOSE_TACTICS_STACK: return "select";
+	case PossiblePlayerBattleAction::MOVE_TACTICS:
 	case PossiblePlayerBattleAction::MOVE_STACK: return "move";
 	case PossiblePlayerBattleAction::ATTACK:
 	case PossiblePlayerBattleAction::LONG_WEAPON_ATTACK:
 	case PossiblePlayerBattleAction::WALK_AND_ATTACK:
 	case PossiblePlayerBattleAction::ATTACK_AND_RETURN: return "attack";
 	case PossiblePlayerBattleAction::SHOOT: return "shoot";
+	case PossiblePlayerBattleAction::CATAPULT:
+	case PossiblePlayerBattleAction::HEAL: return "use";
 	case PossiblePlayerBattleAction::CREATURE_INFO: return "inspect";
 	default: return "none";
 	}
@@ -925,12 +918,14 @@ bool BattleFieldController::drawControllerPrompts(Canvas & to)
 	const auto previousBindings = ENGINE->shortcuts().getJoystickButtonBindings(EShortcut::BATTLE_DEFEND);
 	const auto nextBindings = ENGINE->shortcuts().getJoystickButtonBindings(EShortcut::BATTLE_WAIT);
 	const auto directionSprite = battleShoulderSprite(family, previousBindings, nextBindings);
+	const bool cancelSelection = owner.actionsController->rightClickCancelsAction();
 	const bool directionBindingsAvailable = previousBindings.size() == 1 && nextBindings.size() == 1;
 	const bool drawPrimary = actionName != "none" && acceptBindings.size() == 1;
-	const bool drawInspect = controllerInspectAvailable() && inspectBindings.size() == 1;
+	const bool drawCancel = cancelSelection && inspectBindings.size() == 1;
+	const bool drawInspect = !drawCancel && controllerInspectAvailable() && inspectBindings.size() == 1;
 	const bool drawDirection = drawPrimary && controllerMeleeDirectionAvailable()
 		&& (directionSprite || directionBindingsAvailable);
-	const int rowCount = static_cast<int>(drawPrimary) + static_cast<int>(drawInspect) + static_cast<int>(drawDirection);
+	const int rowCount = static_cast<int>(drawPrimary) + static_cast<int>(drawCancel) + static_cast<int>(drawInspect) + static_cast<int>(drawDirection);
 	if(rowCount == 0)
 		return false;
 
@@ -953,6 +948,7 @@ bool BattleFieldController::drawControllerPrompts(Canvas & to)
 
 	std::optional<Rect> directionRow;
 	std::optional<Rect> primaryRow;
+	std::optional<Rect> cancelRow;
 	std::optional<Rect> inspectRow;
 	auto addRow = [&](std::optional<Rect> & row)
 	{
@@ -961,6 +957,7 @@ bool BattleFieldController::drawControllerPrompts(Canvas & to)
 	};
 	if(drawDirection) addRow(directionRow);
 	if(drawPrimary) addRow(primaryRow);
+	if(drawCancel) addRow(cancelRow);
 	if(drawInspect) addRow(inspectRow);
 
 	const auto & font = ENGINE->renderHandler().loadFont(FONT_MEDIUM);
@@ -1050,6 +1047,9 @@ bool BattleFieldController::drawControllerPrompts(Canvas & to)
 		drawFaceRow(*primaryRow, acceptBindings,
 			LIBRARY->generaltexth->translate(textKey), controllerPressedHex == hoveredHex);
 	}
+	if(cancelRow)
+		drawFaceRow(*cancelRow, inspectBindings,
+			LIBRARY->generaltexth->translate("vcmi.battleWindow.controller.cancel"), false);
 	if(inspectRow)
 		drawFaceRow(*inspectRow, inspectBindings,
 			LIBRARY->generaltexth->translate("vcmi.battleWindow.controller.holdInspect"), false);
@@ -1657,7 +1657,7 @@ void BattleFieldController::tick(uint32_t msPassed)
 	owner.obstacleController->tick(msPassed);
 	owner.projectilesController->tick(msPassed);
 
-	if(!isControllerNativeMode() || owner.stacksController->getActiveStack() == nullptr)
+	if(!isControllerNativeMode() || !owner.actionsController->hasActionOwner())
 	{
 		resetControllerInput();
 		return;
@@ -1672,7 +1672,7 @@ void BattleFieldController::tick(uint32_t msPassed)
 	if(focusMoved)
 	{
 		controllerPressedHex = BattleHex::INVALID;
-		controllerPressedAction = PossiblePlayerBattleAction::INVALID;
+		controllerPressedAction.reset();
 		controllerMeleeRepeatDirection.reset();
 		refreshControllerPresentation();
 	}
@@ -1698,7 +1698,7 @@ void BattleFieldController::show(Canvas & to)
 	renderBattlefield(to);
 
 	if(isActive() && isControllerNativeMode() && getHoveredHex().isValid()
-		&& owner.stacksController->getActiveStack() != nullptr)
+		&& owner.actionsController->hasActionOwner())
 	{
 		to.draw(ENGINE->cursor().getCurrentImage(), hexPositionAbsolute(getHoveredHex()).center() - ENGINE->cursor().getPivotOffset());
 		drawControllerPrompts(to);

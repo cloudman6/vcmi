@@ -224,6 +224,7 @@ void BattleInterface::stackAdded(const CStack * stack)
 
 void BattleInterface::stackRemoved(uint32_t stackID)
 {
+	actionsController->stackRemoved(stackID);
 	stacksController->stackRemoved(stackID);
 	fieldController->controllerStackRemoved(stackID);
 	fieldController->redrawBackgroundWithHexes();

@@ -210,7 +210,7 @@ private:
 	BattleHex controllerRestoreHex = BattleHex::INVALID;
 	std::optional<uint32_t> controllerFocusedUnitId;
 	BattleHex controllerPressedHex = BattleHex::INVALID;
-	PossiblePlayerBattleAction::Actions controllerPressedAction = PossiblePlayerBattleAction::INVALID;
+	std::optional<PossiblePlayerBattleAction> controllerPressedAction;
 	std::optional<bool> controllerMeleeRepeatDirection;
 	RepeatState controllerMeleeRepeat;
 	std::map<std::string, std::shared_ptr<IImage>> controllerPromptSprites;

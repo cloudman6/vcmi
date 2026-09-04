@@ -59,7 +59,8 @@ class BattleActionsController
 	std::string actionGetStatusMessageBlocked(PossiblePlayerBattleAction action, const BattleHex & hoveredHex);
 	void updateStatusMessage(const std::string & message);
 
-	void actionRealize(PossiblePlayerBattleAction action, const BattleHex & hoveredHex);
+	void actionRealize(PossiblePlayerBattleAction action, const BattleHex & hoveredHex,
+		const std::function<void(const CStack *)> & showStackInfo);
 
 	PossiblePlayerBattleAction selectAction(const BattleHex & myNumber);
 
@@ -83,6 +84,8 @@ public:
 
 	/// initialize list of potential actions for new active stack
 	void activateStack();
+	/// clear multi-target spell state owned by a stack that left the battle
+	void stackRemoved(uint32_t stackID);
 
 	/// returns true if UI is currently in hero spell target selection mode
 	bool heroSpellcastingModeActive() const;
@@ -112,21 +115,28 @@ public:
 
 	/// update cursor and status bar according to new active hex
 	void onHexHovered(const BattleHex & hoveredHex);
-	/// update cursor and status bar for an action already selected by the current interaction owner
-	void onHexHovered(const BattleHex & hoveredHex, PossiblePlayerBattleAction presentedAction);
-
 	/// called when cursor is no longer over battlefield and cursor/battle log should be reset
 	void onHoverEnded();
 
 	/// performs action according to selected hex
 	void onHexLeftClicked(const BattleHex & clickedHex);
+	/// performs the same canonical left-click action with modality-specific stack-info presentation
+	void onHexLeftClicked(const BattleHex & clickedHex,
+		const std::function<void(const CStack *)> & showStackInfo);
 
 	/// performs action according to selected hex
 	void onHexRightClicked(const BattleHex & clickedHex);
+	/// performs the same canonical right-click action with modality-specific presentation callbacks
+	void onHexRightClicked(const BattleHex & clickedHex,
+		const std::function<void(const CStack *)> & showStackInfo,
+		const std::function<void(const std::string &)> & showPopupText);
+	/// returns true when the canonical right-click action cancels instead of inspecting
+	bool rightClickCancelsAction() const;
 
 	/// Returns the canonical legal action currently presented for a hex, if any.
 	std::optional<PossiblePlayerBattleAction> legalActionAt(const BattleHex & targetHex);
-
+	/// Whether the canonical battle action path currently has a stack or multi-target caster owner.
+	bool hasActionOwner() const;
 	const spells::Caster * getCurrentSpellcaster() const;
 	const CSpell * getCurrentSpell(const BattleHex & hoveredHex);
 	spells::Mode getCurrentCastMode() const;

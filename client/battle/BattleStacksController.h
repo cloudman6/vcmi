@@ -88,6 +88,7 @@ class BattleStacksController
 
 	///when animation is playing, we should wait till the end to make the next stack active; nullptr of none
 	const CStack *stackToActivate;
+	bool stackActivationPending;
 
 	/// for giving IDs for animations
 	ui32 animIDhelper;

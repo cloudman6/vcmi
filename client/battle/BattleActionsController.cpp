@@ -932,7 +932,8 @@ bool BattleActionsController::actionIsLegal(PossiblePlayerBattleAction action, c
 	return false;
 }
 
-void BattleActionsController::actionRealize(PossiblePlayerBattleAction action, const BattleHex & targetHex)
+void BattleActionsController::actionRealize(PossiblePlayerBattleAction action, const BattleHex & targetHex,
+	const std::function<void(const CStack *)> & showStackInfo)
 {
 	const CStack * targetStack = getStackForHex(targetHex);
 
@@ -1003,7 +1004,7 @@ void BattleActionsController::actionRealize(PossiblePlayerBattleAction action, c
 
 		case PossiblePlayerBattleAction::CREATURE_INFO:
 		{
-			ENGINE->windows().createAndPushWindow<CStackWindow>(targetStack, false);
+			showStackInfo(targetStack);
 			return;
 		}
 
@@ -1171,12 +1172,6 @@ void BattleActionsController::onHexHovered(const BattleHex & hoveredHex)
 	updateStatusMessage(newConsoleMsg);
 }
 
-void BattleActionsController::onHexHovered(const BattleHex & hoveredHex, PossiblePlayerBattleAction presentedAction)
-{
-	actionSetCursor(presentedAction, hoveredHex);
-	updateStatusMessage(actionGetStatusMessage(presentedAction, hoveredHex));
-}
-
 void BattleActionsController::updateStatusMessage(const std::string & message)
 {
 	if(!currentConsoleMsg.empty())
@@ -1198,24 +1193,37 @@ void BattleActionsController::onHoverEnded()
 
 void BattleActionsController::onHexLeftClicked(const BattleHex & clickedHex)
 {
+	onHexLeftClicked(clickedHex, [](const CStack * stack)
+	{
+		ENGINE->windows().createAndPushWindow<CStackWindow>(stack, false);
+	});
+}
+
+void BattleActionsController::onHexLeftClicked(const BattleHex & clickedHex,
+	const std::function<void(const CStack *)> & showStackInfo)
+{
 	const auto action = legalActionAt(clickedHex);
 	if(!action)
 		return;
 	
-	actionRealize(*action, clickedHex);
+	actionRealize(*action, clickedHex, showStackInfo);
 	ENGINE->statusbar()->clear();
 }
 
 std::optional<PossiblePlayerBattleAction> BattleActionsController::legalActionAt(const BattleHex & targetHex)
 {
-	if(!targetHex.isValid() || (owner.stacksController->getActiveStack() == nullptr && monsterCaster == nullptr)
-		|| possibleActions.empty())
+	if(!targetHex.isValid() || !hasActionOwner() || possibleActions.empty())
 		return std::nullopt;
 
 	auto action = selectAction(targetHex);
 	if(!actionIsLegal(action, targetHex))
 		return std::nullopt;
 	return action;
+}
+
+bool BattleActionsController::hasActionOwner() const
+{
+	return owner.stacksController->getActiveStack() != nullptr || monsterCaster != nullptr;
 }
 
 void BattleActionsController::tryActivateStackSpellcasting(const CStack * casterStack)
@@ -1283,6 +1291,9 @@ bool BattleActionsController::isCastingPossibleHere(const CSpell * currentSpell,
 
 void BattleActionsController::activateStack()
 {
+	if(heroSpellToCast || monsterCaster || selectedStack)
+		endCastingSpell();
+
 	const CStack * s = owner.stacksController->getActiveStack();
 	if(s)
 	{
@@ -1293,29 +1304,62 @@ void BattleActionsController::activateStack()
 	}
 }
 
+void BattleActionsController::stackRemoved(uint32_t stackID)
+{
+	const bool casterRemoved = monsterCaster && monsterCaster->unitId() == stackID;
+	const bool targetRemoved = selectedStack && selectedStack->unitId() == stackID;
+	if(casterRemoved)
+		monsterCaster = nullptr;
+	if(targetRemoved)
+		selectedStack = nullptr;
+
+	if(casterRemoved)
+		endCastingSpell();
+	else if(targetRemoved)
+		ENGINE->fakeMouseMove();
+}
+
 void BattleActionsController::onHexRightClicked(const BattleHex & clickedHex)
 {
-	bool isCurrentStackInSpellcastMode = creatureSpellcastingModeActive();
+	onHexRightClicked(clickedHex,
+		[](const CStack * stack)
+		{
+			ENGINE->windows().createAndPushWindow<CStackWindow>(stack, true);
+		},
+		[](const std::string & text)
+		{
+			CRClickPopup::createAndPush(text);
+		});
+}
 
-	if (heroSpellcastingModeActive() || isCurrentStackInSpellcastMode)
+void BattleActionsController::onHexRightClicked(const BattleHex & clickedHex,
+	const std::function<void(const CStack *)> & showStackInfo,
+	const std::function<void(const std::string &)> & showPopupText)
+{
+	if(rightClickCancelsAction())
 	{
 		endCastingSpell();
-		CRClickPopup::createAndPush(LIBRARY->generaltexth->translate("core.genrltxt.731")); // spell cancelled
+		showPopupText(LIBRARY->generaltexth->translate("core.genrltxt.731")); // spell cancelled
 		return;
 	}
 
 	auto selectedStack = owner.getBattle()->battleGetStackByPos(clickedHex, true);
 
 	if (selectedStack != nullptr)
-		ENGINE->windows().createAndPushWindow<CStackWindow>(selectedStack, true);
+		showStackInfo(selectedStack);
 	else if (owner.siegeController && owner.siegeController->isTowerHex(clickedHex))
-		CRClickPopup::createAndPush(owner.siegeController->getTowersInfoText());
+		showPopupText(owner.siegeController->getTowersInfoText());
 
 	if (clickedHex == BattleHex::HERO_ATTACKER && owner.attackingHero)
 		owner.attackingHero->heroRightClicked();
 
 	if (clickedHex == BattleHex::HERO_DEFENDER && owner.defendingHero)
 		owner.defendingHero->heroRightClicked();
+}
+
+bool BattleActionsController::rightClickCancelsAction() const
+{
+	return heroSpellcastingModeActive() || creatureSpellcastingModeActive();
 }
 
 bool BattleActionsController::heroSpellcastingModeActive() const

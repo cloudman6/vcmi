@@ -192,8 +192,8 @@ TEST(BattleControllerRadialStateTest, TracksOnlyRealPagesAndDoesNotWrap)
 {
 	BattleControllerRadialState state;
 	state.open({
-		{{EShortcut::BATTLE_CAST_SPELL, 10}, true, 0, 0},
-		{{EShortcut::BATTLE_CAST_SPELL, 22}, true, 0, 1}
+		{{EShortcut::BATTLE_SPELL_RADIAL, 10}, true, 0, 0},
+		{{EShortcut::BATTLE_SPELL_RADIAL, 22}, true, 0, 1}
 	});
 
 	EXPECT_EQ(state.pageCount(), 2);
@@ -206,11 +206,11 @@ TEST(BattleControllerRadialStateTest, TracksOnlyRealPagesAndDoesNotWrap)
 
 TEST(BattleControllerRadialStateTest, SpellIdentitySurvivesPagingAndAvailabilityRevalidation)
 {
-	const BattleControllerRadialItemId firstSpell{EShortcut::BATTLE_CAST_SPELL, 10};
-	const BattleControllerRadialItemId secondSpell{EShortcut::BATTLE_CAST_SPELL, 22};
+	const BattleControllerRadialItemId firstSpell{EShortcut::BATTLE_SPELL_RADIAL, 10};
+	const BattleControllerRadialItemId secondSpell{EShortcut::BATTLE_SPELL_RADIAL, 22};
 	const std::vector<Entry> spells = {
 		{firstSpell,  true, 0, 0},
-        {secondSpell, true, 0, 1}
+		{secondSpell, true, 0, 1}
 	};
 
 	BattleControllerRadialState state;
@@ -222,7 +222,7 @@ TEST(BattleControllerRadialStateTest, SpellIdentitySurvivesPagingAndAvailability
 
 	const std::vector<Entry> nowDisabled = {
 		{firstSpell,  true,  0, 0},
-        {secondSpell, false, 0, 1}
+		{secondSpell, false, 0, 1}
 	};
 	EXPECT_EQ(state.releaseConfirm(nowDisabled), std::nullopt);
 	EXPECT_TRUE(state.pressConfirm(spells));
@@ -232,8 +232,8 @@ TEST(BattleControllerRadialStateTest, SpellIdentitySurvivesPagingAndAvailability
 TEST(BattleControllerRadialStateTest, PageChangeClearsSelectionAndPendingConfirm)
 {
 	const std::vector<Entry> spells = {
-		{{EShortcut::BATTLE_CAST_SPELL, 10}, true, 0, 0},
-		{{EShortcut::BATTLE_CAST_SPELL, 22}, true, 0, 1}
+		{{EShortcut::BATTLE_SPELL_RADIAL, 10}, true, 0, 0},
+		{{EShortcut::BATTLE_SPELL_RADIAL, 22}, true, 0, 1}
 	};
 
 	BattleControllerRadialState state;

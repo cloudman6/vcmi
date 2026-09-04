@@ -12,6 +12,7 @@
 
 #include "BattleActionsController.h"
 #include "BattleConsole.h"
+#include "BattleControllerRadial.h"
 #include "BattleFieldController.h"
 #include "BattleInterface.h"
 #include "BattleStacksController.h"
@@ -34,6 +35,7 @@
 #include "../gui/WindowHandler.h"
 #include "../render/CAnimation.h"
 #include "../render/Canvas.h"
+#include "../render/Colors.h"
 #include "../render/EFont.h"
 #include "../render/IImage.h"
 #include "../render/IRenderHandler.h"
@@ -57,15 +59,77 @@
 #include "../../lib/entities/artifact/CArtHandler.h"
 #include "../../lib/filesystem/ResourcePath.h"
 #include "../../lib/gameState/InfoAboutArmy.h"
-#include "../../lib/mapping/CMapHeader.h"
 #include "../../lib/mapObjects/CGHeroInstance.h"
-#include "../../lib/spells/CSpell.h"
 #include "../../lib/mapObjects/CGTownInstance.h"
+#include "../../lib/mapping/CMapHeader.h"
+#include "../../lib/spells/CSpell.h"
+#include "../../lib/spells/CSpellHandler.h"
+#include "../../lib/spells/ISpellMechanics.h"
+#include "../../lib/spells/Problem.h"
+#include "../../lib/spells/SpellSchoolHandler.h"
 #include "../../lib/texts/CGeneralTextHandler.h"
+#include "../../lib/texts/MetaString.h"
+#include "../../lib/texts/TextIdentifier.h"
 
 namespace
 {
+constexpr int CONTROLLER_TRIGGER_PROMPT_WIDTH = 34;
+constexpr int CONTROLLER_TRIGGER_PROMPT_HEIGHT = 22;
 constexpr int CONTROLLER_FACE_PROMPT_SIZE = 24;
+constexpr ColorRGBA CONTROLLER_PROMPT_FILL(232, 218, 177, 235);
+constexpr ColorRGBA CONTROLLER_PROMPT_BORDER(91, 63, 31, 255);
+constexpr ColorRGBA CONTROLLER_PROMPT_LABEL(58, 40, 20, 255);
+constexpr ColorRGBA CONTROLLER_PROMPT_DISABLED_FILL(126, 119, 105, 185);
+constexpr ColorRGBA CONTROLLER_PROMPT_DISABLED_BORDER(83, 78, 69, 210);
+constexpr ColorRGBA CONTROLLER_PROMPT_DISABLED_LABEL(70, 67, 62, 210);
+
+std::string compactSpellDescription(std::string description)
+{
+	if(description.starts_with('{'))
+	{
+		const auto headingEnd = description.find('}');
+		if(headingEnd != std::string::npos)
+			description.erase(0, headingEnd + 1);
+	}
+	std::ranges::replace(description, '\n', ' ');
+	return description;
+}
+
+void drawControllerTriggerPrompt(Canvas & to, Point center, const std::optional<std::string> & spriteName,
+	const std::string & label, bool disabled)
+{
+	const Point topLeft = center - Point(CONTROLLER_TRIGGER_PROMPT_WIDTH / 2, CONTROLLER_TRIGGER_PROMPT_HEIGHT / 2);
+	if(spriteName)
+	{
+		const auto sprite = ENGINE->renderHandler().loadImage(ImagePath::builtin(*spriteName), EImageBlitMode::COLORKEY);
+		to.draw(sprite, topLeft);
+		return;
+	}
+
+	const auto fill = disabled ? CONTROLLER_PROMPT_DISABLED_FILL : CONTROLLER_PROMPT_FILL;
+	const auto border = disabled ? CONTROLLER_PROMPT_DISABLED_BORDER : CONTROLLER_PROMPT_BORDER;
+	for(int row = 0; row < CONTROLLER_TRIGGER_PROMPT_HEIGHT; ++row)
+	{
+		const int inset = row < 4 ? 0 : std::min(5, (row - 1) / 4);
+		to.drawColorBlended(Rect(topLeft + Point(inset, row), Point(CONTROLLER_TRIGGER_PROMPT_WIDTH - inset * 2, 1)), fill);
+	}
+	to.drawLine(topLeft, topLeft + Point(CONTROLLER_TRIGGER_PROMPT_WIDTH - 1, 0), border, border);
+	to.drawLine(topLeft, topLeft + Point(5, CONTROLLER_TRIGGER_PROMPT_HEIGHT - 1), border, border);
+	to.drawLine(topLeft + Point(CONTROLLER_TRIGGER_PROMPT_WIDTH - 1, 0),
+		topLeft + Point(CONTROLLER_TRIGGER_PROMPT_WIDTH - 6, CONTROLLER_TRIGGER_PROMPT_HEIGHT - 1), border, border);
+	to.drawLine(topLeft + Point(5, CONTROLLER_TRIGGER_PROMPT_HEIGHT - 1),
+		topLeft + Point(CONTROLLER_TRIGGER_PROMPT_WIDTH - 6, CONTROLLER_TRIGGER_PROMPT_HEIGHT - 1), border, border);
+	to.drawText(center + Point(0, -1), FONT_SMALL,
+		disabled ? CONTROLLER_PROMPT_DISABLED_LABEL : CONTROLLER_PROMPT_LABEL,
+		ETextAlignment::CENTER, label);
+}
+
+void drawControllerFacePrompt(Canvas & to, Point center, const std::string & spriteName)
+{
+	const auto sprite = ENGINE->renderHandler().loadImage(ImagePath::builtin(spriteName), EImageBlitMode::COLORKEY);
+	const Point topLeft = center - Point(CONTROLLER_FACE_PROMPT_SIZE / 2, CONTROLLER_FACE_PROMPT_SIZE / 2);
+	to.draw(sprite, topLeft);
+}
 
 class BattleControllerStackWindow final : public CStackWindow
 {
@@ -142,6 +206,7 @@ BattleWindow::BattleWindow(BattleInterface & Owner)
 	addShortcut(EShortcut::BATTLE_CAST_SPELL, std::bind(&BattleWindow::bSpellf, this));
 	// Controller X also emits MOUSE_LEFT; keep Native Spellbook intent separate from the button hotkey.
 	addShortcut(EShortcut::BATTLE_CONTROLLER_CAST_SPELL, std::bind(&BattleWindow::bSpellf, this));
+	addShortcut(EShortcut::BATTLE_SPELL_RADIAL, std::bind(&BattleWindow::openControllerSpellRadial, this));
 	addShortcut(EShortcut::BATTLE_WAIT, std::bind(&BattleWindow::bWaitf, this));
 	addShortcut(EShortcut::BATTLE_DEFEND, std::bind(&BattleWindow::bDefencef, this));
 	addShortcut(EShortcut::BATTLE_CONSOLE_UP, std::bind(&BattleWindow::bConsoleUpf, this));
@@ -583,7 +648,7 @@ bool BattleWindow::captureThisKey(EShortcut key)
 		return true;
 	if(!owner.fieldController->isControllerNativeMode())
 		return false;
-	if(key == EShortcut::BATTLE_CONTROLLER_CAST_SPELL)
+	if(key == EShortcut::BATTLE_SPELL_RADIAL || key == EShortcut::BATTLE_CONTROLLER_CAST_SPELL)
 		return true;
 	if(key == EShortcut::GLOBAL_ACCEPT || key == EShortcut::GLOBAL_CANCEL
 		|| key == EShortcut::MOUSE_LEFT || key == EShortcut::MOUSE_RIGHT
@@ -601,7 +666,7 @@ void BattleWindow::keyPressed(EShortcut key)
 	}
 	if(ENGINE->input().getCurrentInputMode() == InputMode::CONTROLLER)
 	{
-		if(owner.fieldController->isControllerCursorMode() && key == EShortcut::BATTLE_CONTROLLER_CAST_SPELL)
+		if(owner.fieldController->isControllerCursorMode() && (key == EShortcut::BATTLE_CONTROLLER_CAST_SPELL || key == EShortcut::BATTLE_SPELL_RADIAL))
 			return;
 		if(key == EShortcut::BATTLE_TOGGLE_CURSOR_MODE)
 		{
@@ -618,6 +683,11 @@ void BattleWindow::keyPressed(EShortcut key)
 			return;
 		if(owner.fieldController->isControllerNativeMode())
 		{
+			if(key == EShortcut::BATTLE_SPELL_RADIAL)
+			{
+				InterfaceObjectConfigurable::keyPressed(key);
+				return;
+			}
 			if(key == EShortcut::BATTLE_CONTROLLER_CAST_SPELL)
 			{
 				InterfaceObjectConfigurable::keyPressed(key);
@@ -630,15 +700,11 @@ void BattleWindow::keyPressed(EShortcut key)
 			}
 			if(key == EShortcut::GLOBAL_CANCEL)
 			{
-				if(owner.actionsController->heroSpellcastingModeActive()
-					|| owner.actionsController->creatureSpellcastingModeActive())
-				{
-					const BattleHex focus = owner.fieldController->getControllerFocusedHex();
-					owner.actionsController->endCastingSpell();
-					owner.fieldController->restoreControllerFocus(focus);
-				}
-				else
-					openControllerHoldInspect();
+				const BattleHex focus = owner.fieldController->getControllerFocusedHex();
+				owner.actionsController->onHexRightClicked(focus,
+					[this](const CStack * stack){ this->openControllerHoldInspect(stack); },
+					[](const std::string &){});
+				owner.fieldController->restoreControllerFocus(focus);
 				return;
 			}
 			if(key == EShortcut::BATTLE_DEFEND)
@@ -717,11 +783,8 @@ void BattleWindow::controllerInputReset()
 	closeControllerHoldInspect();
 }
 
-void BattleWindow::openControllerInspect()
+void BattleWindow::openControllerInspect(const CStack * stack)
 {
-	const CStack * stack = owner.fieldController->getHoveredStack();
-	if(stack == nullptr)
-		return;
 	controllerInspectRestoreHex = owner.fieldController->getControllerFocusedHex();
 	auto window = std::make_shared<BattleControllerStackWindow>(stack, false);
 	ENGINE->windows().pushWindow(window);
@@ -734,6 +797,11 @@ void BattleWindow::openControllerHoldInspect()
 	const CStack * stack = owner.fieldController->getHoveredStack();
 	if(stack == nullptr)
 		return;
+	openControllerHoldInspect(stack);
+}
+
+void BattleWindow::openControllerHoldInspect(const CStack * stack)
+{
 	controllerInspectRestoreHex = owner.fieldController->getControllerFocusedHex();
 	auto window = std::make_shared<BattleControllerStackWindow>(stack, true);
 	controllerHoldInspectWindow = window;
@@ -968,6 +1036,120 @@ void BattleWindow::setPossibleActions(const std::vector<PossiblePlayerBattleActi
 	unitActionWindow->setPossibleActions(actions);
 }
 
+Rect BattleWindow::controllerRadialBounds() const
+{
+	const auto battleToolbar = widget<CIntObject>("menuBattle");
+	return Rect(pos.topLeft(), Point(pos.w, battleToolbar->pos.top() - pos.top()));
+}
+
+void BattleWindow::openControllerSpellRadial()
+{
+	const auto * hero = owner.getBattle()->battleGetMyHero();
+	if(!hero)
+		return;
+	if(owner.getBattle()->battleCanCastSpell(hero, spells::Mode::HERO) != ESpellCastProblem::OK)
+	{
+		bSpellf();
+		return;
+	}
+
+	ENGINE->windows().createAndPushWindow<BattleControllerRadial>(
+		[this]()
+		{
+			return this->controllerSpellRadialItems();
+		},
+		[this](){ return this->controllerRadialBounds(); },
+		EShortcut::BATTLE_SPELL_RADIAL
+	);
+}
+
+std::vector<BattleControllerRadialItem> BattleWindow::controllerSpellRadialItems()
+{
+	std::vector<BattleControllerRadialItem> result;
+	const auto * hero = owner.getBattle()->battleGetMyHero();
+	if(!hero)
+		return result;
+
+	std::vector<SpellID> spells;
+	const auto appendSpell = [&spells, hero](SpellID spell)
+	{
+		if(!spell.hasValue() || vstd::contains(spells, spell))
+			return;
+		const auto * spellData = spell.toSpell();
+		if(spellData->isCombat() && !spellData->isCreatureAbility() && hero->canCastThisSpell(spellData))
+			spells.push_back(spell);
+	};
+
+	for(const auto & quickSpell : quickSpellWindow->getSpells())
+		appendSpell(std::get<0>(quickSpell));
+	for(const auto & spell : LIBRARY->spellh->objects)
+		appendSpell(spell->getId());
+
+	for(size_t radialIndex = 0; radialIndex < spells.size(); ++radialIndex)
+	{
+		const SpellID spell = spells[radialIndex];
+		const auto * spellData = spell.toSpell();
+		spells::detail::ProblemImpl problem;
+		const bool radialEnabled = !isShortcutBlocked(EShortcut::BATTLE_SPELL_RADIAL);
+		const bool enabled = radialEnabled && spellData->canBeCast(problem, owner.getBattle().get(), spells::Mode::HERO, hero);
+		std::vector<std::string> unavailableReasons;
+		if(!enabled && radialEnabled)
+		{
+			problem.getAll(unavailableReasons);
+			if(unavailableReasons.empty())
+				unavailableReasons.push_back(LIBRARY->generaltexth->translate("vcmi.adventureMap.spellUnknownProblem"));
+		}
+
+		SpellSchool effectiveSchool;
+		const int32_t schoolLevel = hero->getSpellSchoolLevel(spellData, &effectiveSchool);
+		const int32_t spellCost = owner.curInt->cb->getSpellCost(spellData, hero);
+		std::string detailSummary;
+		if(effectiveSchool.hasValue())
+		{
+			const auto * school = LIBRARY->spellSchoolHandler->getById(effectiveSchool);
+			if(school)
+				detailSummary = school->getNameTranslated();
+		}
+
+		const std::string levelTextID =
+			spellData->getLevel() > 0 ? TextIdentifier("core.genrltxt", 171 + spellData->getLevel()).get() : "vcmi.spellBook.zero_level.hint";
+		std::string levelText;
+		if(schoolLevel > 0)
+		{
+			MetaString masteredLevel = MetaString::createFromRawString("%s/%s");
+			masteredLevel.replaceTextID(levelTextID);
+			masteredLevel.replaceTextID("core.skilllev", 3 + schoolLevel - 1);
+			levelText = masteredLevel.toString(&GAME->translator());
+		}
+		else
+			levelText = GAME->translator().translate(levelTextID);
+
+		MetaString costText = MetaString::createFromRawString("%s: %d");
+		costText.replaceTextID("core.genrltxt.387");
+		costText.replaceNumber(spellCost);
+		if(!detailSummary.empty())
+			detailSummary += " - ";
+		detailSummary += levelText + " - " + costText.toString(&GAME->translator());
+
+		result.push_back({
+			{EShortcut::BATTLE_SPELL_RADIAL, spell.getNum()},
+			spellData->getNameTranslated(),
+			enabled,
+			radialIndex % BattleControllerRadialState::SLOT_COUNT,
+			radialIndex / BattleControllerRadialState::SLOT_COUNT,
+			[this, spell]()
+			{
+				this->owner.castThisSpell(spell);
+			 },
+			"spellint",
+			spell.getNum() + 1,
+			unavailableReasons.empty() ? std::string() : unavailableReasons.front(),
+			detailSummary,
+			compactSpellDescription(spellData->getDescriptionTranslated(schoolLevel))
+		});
+	}
+	return result;
+}
 void BattleWindow::bAutofightf()
 {
 	if (owner.actionsController->heroSpellcastingModeActive())
@@ -1111,7 +1293,6 @@ void BattleWindow::blockUI(bool on)
 
 	bool canWait = owner.stacksController->getActiveStack() ? !owner.stacksController->getActiveStack()->waitedThisTurn : false;
 	bool tacticsMode = owner.isInTacticsMode();
-
 	setShortcutBlocked(EShortcut::GLOBAL_OPTIONS, on);
 	setShortcutBlocked(EShortcut::BATTLE_OPEN_ACTIVE_UNIT, on);
 	setShortcutBlocked(EShortcut::BATTLE_OPEN_HOVERED_UNIT, on);
@@ -1119,6 +1300,7 @@ void BattleWindow::blockUI(bool on)
 	setShortcutBlocked(EShortcut::BATTLE_SURRENDER, on || owner.getBattle()->battleGetSurrenderCost() < 0);
 	setShortcutBlocked(EShortcut::BATTLE_CAST_SPELL, on || tacticsMode || !canCastSpells);
 	setShortcutBlocked(EShortcut::BATTLE_CONTROLLER_CAST_SPELL, on || tacticsMode || !canCastSpells);
+	setShortcutBlocked(EShortcut::BATTLE_SPELL_RADIAL, on || tacticsMode || !canCastSpells);
 	setShortcutBlocked(EShortcut::BATTLE_WAIT, on || tacticsMode || !canWait);
 	setShortcutBlocked(EShortcut::BATTLE_DEFEND, on || tacticsMode);
 	setShortcutBlocked(EShortcut::BATTLE_AUTOCOMBAT, (settings["battle"]["endWithAutocombat"].Bool() && onlyOnePlayerHuman) ? on || tacticsMode || owner.actionsController->heroSpellcastingModeActive() : owner.actionsController->heroSpellcastingModeActive());
@@ -1211,20 +1393,38 @@ void BattleWindow::drawControllerShortcutPrompts(Canvas & to)
 	if(family == ControllerPrompt::Family::UNKNOWN)
 		return;
 
-	const auto bindings = ENGINE->shortcuts().getJoystickButtonBindings(EShortcut::BATTLE_CONTROLLER_CAST_SPELL);
+	const auto drawTrigger = [&](const std::shared_ptr<CIntObject> & panel, EShortcut shortcut)
+	{
+		if(!panel || !panel->isActive())
+			return;
+		const auto bindings = ENGINE->shortcuts().getJoystickButtonBindings(shortcut);
+		if(bindings.size() != 1)
+			return;
+		const bool disabled = isShortcutBlocked(shortcut);
+		const auto state = disabled ? ControllerPrompt::State::DISABLED : ControllerPrompt::State::NORMAL;
+		drawControllerTriggerPrompt(to,
+			panel->pos.topLeft() + Point(panel->pos.w / 2, panel->pos.h + CONTROLLER_TRIGGER_PROMPT_HEIGHT / 2 + 2),
+			ControllerPrompt::triggerSprite(family, bindings.front(), state),
+			ControllerPrompt::buttonLabel(family, bindings.front()),
+			disabled);
+	};
+
+	drawTrigger(quickSpellWindow, EShortcut::BATTLE_SPELL_RADIAL);
+
+	const auto spellbookBindings = ENGINE->shortcuts().getJoystickButtonBindings(EShortcut::BATTLE_CONTROLLER_CAST_SPELL);
 	const auto spellbookButton = widget<CButton>("cast");
-	if(!spellbookButton || bindings.size() != 1)
-		return;
-
-	const bool disabled = isShortcutBlocked(EShortcut::BATTLE_CONTROLLER_CAST_SPELL);
-	const auto state = disabled ? ControllerPrompt::State::DISABLED : ControllerPrompt::State::NORMAL;
-	const auto spriteName = ControllerPrompt::faceButtonSprite(family, bindings.front(), state);
-	if(!spriteName)
-		return;
-
-	const auto sprite = ENGINE->renderHandler().loadImage(ImagePath::builtin(*spriteName), EImageBlitMode::COLORKEY);
-	const Point center = spellbookButton->pos.topLeft() + Point(spellbookButton->pos.w - 10, spellbookButton->pos.h - 9);
-	to.draw(sprite, center - Point(CONTROLLER_FACE_PROMPT_SIZE / 2, CONTROLLER_FACE_PROMPT_SIZE / 2));
+	if(spellbookButton && spellbookBindings.size() == 1)
+	{
+		const bool disabled = isShortcutBlocked(EShortcut::BATTLE_CONTROLLER_CAST_SPELL);
+		const auto state = disabled ? ControllerPrompt::State::DISABLED : ControllerPrompt::State::NORMAL;
+		const auto spriteName = ControllerPrompt::faceButtonSprite(family, spellbookBindings.front(), state);
+		if(spriteName)
+		{
+			drawControllerFacePrompt(to,
+				spellbookButton->pos.topLeft() + Point(spellbookButton->pos.w - 10, spellbookButton->pos.h - 9),
+				*spriteName);
+		}
+	}
 }
 
 void BattleWindow::onScreenResize()

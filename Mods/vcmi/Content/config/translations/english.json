@@ -615,6 +615,7 @@
 	"vcmi.keyBindings.keyBinding.battleSpellShortcut7": "Battle spell shortcut 7",
 	"vcmi.keyBindings.keyBinding.battleSpellShortcut8": "Battle spell shortcut 8",
 	"vcmi.keyBindings.keyBinding.battleSpellShortcut9": "Battle spell shortcut 9",
+	"vcmi.keyBindings.keyBinding.battleSpellRadial": "Battle spell radial",
 	"vcmi.keyBindings.keyBinding.battleSurrender": "Battle surrender",
 	"vcmi.keyBindings.keyBinding.battleTacticsEnd": "Battle tactics end",
 	"vcmi.keyBindings.keyBinding.battleTacticsNext": "Battle tactics next",
