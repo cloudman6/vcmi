@@ -12,7 +12,7 @@
 
 #include "BattleActionsController.h"
 #include "BattleConsole.h"
-#include "BattleControllerRadial.h"
+#include "../gui/ControllerRadial.h"
 #include "BattleFieldController.h"
 #include "BattleInterface.h"
 #include "BattleStacksController.h"
@@ -1053,14 +1053,19 @@ Rect BattleWindow::controllerRadialBounds() const
 
 void BattleWindow::openControllerActionRadial()
 {
-	ENGINE->windows().createAndPushWindow<BattleControllerRadial>(
+	ENGINE->windows().createAndPushWindow<ControllerRadial>(
 		[this](){ return this->controllerActionRadialItems(); },
 		[this](){ return this->controllerRadialBounds(); },
-		EShortcut::BATTLE_ACTION_RADIAL
+		EShortcut::BATTLE_ACTION_RADIAL,
+		ControllerRadialState::DEFAULT_SLOT_COUNT,
+		ControllerRadialPageShortcuts{EShortcut::BATTLE_DEFEND, EShortcut::BATTLE_WAIT},
+		std::vector{EShortcut::BATTLE_SPELL_RADIAL, EShortcut::BATTLE_CONTROLLER_CAST_SPELL},
+		LIBRARY->generaltexth->translate("vcmi.battleWindow.controller.select"),
+		LIBRARY->generaltexth->translate("vcmi.battleWindow.controller.actionRadial.close")
 	);
 }
 
-std::vector<BattleControllerRadialItem> BattleWindow::controllerActionRadialItems()
+std::vector<ControllerRadialItem> BattleWindow::controllerActionRadialItems()
 {
 	if(owner.isInTacticsMode())
 	{
@@ -1086,7 +1091,7 @@ std::vector<BattleControllerRadialItem> BattleWindow::controllerActionRadialItem
 		};
 	}
 
-	std::vector<BattleControllerRadialItem> result = {
+	std::vector<ControllerRadialItem> result = {
 		{
 			EShortcut::BATTLE_WAIT,
 			LIBRARY->generaltexth->translate("core.help.386.hover"),
@@ -1169,8 +1174,8 @@ std::vector<BattleControllerRadialItem> BattleWindow::controllerActionRadialItem
 	for(size_t index = pageZeroSlotCount; index < groups.size(); ++index)
 	{
 		const size_t overflow = index - pageZeroSlotCount;
-		availableSlots.emplace_back(1 + overflow / BattleControllerRadialState::SLOT_COUNT,
-			overflow % BattleControllerRadialState::SLOT_COUNT);
+		availableSlots.emplace_back(1 + overflow / ControllerRadialState::DEFAULT_SLOT_COUNT,
+			overflow % ControllerRadialState::DEFAULT_SLOT_COUNT);
 	}
 
 	for(size_t index = 0; index < groups.size(); ++index)
@@ -1178,10 +1183,10 @@ std::vector<BattleControllerRadialItem> BattleWindow::controllerActionRadialItem
 		const auto & group = groups[index];
 		const auto & action = group.actions.front();
 		const auto itemId = group.spell
-			? BattleControllerRadialItemId(EShortcut::BATTLE_USE_CREATURE_SPELL, group.spell->getNum())
-			: BattleControllerRadialItemId(EShortcut::BATTLE_ACTION_RADIAL, static_cast<int32_t>(action.get()));
+			? ControllerRadialItemId(EShortcut::BATTLE_USE_CREATURE_SPELL, group.spell->getNum())
+			: ControllerRadialItemId(EShortcut::BATTLE_ACTION_RADIAL, static_cast<int32_t>(action.get()));
 
-		BattleControllerRadialItem item = {
+		ControllerRadialItem item = {
 			itemId,
 			LIBRARY->generaltexth->translate(group.descriptionTextID),
 			!owner.curInt->isAutoFightOn && !isShortcutBlocked(EShortcut::BATTLE_ACTION_RADIAL),
@@ -1214,19 +1219,24 @@ void BattleWindow::openControllerSpellRadial()
 		return;
 	}
 
-	ENGINE->windows().createAndPushWindow<BattleControllerRadial>(
+	ENGINE->windows().createAndPushWindow<ControllerRadial>(
 		[this]()
 		{
 			return this->controllerSpellRadialItems();
 		},
 		[this](){ return this->controllerRadialBounds(); },
-		EShortcut::BATTLE_SPELL_RADIAL
+		EShortcut::BATTLE_SPELL_RADIAL,
+		ControllerRadialState::DEFAULT_SLOT_COUNT,
+		ControllerRadialPageShortcuts{EShortcut::BATTLE_DEFEND, EShortcut::BATTLE_WAIT},
+		std::vector{EShortcut::BATTLE_ACTION_RADIAL, EShortcut::BATTLE_CONTROLLER_CAST_SPELL},
+		LIBRARY->generaltexth->translate("vcmi.battleWindow.controller.select"),
+		LIBRARY->generaltexth->translate("vcmi.battleWindow.controller.actionRadial.close")
 	);
 }
 
-std::vector<BattleControllerRadialItem> BattleWindow::controllerSpellRadialItems()
+std::vector<ControllerRadialItem> BattleWindow::controllerSpellRadialItems()
 {
-	std::vector<BattleControllerRadialItem> result;
+	std::vector<ControllerRadialItem> result;
 	const auto * hero = owner.getBattle()->battleGetMyHero();
 	if(!hero)
 		return result;
@@ -1296,8 +1306,8 @@ std::vector<BattleControllerRadialItem> BattleWindow::controllerSpellRadialItems
 			{EShortcut::BATTLE_SPELL_RADIAL, spell.getNum()},
 			spellData->getNameTranslated(),
 			enabled,
-			radialIndex % BattleControllerRadialState::SLOT_COUNT,
-			radialIndex / BattleControllerRadialState::SLOT_COUNT,
+			radialIndex % ControllerRadialState::DEFAULT_SLOT_COUNT,
+			radialIndex / ControllerRadialState::DEFAULT_SLOT_COUNT,
 			[this, spell]()
 			{
 				this->owner.castThisSpell(spell);

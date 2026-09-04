@@ -1,5 +1,5 @@
 /*
- * BattleControllerRadialStateTest.cpp, part of VCMI engine
+ * ControllerRadialStateTest.cpp, part of VCMI engine
  *
  * Authors: listed in file AUTHORS in main folder
  *
@@ -10,16 +10,17 @@
 
 #include "../client/StdInc.h"
 
-#include "../client/battle/BattleControllerRadialState.h"
+#include "../client/gui/ControllerRadialState.h"
 #include "../client/gui/Shortcut.h"
 
 #include <gtest/gtest.h>
 
 namespace
 {
-using Entry = BattleControllerRadialEntry;
+using Entry = ControllerRadialEntry;
+constexpr double PI = 3.14159265358979323846;
 
-const std::array<EShortcut, BattleControllerRadialState::SLOT_COUNT> SHORTCUTS = {
+const std::array<EShortcut, ControllerRadialState::DEFAULT_SLOT_COUNT> SHORTCUTS = {
 	EShortcut::BATTLE_WAIT,
 	EShortcut::BATTLE_DEFEND,
 	EShortcut::BATTLE_AUTOCOMBAT,
@@ -43,22 +44,37 @@ std::vector<Entry> entries(bool enabled = true)
 }
 }
 
-TEST(BattleControllerRadialStateTest, SelectsTwelveCounterclockwiseSectorsWithoutASecondDeadZone)
+TEST(ControllerRadialStateTest, SelectsTwelveCounterclockwiseSectorsWithoutASecondDeadZone)
 {
-	constexpr double PI = 3.14159265358979323846;
 	for(size_t slot = 0; slot < SHORTCUTS.size(); ++slot)
 	{
-		BattleControllerRadialState state;
+		ControllerRadialState state;
 		state.open(entries());
-		const double angle = -PI / 2.0 - static_cast<double>(slot) * 2.0 * PI / static_cast<double>(BattleControllerRadialState::SLOT_COUNT);
+		const double angle = -PI / 2.0 - static_cast<double>(slot) * 2.0 * PI / static_cast<double>(ControllerRadialState::DEFAULT_SLOT_COUNT);
 		EXPECT_TRUE(state.selectDirection(std::cos(angle) * 0.01, std::sin(angle) * 0.01));
-		EXPECT_EQ(state.selectedItem(), BattleControllerRadialItemId(SHORTCUTS[slot]));
+		EXPECT_EQ(state.selectedItem(), ControllerRadialItemId(SHORTCUTS[slot]));
 	}
 }
 
-TEST(BattleControllerRadialStateTest, NeutralOrEmptySectorClearsSelectionAndPendingConfirm)
+TEST(ControllerRadialStateTest, SupportsAnEightSectorConsumerWithoutChangingIdentityRules)
 {
-	BattleControllerRadialState state;
+	ControllerRadialState state(8);
+	std::vector<Entry> entries;
+	for(size_t slot = 0; slot < 8; ++slot)
+		entries.push_back({SHORTCUTS[slot], true, slot});
+	state.open(entries);
+
+	for(size_t slot = 0; slot < 8; ++slot)
+	{
+		const double angle = -PI / 2.0 - static_cast<double>(slot) * 2.0 * PI / 8.0;
+		ASSERT_TRUE(state.selectDirection(std::cos(angle), std::sin(angle)));
+		EXPECT_EQ(state.selectedItem(), ControllerRadialItemId(SHORTCUTS[slot]));
+	}
+}
+
+TEST(ControllerRadialStateTest, NeutralOrEmptySectorClearsSelectionAndPendingConfirm)
+{
+	ControllerRadialState state;
 	state.open({
 		{EShortcut::BATTLE_WAIT, true, 9}
 	});
@@ -90,9 +106,9 @@ TEST(BattleControllerRadialStateTest, NeutralOrEmptySectorClearsSelectionAndPend
 	);
 }
 
-TEST(BattleControllerRadialStateTest, ConfirmReleaseRevalidatesSameEnabledShortcut)
+TEST(ControllerRadialStateTest, ConfirmReleaseRevalidatesSameEnabledShortcut)
 {
-	BattleControllerRadialState state;
+	ControllerRadialState state;
 	state.open({
 		{EShortcut::BATTLE_WAIT, true, 9}
 	});
@@ -125,14 +141,14 @@ TEST(BattleControllerRadialStateTest, ConfirmReleaseRevalidatesSameEnabledShortc
 		state.releaseConfirm({
 			{EShortcut::BATTLE_WAIT, true, 9}
 		}),
-		BattleControllerRadialItemId(EShortcut::BATTLE_WAIT)
+		ControllerRadialItemId(EShortcut::BATTLE_WAIT)
 	);
 	EXPECT_FALSE(state.selectDirection(1.0, 0.0));
 }
 
-TEST(BattleControllerRadialStateTest, SelectionChangeAndResetCannotRetargetAConfirm)
+TEST(ControllerRadialStateTest, SelectionChangeAndResetCannotRetargetAConfirm)
 {
-	BattleControllerRadialState state;
+	ControllerRadialState state;
 	state.open({
 		{EShortcut::BATTLE_WAIT,   true, 9},
 		{EShortcut::BATTLE_DEFEND, true, 3}
@@ -164,9 +180,9 @@ TEST(BattleControllerRadialStateTest, SelectionChangeAndResetCannotRetargetAConf
 	EXPECT_FALSE(state.selectDirection(-1.0, 0.0));
 }
 
-TEST(BattleControllerRadialStateTest, SelectionAndConfirmUseCurrentEntriesInsteadOfOpeningSnapshot)
+TEST(ControllerRadialStateTest, SelectionAndConfirmUseCurrentEntriesInsteadOfOpeningSnapshot)
 {
-	BattleControllerRadialState state;
+	ControllerRadialState state;
 	state.open({
 		{EShortcut::BATTLE_WAIT, false, 9}
 	});
@@ -175,11 +191,11 @@ TEST(BattleControllerRadialStateTest, SelectionAndConfirmUseCurrentEntriesInstea
 		{EShortcut::BATTLE_WAIT, true, 9}
 	};
 	ASSERT_TRUE(state.selectDirection(1.0, 0.0));
-	EXPECT_EQ(state.selectedItem(), BattleControllerRadialItemId(EShortcut::BATTLE_WAIT));
+	EXPECT_EQ(state.selectedItem(), ControllerRadialItemId(EShortcut::BATTLE_WAIT));
 	ASSERT_TRUE(state.pressConfirm(current));
-	EXPECT_EQ(state.releaseConfirm(current), BattleControllerRadialItemId(EShortcut::BATTLE_WAIT));
+	EXPECT_EQ(state.releaseConfirm(current), ControllerRadialItemId(EShortcut::BATTLE_WAIT));
 
-	BattleControllerRadialState missing;
+	ControllerRadialState missing;
 	missing.open({
 		{EShortcut::BATTLE_WAIT, true, 9}
 	});
@@ -188,9 +204,9 @@ TEST(BattleControllerRadialStateTest, SelectionAndConfirmUseCurrentEntriesInstea
 	EXPECT_EQ(missing.selectedItem(), std::nullopt);
 }
 
-TEST(BattleControllerRadialStateTest, TracksOnlyRealPagesAndDoesNotWrap)
+TEST(ControllerRadialStateTest, TracksOnlyRealPagesAndDoesNotWrap)
 {
-	BattleControllerRadialState state;
+	ControllerRadialState state;
 	state.open({
 		{{EShortcut::BATTLE_SPELL_RADIAL, 10}, true, 0, 0},
 		{{EShortcut::BATTLE_SPELL_RADIAL, 22}, true, 0, 1}
@@ -204,16 +220,16 @@ TEST(BattleControllerRadialStateTest, TracksOnlyRealPagesAndDoesNotWrap)
 	EXPECT_FALSE(state.changePage(1));
 }
 
-TEST(BattleControllerRadialStateTest, SpellIdentitySurvivesPagingAndAvailabilityRevalidation)
+TEST(ControllerRadialStateTest, SpellIdentitySurvivesPagingAndAvailabilityRevalidation)
 {
-	const BattleControllerRadialItemId firstSpell{EShortcut::BATTLE_SPELL_RADIAL, 10};
-	const BattleControllerRadialItemId secondSpell{EShortcut::BATTLE_SPELL_RADIAL, 22};
+	const ControllerRadialItemId firstSpell{EShortcut::BATTLE_SPELL_RADIAL, 10};
+	const ControllerRadialItemId secondSpell{EShortcut::BATTLE_SPELL_RADIAL, 22};
 	const std::vector<Entry> spells = {
 		{firstSpell,  true, 0, 0},
 		{secondSpell, true, 0, 1}
 	};
 
-	BattleControllerRadialState state;
+	ControllerRadialState state;
 	state.open(spells);
 	ASSERT_TRUE(state.changePage(1));
 	ASSERT_TRUE(state.selectDirection(0.0, -1.0));
@@ -229,14 +245,14 @@ TEST(BattleControllerRadialStateTest, SpellIdentitySurvivesPagingAndAvailability
 	EXPECT_EQ(state.currentPage(), 1);
 }
 
-TEST(BattleControllerRadialStateTest, PageChangeClearsSelectionAndPendingConfirm)
+TEST(ControllerRadialStateTest, PageChangeClearsSelectionAndPendingConfirm)
 {
 	const std::vector<Entry> spells = {
 		{{EShortcut::BATTLE_SPELL_RADIAL, 10}, true, 0, 0},
 		{{EShortcut::BATTLE_SPELL_RADIAL, 22}, true, 0, 1}
 	};
 
-	BattleControllerRadialState state;
+	ControllerRadialState state;
 	state.open(spells);
 	ASSERT_TRUE(state.selectDirection(0.0, -1.0));
 	ASSERT_TRUE(state.pressConfirm(spells));

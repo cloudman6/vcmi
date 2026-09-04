@@ -1,5 +1,5 @@
 /*
- * BattleControllerRadialState.cpp, part of VCMI engine
+ * ControllerRadialState.cpp, part of VCMI engine
  *
  * Authors: listed in file AUTHORS in main folder
  *
@@ -10,14 +10,19 @@
 
 #include "StdInc.h"
 
-#include "BattleControllerRadialState.h"
+#include "ControllerRadialState.h"
 
 namespace
 {
 constexpr double PI = 3.14159265358979323846;
 }
 
-std::optional<BattleControllerRadialItemId> BattleControllerRadialState::itemAt(size_t slot) const
+ControllerRadialState::ControllerRadialState(size_t slots)
+	: slotCount(std::max<size_t>(1, slots))
+{
+}
+
+std::optional<ControllerRadialItemId> ControllerRadialState::itemAt(size_t slot) const
 {
 	if(activePageIndex >= pageIds.size())
 		return std::nullopt;
@@ -29,24 +34,24 @@ std::optional<BattleControllerRadialItemId> BattleControllerRadialState::itemAt(
 			return candidate.page == pageIds[activePageIndex] && candidate.slot == slot;
 		}
 	);
-	return entry == entries.end() ? std::optional<BattleControllerRadialItemId>{} : std::optional<BattleControllerRadialItemId>{entry->id};
+	return entry == entries.end() ? std::optional<ControllerRadialItemId>{} : std::optional<ControllerRadialItemId>{entry->id};
 }
 
-const BattleControllerRadialEntry *
-BattleControllerRadialState::findCurrent(BattleControllerRadialItemId id, const std::vector<BattleControllerRadialEntry> & currentEntries) const
+const ControllerRadialEntry *
+ControllerRadialState::findCurrent(ControllerRadialItemId id, const std::vector<ControllerRadialEntry> & currentEntries) const
 {
-	const auto current = std::ranges::find(currentEntries, id, &BattleControllerRadialEntry::id);
+	const auto current = std::ranges::find(currentEntries, id, &ControllerRadialEntry::id);
 	return current == currentEntries.end() ? nullptr : &*current;
 }
 
-void BattleControllerRadialState::open(const std::vector<BattleControllerRadialEntry> & initialEntries)
+void ControllerRadialState::open(const std::vector<ControllerRadialEntry> & initialEntries)
 {
 	openState = true;
 	entries.clear();
 	pageIds.clear();
 	for(const auto & entry : initialEntries)
 	{
-		if(entry.slot >= SLOT_COUNT)
+		if(entry.slot >= slotCount)
 			continue;
 		entries.push_back(entry);
 		if(!vstd::contains(pageIds, entry.page))
@@ -58,20 +63,20 @@ void BattleControllerRadialState::open(const std::vector<BattleControllerRadialE
 	pendingConfirm.reset();
 }
 
-bool BattleControllerRadialState::selectDirection(double x, double y)
+bool ControllerRadialState::selectDirection(double x, double y)
 {
 	if(!openState)
 		return false;
 
-	std::optional<BattleControllerRadialItemId> newSelection;
+	std::optional<ControllerRadialItemId> newSelection;
 	if(x != 0.0 || y != 0.0)
 	{
 		double counterclockwiseFromNorth = std::atan2(-x, -y);
 		if(counterclockwiseFromNorth < 0.0)
 			counterclockwiseFromNorth += 2.0 * PI;
 
-		const double sectorAngle = 2.0 * PI / static_cast<double>(SLOT_COUNT);
-		const auto slot = static_cast<size_t>(std::floor(counterclockwiseFromNorth / sectorAngle + 0.5)) % SLOT_COUNT;
+		const double sectorAngle = 2.0 * PI / static_cast<double>(slotCount);
+		const auto slot = static_cast<size_t>(std::floor(counterclockwiseFromNorth / sectorAngle + 0.5)) % slotCount;
 		newSelection = itemAt(slot);
 	}
 
@@ -81,7 +86,7 @@ bool BattleControllerRadialState::selectDirection(double x, double y)
 	return true;
 }
 
-bool BattleControllerRadialState::changePage(int offset)
+bool ControllerRadialState::changePage(int offset)
 {
 	if(!openState || offset == 0 || pageIds.size() < 2)
 		return false;
@@ -96,7 +101,7 @@ bool BattleControllerRadialState::changePage(int offset)
 	return true;
 }
 
-bool BattleControllerRadialState::pressConfirm(const std::vector<BattleControllerRadialEntry> & currentEntries)
+bool ControllerRadialState::pressConfirm(const std::vector<ControllerRadialEntry> & currentEntries)
 {
 	if(!openState || !selected.has_value())
 		return false;
@@ -118,7 +123,7 @@ bool BattleControllerRadialState::pressConfirm(const std::vector<BattleControlle
 	return true;
 }
 
-std::optional<BattleControllerRadialItemId> BattleControllerRadialState::releaseConfirm(const std::vector<BattleControllerRadialEntry> & currentEntries)
+std::optional<ControllerRadialItemId> ControllerRadialState::releaseConfirm(const std::vector<ControllerRadialEntry> & currentEntries)
 {
 	if(!openState || !pendingConfirm.has_value() || pendingConfirm != selected)
 	{
@@ -145,7 +150,7 @@ std::optional<BattleControllerRadialItemId> BattleControllerRadialState::release
 	return result;
 }
 
-void BattleControllerRadialState::reset()
+void ControllerRadialState::reset()
 {
 	openState = false;
 	entries.clear();
@@ -155,17 +160,17 @@ void BattleControllerRadialState::reset()
 	pendingConfirm.reset();
 }
 
-size_t BattleControllerRadialState::currentPage() const
+size_t ControllerRadialState::currentPage() const
 {
 	return activePageIndex < pageIds.size() ? pageIds[activePageIndex] : 0;
 }
 
-size_t BattleControllerRadialState::pageCount() const
+size_t ControllerRadialState::pageCount() const
 {
 	return pageIds.size();
 }
 
-std::optional<BattleControllerRadialItemId> BattleControllerRadialState::selectedItem() const
+std::optional<ControllerRadialItemId> ControllerRadialState::selectedItem() const
 {
 	return selected;
 }

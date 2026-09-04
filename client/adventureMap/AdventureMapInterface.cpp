@@ -27,6 +27,7 @@
 #include "../windows/InfoWindows.h"
 #include "../widgets/RadialMenu.h"
 #include "../gui/CursorHandler.h"
+#include "../gui/ControllerRadial.h"
 #include "../GameEngine.h"
 #include "../GameInstance.h"
 #include "../eventsSDL/InputHandler.h"
@@ -488,6 +489,84 @@ void AdventureMapInterface::toggleControllerCursorMode()
 	redraw();
 }
 
+std::vector<ControllerRadialItem> AdventureMapInterface::controllerContextItems()
+{
+	struct Projection
+	{
+		EShortcut shortcut;
+		const char * labelKey;
+		size_t slot;
+		const char * iconAnimation;
+	};
+	static constexpr std::array projections = {
+		Projection{EShortcut::ADVENTURE_MOVE_HERO, "core.help.297.hover", 0, "IAM006"},
+		Projection{EShortcut::ADVENTURE_CAST_SPELL, "core.help.298.hover", 7, "IAM007"},
+		Projection{EShortcut::ADVENTURE_VISIT_OBJECT, "vcmi.adventureMap.revisitObject.hover", 6, ""},
+		Projection{EShortcut::ADVENTURE_TOGGLE_MAP_LEVEL, "core.help.294.hover", 5, "IAM010"},
+		Projection{EShortcut::ADVENTURE_END_TURN, "core.help.302.hover", 4, "IAM001"},
+		Projection{EShortcut::ADVENTURE_TOGGLE_SLEEP, "core.help.296.hover", 3, "IAM005"},
+		Projection{EShortcut::ADVENTURE_QUEST_LOG, "core.help.295.hover", 2, "IAM004"},
+		Projection{EShortcut::ADVENTURE_DISEMBARK, "vcmi.adventureMap.disembark.hover", 1, ""}
+	};
+
+	const auto states = shortcuts->getShortcuts();
+	std::vector<ControllerRadialItem> result;
+	for(const auto & projection : projections)
+	{
+		const auto state = std::ranges::find(states, projection.shortcut, &AdventureMapShortcutState::shortcut);
+		if(state == states.end() || !state->isEnabled)
+			continue;
+		result.push_back({
+			projection.shortcut,
+			LIBRARY->generaltexth->translate(projection.labelKey),
+			true,
+			projection.slot,
+			0,
+			[this, shortcut = projection.shortcut](){ executeAdventureShortcut(shortcut); },
+			projection.iconAnimation
+		});
+	}
+	return result;
+}
+
+Rect AdventureMapInterface::controllerContextBounds() const
+{
+	return widget->getMapView()->pos;
+}
+
+void AdventureMapInterface::openControllerContext()
+{
+	if(getState() != EAdventureState::MAKING_TURN)
+		return;
+	controllerInputReset();
+	ENGINE->windows().createAndPushWindow<ControllerRadial>(
+		[this](){ return controllerContextItems(); },
+		[this](){ return controllerContextBounds(); },
+		EShortcut::ADVENTURE_CONTROLLER_CONTEXT,
+		8,
+		std::nullopt,
+		std::vector{
+			EShortcut::ADVENTURE_CONTROLLER_CAMERA,
+			EShortcut::ADVENTURE_CONTROLLER_RECENTER,
+			EShortcut::ADVENTURE_TOGGLE_CURSOR_MODE,
+			EShortcut::ADVENTURE_NEXT_HERO,
+			EShortcut::ADVENTURE_NEXT_TOWN,
+			EShortcut::ADVENTURE_GAME_OPTIONS,
+			EShortcut::GLOBAL_OPTIONS,
+			EShortcut::ADVENTURE_CAST_SPELL,
+			EShortcut::ADVENTURE_VISIT_OBJECT,
+			EShortcut::ADVENTURE_TOGGLE_MAP_LEVEL,
+			EShortcut::ADVENTURE_END_TURN,
+			EShortcut::ADVENTURE_TOGGLE_SLEEP,
+			EShortcut::ADVENTURE_QUEST_LOG,
+			EShortcut::ADVENTURE_DISEMBARK,
+			EShortcut::ADVENTURE_TOGGLE_GRID
+		},
+		LIBRARY->generaltexth->translate("vcmi.battleWindow.controller.select"),
+		LIBRARY->generaltexth->translate("vcmi.battleWindow.controller.actionRadial.close")
+	);
+}
+
 void AdventureMapInterface::drawControllerTarget(Canvas & to)
 {
 	if(!isControllerNativeMode() || !isActive() || !controllerState.target())
@@ -669,6 +748,11 @@ void AdventureMapInterface::keyPressed(EShortcut key)
 	}
 	if(isControllerNativeMode())
 	{
+		if(key == EShortcut::ADVENTURE_CONTROLLER_CONTEXT)
+		{
+			openControllerContext();
+			return;
+		}
 		if(key == EShortcut::ADVENTURE_CONTROLLER_CAMERA)
 		{
 			const auto direction = controllerTileNavigation.direction();
@@ -763,6 +847,8 @@ bool AdventureMapInterface::captureThisKey(EShortcut key)
 {
 	if(ENGINE->input().getCurrentInputMode() != InputMode::CONTROLLER)
 		return false;
+	if(!isActive())
+		return false;
 	if(key == EShortcut::ADVENTURE_TOGGLE_CURSOR_MODE)
 		return true;
 	if(!isControllerNativeMode())
@@ -770,6 +856,7 @@ bool AdventureMapInterface::captureThisKey(EShortcut key)
 	return key == EShortcut::GLOBAL_ACCEPT || key == EShortcut::GLOBAL_CANCEL
 		|| key == EShortcut::MOUSE_LEFT || key == EShortcut::MOUSE_RIGHT
 		|| key == EShortcut::ADVENTURE_VIEW_SELECTED
+		|| key == EShortcut::ADVENTURE_CONTROLLER_CONTEXT
 		|| key == EShortcut::ADVENTURE_CONTROLLER_CAMERA
 		|| key == EShortcut::ADVENTURE_CONTROLLER_RECENTER
 		|| key == EShortcut::ADVENTURE_NEXT_HERO

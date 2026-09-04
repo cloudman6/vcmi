@@ -40,6 +40,7 @@ class CInfoBar;
 class CMinimap;
 class MapAudioPlayer;
 class TurnTimerWidget;
+struct ControllerRadialItem;
 enum class EAdventureState;
 
 struct MapDrawingInfo;
@@ -112,6 +113,9 @@ private:
 	void panControllerCamera(uint32_t msPassed);
 	void centerControllerCamera();
 	void toggleControllerCursorMode();
+	void openControllerContext();
+	std::vector<ControllerRadialItem> controllerContextItems();
+	Rect controllerContextBounds() const;
 	void updateControllerNavigationOwner(ControllerNavigationOwner changedOwner);
 	void drawControllerTarget(Canvas & to);
 	bool isControllerNativeMode() const;

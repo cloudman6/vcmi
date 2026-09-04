@@ -28,7 +28,7 @@ class StackInfoBasicPanel;
 class QuickSpellPanel;
 class UnitActionPanel;
 class CStackWindow;
-struct BattleControllerRadialItem;
+struct ControllerRadialItem;
 
 /// GUI object that handles functionality of panel at the bottom of combat screen
 class BattleWindow : public InterfaceObjectConfigurable
@@ -68,8 +68,8 @@ class BattleWindow : public InterfaceObjectConfigurable
 	void openControllerActionRadial();
 	void openControllerSpellRadial();
 	Rect controllerRadialBounds() const;
-	std::vector<BattleControllerRadialItem> controllerActionRadialItems();
-	std::vector<BattleControllerRadialItem> controllerSpellRadialItems();
+	std::vector<ControllerRadialItem> controllerActionRadialItems();
+	std::vector<ControllerRadialItem> controllerSpellRadialItems();
 	void drawControllerShortcutPrompts(Canvas & to);
 	void inputModeChanged(InputMode inputMode) override;
 

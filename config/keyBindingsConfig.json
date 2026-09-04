@@ -4,6 +4,7 @@
 {
 	"keyboard" : {
 		"adventureCastSpell":       "C",
+		"adventureControllerContext": [],
 		"adventureControllerCamera": [],
 		"adventureControllerRecenter": [],
 		"adventureDigGrail":        "D",
@@ -327,7 +328,8 @@
 		"battleTacticsNext" : "lefttrigger",
 		"battleUseCreatureSpell" : [],
 
-		"adventureCastSpell" : "righttrigger",
+		"adventureCastSpell" : [],
+		"adventureControllerContext" : "righttrigger",
 		"battleControllerCastSpell" : "x",
 		"battleActionRadial" : "righttrigger",
 		"battleSpellRadial" : "lefttrigger",

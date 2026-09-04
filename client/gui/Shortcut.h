@@ -131,6 +131,7 @@ enum class EShortcut
 
 	// Adventure map screen
 	ADVENTURE_GAME_OPTIONS, // 'o', Open CAdventureOptions window
+	ADVENTURE_CONTROLLER_CONTEXT, // Open controller Adventure context radial
 	ADVENTURE_CONTROLLER_CAMERA, // Controller camera-pan modifier
 	ADVENTURE_CONTROLLER_RECENTER, // Center camera on controller scene focus
 	ADVENTURE_TOGGLE_CURSOR_MODE, // Toggle controller virtual-cursor fallback

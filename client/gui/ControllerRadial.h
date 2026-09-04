@@ -1,5 +1,5 @@
 /*
- * BattleControllerRadial.h, part of VCMI engine
+ * ControllerRadial.h, part of VCMI engine
  *
  * Authors: listed in file AUTHORS in main folder
  *
@@ -9,15 +9,15 @@
  */
 #pragma once
 
-#include "BattleControllerRadialState.h"
+#include "ControllerRadialState.h"
 
 #include "../gui/CIntObject.h"
 
 class IImage;
 
-struct BattleControllerRadialItem
+struct ControllerRadialItem
 {
-	BattleControllerRadialItemId id;
+	ControllerRadialItemId id;
 	std::string label;
 	bool enabled;
 	size_t slot;
@@ -31,18 +31,30 @@ struct BattleControllerRadialItem
 	std::string iconImage = {};
 };
 
-/// Battle-local controller radial. BattleWindow remains the action and availability owner.
-class BattleControllerRadial final : public WindowBase
+struct ControllerRadialPageShortcuts
+{
+	EShortcut previous;
+	EShortcut next;
+};
+
+/// Shared controller radial presentation. Its consumer remains the action and
+/// availability owner through the live item provider.
+class ControllerRadial final : public WindowBase
 {
 public:
-	using ItemProvider = std::function<std::vector<BattleControllerRadialItem>()>;
+	using ItemProvider = std::function<std::vector<ControllerRadialItem>()>;
 	using BoundsProvider = std::function<Rect()>;
 
 private:
 	ItemProvider itemProvider;
 	BoundsProvider boundsProvider;
 	EShortcut openingShortcut;
-	BattleControllerRadialState state;
+	size_t slotCount;
+	std::optional<ControllerRadialPageShortcuts> pageShortcuts;
+	std::vector<EShortcut> capturedShortcuts;
+	std::string selectLabel;
+	std::string closeLabel;
+	ControllerRadialState state;
 	std::map<std::string, std::shared_ptr<IImage>> promptSpriteCache;
 	std::map<std::string, std::shared_ptr<IImage>> itemImageCache;
 	std::map<std::pair<std::string, int32_t>, std::shared_ptr<IImage>> itemSpriteCache;
@@ -52,8 +64,8 @@ private:
 	std::optional<size_t> pageTransitionFrom;
 	uint32_t pageTransitionElapsed = 0;
 
-	std::vector<BattleControllerRadialItem> currentItems() const;
-	std::vector<BattleControllerRadialEntry> currentEntries(const std::vector<BattleControllerRadialItem> & items) const;
+	std::vector<ControllerRadialItem> currentItems() const;
+	std::vector<ControllerRadialEntry> currentEntries(const std::vector<ControllerRadialItem> & items) const;
 	void closeWithoutCommit();
 	void releaseConfirm();
 	const std::shared_ptr<IImage> & promptSprite(const std::string & path);
@@ -61,11 +73,19 @@ private:
 	const std::shared_ptr<IImage> & itemSprite(const std::string & animation, int32_t frame);
 	void drawKeyPrompt(Canvas & to, Point position, EShortcut shortcut, const std::string & actionText, bool pressed, bool disabled = false);
 	void changePage(int offset);
-	void drawWheel(Canvas & to, const std::vector<BattleControllerRadialItem> & items, size_t page, Point center, double scale, bool active);
+	void drawWheel(Canvas & to, const std::vector<ControllerRadialItem> & items, size_t page, Point center, double scale, bool active);
 	void drawPageSwitchPrompt(Canvas & to, Point promptCenter, EShortcut shortcut, const std::string & arrow);
 
 public:
-	BattleControllerRadial(ItemProvider itemProvider, BoundsProvider boundsProvider, EShortcut openingShortcut);
+	ControllerRadial(
+		ItemProvider itemProvider,
+		BoundsProvider boundsProvider,
+		EShortcut openingShortcut,
+		size_t slotCount,
+		std::optional<ControllerRadialPageShortcuts> pageShortcuts,
+		std::vector<EShortcut> capturedShortcuts,
+		std::string selectLabel,
+		std::string closeLabel);
 
 	bool captureThisKey(EShortcut key) override;
 	void keyPressed(EShortcut key) override;

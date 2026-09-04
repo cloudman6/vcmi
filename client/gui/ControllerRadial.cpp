@@ -1,5 +1,5 @@
 /*
- * BattleControllerRadial.cpp, part of VCMI engine
+ * ControllerRadial.cpp, part of VCMI engine
  *
  * Authors: listed in file AUTHORS in main folder
  *
@@ -10,7 +10,7 @@
 
 #include "StdInc.h"
 
-#include "BattleControllerRadial.h"
+#include "ControllerRadial.h"
 
 #include "../GameEngine.h"
 #include "../eventsSDL/ControllerPromptFamily.h"
@@ -65,9 +65,9 @@ constexpr ColorRGBA DETAIL_LINE(218, 178, 82, 145);
 constexpr ColorRGBA DISABLED_TEXT(192, 188, 174, 255);
 const std::string IDLE_STICK_GLYPH = "controllerActionBar/leftstick-normal.png";
 
-double slotAngle(size_t slot)
+double slotAngle(size_t slot, size_t slotCount)
 {
-	return -PI / 2.0 - static_cast<double>(slot) * 2.0 * PI / static_cast<double>(BattleControllerRadialState::SLOT_COUNT);
+	return -PI / 2.0 - static_cast<double>(slot) * 2.0 * PI / static_cast<double>(slotCount);
 }
 
 Point polarPoint(Point center, double angle, int radius)
@@ -75,13 +75,13 @@ Point polarPoint(Point center, double angle, int radius)
 	return Point(center.x + static_cast<int>(std::lround(std::cos(angle) * radius)), center.y + static_cast<int>(std::lround(std::sin(angle) * radius)));
 }
 
-size_t sectorAtPoint(int x, int y)
+size_t sectorAtPoint(int x, int y, size_t slotCount)
 {
 	double counterclockwiseFromNorth = std::atan2(-static_cast<double>(x), -static_cast<double>(y));
 	if(counterclockwiseFromNorth < 0.0)
 		counterclockwiseFromNorth += 2.0 * PI;
-	constexpr double SECTOR_ANGLE = 2.0 * PI / static_cast<double>(BattleControllerRadialState::SLOT_COUNT);
-	return static_cast<size_t>(std::floor((counterclockwiseFromNorth + SECTOR_ANGLE / 2.0) / SECTOR_ANGLE)) % BattleControllerRadialState::SLOT_COUNT;
+	const double sectorAngle = 2.0 * PI / static_cast<double>(slotCount);
+	return static_cast<size_t>(std::floor((counterclockwiseFromNorth + sectorAngle / 2.0) / sectorAngle)) % slotCount;
 }
 
 struct RingRun
@@ -93,9 +93,14 @@ struct RingRun
 	uint8_t opacity;
 };
 
-const std::vector<RingRun> & ringRuns()
+const std::vector<RingRun> & ringRuns(size_t slotCount)
 {
-	static const auto runs = []()
+	static std::map<size_t, std::vector<RingRun>> cache;
+	auto found = cache.find(slotCount);
+	if(found != cache.end())
+		return found->second;
+
+	auto runs = [slotCount]()
 	{
 		std::vector<RingRun> result;
 		const int innerSquared = RING_INNER_RADIUS * RING_INNER_RADIUS;
@@ -112,11 +117,11 @@ const std::vector<RingRun> & ringRuns()
 				const int radiusSquared = x * x + y * y;
 				if(x <= RING_OUTER_RADIUS && radiusSquared >= innerSquared && radiusSquared <= outerSquared)
 				{
-					const size_t candidate = sectorAtPoint(x, y);
+					const size_t candidate = sectorAtPoint(x, y, slotCount);
 					const double pointAngle = std::atan2(static_cast<double>(y), static_cast<double>(x));
-					const double distanceFromCenter = std::abs(std::remainder(pointAngle - slotAngle(candidate), 2.0 * PI));
-					constexpr double HALF_SECTOR = PI / static_cast<double>(BattleControllerRadialState::SLOT_COUNT);
-					if(distanceFromCenter <= HALF_SECTOR - SECTOR_HALF_GAP_ANGLE)
+					const double distanceFromCenter = std::abs(std::remainder(pointAngle - slotAngle(candidate, slotCount), 2.0 * PI));
+					const double halfSector = PI / static_cast<double>(slotCount);
+					if(distanceFromCenter <= halfSector - SECTOR_HALF_GAP_ANGLE)
 					{
 						slot = candidate;
 						const double radius = std::sqrt(static_cast<double>(radiusSquared));
@@ -141,12 +146,12 @@ const std::vector<RingRun> & ringRuns()
 		}
 		return result;
 	}();
-	return runs;
+	return cache.emplace(slotCount, std::move(runs)).first->second;
 }
 
-void drawRing(Canvas & to, Point center, const std::array<ColorRGBA, BattleControllerRadialState::SLOT_COUNT> & colors)
+void drawRing(Canvas & to, Point center, const std::vector<ColorRGBA> & colors)
 {
-	for(const auto & run : ringRuns())
+	for(const auto & run : ringRuns(colors.size()))
 	{
 		ColorRGBA color = colors[run.slot];
 		color.a = static_cast<uint8_t>(static_cast<uint16_t>(color.a) * run.opacity / 255);
@@ -192,28 +197,45 @@ void drawDetailBar(Canvas & to, const Rect & bar)
 }
 }
 
-BattleControllerRadial::BattleControllerRadial(ItemProvider provider, BoundsProvider bounds, EShortcut shortcut)
-	: WindowBase(KEYBOARD | TIME | INPUT_MODE_CHANGE), itemProvider(std::move(provider)), boundsProvider(std::move(bounds)), openingShortcut(shortcut)
+ControllerRadial::ControllerRadial(
+	ItemProvider provider,
+	BoundsProvider bounds,
+	EShortcut shortcut,
+	size_t slots,
+	std::optional<ControllerRadialPageShortcuts> pages,
+	std::vector<EShortcut> captured,
+	std::string selectText,
+	std::string closeText)
+	: WindowBase(KEYBOARD | TIME | INPUT_MODE_CHANGE),
+	  itemProvider(std::move(provider)),
+	  boundsProvider(std::move(bounds)),
+	  openingShortcut(shortcut),
+	  slotCount(std::max<size_t>(1, slots)),
+	  pageShortcuts(pages),
+	  capturedShortcuts(std::move(captured)),
+	  selectLabel(std::move(selectText)),
+	  closeLabel(std::move(closeText)),
+	  state(slotCount)
 {
 	onScreenResize();
 	state.open(currentEntries(currentItems()));
 }
 
-std::vector<BattleControllerRadialItem> BattleControllerRadial::currentItems() const
+std::vector<ControllerRadialItem> ControllerRadial::currentItems() const
 {
-	return itemProvider ? itemProvider() : std::vector<BattleControllerRadialItem>{};
+	return itemProvider ? itemProvider() : std::vector<ControllerRadialItem>{};
 }
 
-std::vector<BattleControllerRadialEntry> BattleControllerRadial::currentEntries(const std::vector<BattleControllerRadialItem> & items) const
+std::vector<ControllerRadialEntry> ControllerRadial::currentEntries(const std::vector<ControllerRadialItem> & items) const
 {
-	std::vector<BattleControllerRadialEntry> result;
+	std::vector<ControllerRadialEntry> result;
 	result.reserve(items.size());
 	for(const auto & item : items)
 		result.push_back({item.id, item.enabled, item.slot, item.page});
 	return result;
 }
 
-const std::shared_ptr<IImage> & BattleControllerRadial::promptSprite(const std::string & path)
+const std::shared_ptr<IImage> & ControllerRadial::promptSprite(const std::string & path)
 {
 	auto cached = promptSpriteCache.find(path);
 	if(cached == promptSpriteCache.end())
@@ -224,7 +246,7 @@ const std::shared_ptr<IImage> & BattleControllerRadial::promptSprite(const std::
 	return cached->second;
 }
 
-const std::shared_ptr<IImage> & BattleControllerRadial::itemSprite(const std::string & animation, int32_t frame)
+const std::shared_ptr<IImage> & ControllerRadial::itemSprite(const std::string & animation, int32_t frame)
 {
 	const auto key = std::make_pair(animation, frame);
 	auto cached = itemSpriteCache.find(key);
@@ -236,7 +258,7 @@ const std::shared_ptr<IImage> & BattleControllerRadial::itemSprite(const std::st
 	return cached->second;
 }
 
-const std::shared_ptr<IImage> & BattleControllerRadial::itemImage(const std::string & path)
+const std::shared_ptr<IImage> & ControllerRadial::itemImage(const std::string & path)
 {
 	auto cached = itemImageCache.find(path);
 	if(cached == itemImageCache.end())
@@ -247,7 +269,7 @@ const std::shared_ptr<IImage> & BattleControllerRadial::itemImage(const std::str
 	return cached->second;
 }
 
-void BattleControllerRadial::drawKeyPrompt(Canvas & to, Point position, EShortcut shortcut, const std::string & actionText, bool pressed, bool disabled)
+void ControllerRadial::drawKeyPrompt(Canvas & to, Point position, EShortcut shortcut, const std::string & actionText, bool pressed, bool disabled)
 {
 	const auto bindings = ENGINE->shortcuts().getJoystickButtonBindings(shortcut);
 	const auto family = ENGINE->input().getActiveControllerPromptFamily();
@@ -277,11 +299,10 @@ void BattleControllerRadial::drawKeyPrompt(Canvas & to, Point position, EShortcu
 		disabled ? DISABLED_TEXT : Colors::WHITE, actionText);
 }
 
-void BattleControllerRadial::drawWheel(Canvas & to, const std::vector<BattleControllerRadialItem> & items, size_t page, Point center, double scale, bool active)
+void ControllerRadial::drawWheel(Canvas & to, const std::vector<ControllerRadialItem> & items, size_t page, Point center, double scale, bool active)
 {
-	const auto selected = active ? state.selectedItem() : std::optional<BattleControllerRadialItemId>{};
-	std::array<ColorRGBA, BattleControllerRadialState::SLOT_COUNT> colors;
-	colors.fill(SECTOR_EMPTY);
+	const auto selected = active ? state.selectedItem() : std::optional<ControllerRadialItemId>{};
+	std::vector<ColorRGBA> colors(slotCount, SECTOR_EMPTY);
 	for(const auto & item : items)
 	{
 		if(item.page != page || item.slot >= colors.size())
@@ -297,11 +318,11 @@ void BattleControllerRadial::drawWheel(Canvas & to, const std::vector<BattleCont
 
 	for(const auto & item : items)
 	{
-		if(item.page != page || item.slot >= BattleControllerRadialState::SLOT_COUNT || (item.iconImage.empty() && item.iconAnimation.empty()))
+		if(item.page != page || item.slot >= slotCount || (item.iconImage.empty() && item.iconAnimation.empty()))
 			continue;
 		const auto & icon = item.iconImage.empty() ? itemSprite(item.iconAnimation, item.iconFrame) : itemImage(item.iconImage);
 		const bool isSelected = selected == item.id;
-		const Point iconCenter = polarPoint(wheelCenter, slotAngle(item.slot), isSelected ? SELECTED_ITEM_RADIUS : ITEM_RADIUS);
+		const Point iconCenter = polarPoint(wheelCenter, slotAngle(item.slot, slotCount), isSelected ? SELECTED_ITEM_RADIUS : ITEM_RADIUS);
 		icon->setAlpha(item.enabled ? 255 : 170);
 		wheelCanvas.draw(icon, iconCenter - icon->dimensions() / 2);
 		icon->setAlpha(255);
@@ -311,30 +332,32 @@ void BattleControllerRadial::drawWheel(Canvas & to, const std::vector<BattleCont
 	to.drawScaled(wheelCanvas, center - dimensions / 2, dimensions);
 }
 
-void BattleControllerRadial::drawPageSwitchPrompt(Canvas & to, Point promptCenter, EShortcut shortcut, const std::string & arrow)
+void ControllerRadial::drawPageSwitchPrompt(Canvas & to, Point promptCenter, EShortcut shortcut, const std::string & arrow)
 {
-	const auto previousBindings = ENGINE->shortcuts().getJoystickButtonBindings(EShortcut::BATTLE_DEFEND);
-	const auto nextBindings = ENGINE->shortcuts().getJoystickButtonBindings(EShortcut::BATTLE_WAIT);
+	if(!pageShortcuts)
+		return;
+	const auto previousBindings = ENGINE->shortcuts().getJoystickButtonBindings(pageShortcuts->previous);
+	const auto nextBindings = ENGINE->shortcuts().getJoystickButtonBindings(pageShortcuts->next);
 	const auto family = ENGINE->input().getActiveControllerPromptFamily();
 	const auto pairSprite = ControllerPrompt::shoulderPairSprite(family, previousBindings, nextBindings);
 	if(pairSprite)
 	{
 		const auto & sprite = promptSprite(*pairSprite);
-		const bool previous = shortcut == EShortcut::BATTLE_DEFEND;
+		const bool previous = shortcut == pageShortcuts->previous;
 		const int glyphWidth = sprite->dimensions().x / 2;
 		const Rect source(previous ? 0 : glyphWidth, 0, glyphWidth, sprite->dimensions().y);
 		to.draw(sprite, promptCenter - Point(glyphWidth / 2, sprite->dimensions().y / 2), source);
 	}
 	else
 	{
-		const auto & bindings = shortcut == EShortcut::BATTLE_DEFEND ? previousBindings : nextBindings;
+		const auto & bindings = shortcut == pageShortcuts->previous ? previousBindings : nextBindings;
 		const std::string label = bindings.size() == 1 ? ControllerPrompt::buttonLabel(family, bindings.front()) : "--";
 		drawOutlinedText(to, promptCenter, FONT_SMALL, Colors::WHITE, label);
 	}
 	drawOutlinedText(to, promptCenter + Point(0, 25), FONT_MEDIUM, Colors::WHITE, arrow);
 }
 
-void BattleControllerRadial::closeWithoutCommit()
+void ControllerRadial::closeWithoutCommit()
 {
 	state.reset();
 	confirmPressed = false;
@@ -343,7 +366,7 @@ void BattleControllerRadial::closeWithoutCommit()
 		WindowBase::close();
 }
 
-void BattleControllerRadial::releaseConfirm()
+void ControllerRadial::releaseConfirm()
 {
 	confirmPressed = false;
 	const auto items = currentItems();
@@ -354,7 +377,7 @@ void BattleControllerRadial::releaseConfirm()
 		return;
 	}
 
-	const auto item = std::ranges::find(items, *confirmed, &BattleControllerRadialItem::id);
+	const auto item = std::ranges::find(items, *confirmed, &ControllerRadialItem::id);
 	if(item == items.end() || !item->enabled || !item->callback)
 		return;
 	const auto callback = item->callback;
@@ -363,15 +386,15 @@ void BattleControllerRadial::releaseConfirm()
 	callback();
 }
 
-bool BattleControllerRadial::captureThisKey(EShortcut key)
+bool ControllerRadial::captureThisKey(EShortcut key)
 {
-	return key == openingShortcut || key == EShortcut::BATTLE_ACTION_RADIAL || key == EShortcut::BATTLE_SPELL_RADIAL
-		|| key == EShortcut::BATTLE_CONTROLLER_CAST_SPELL || key == EShortcut::BATTLE_DEFEND || key == EShortcut::BATTLE_WAIT || key == EShortcut::GLOBAL_ACCEPT
-		|| key == EShortcut::GLOBAL_CANCEL || key == EShortcut::MOUSE_LEFT || key == EShortcut::MOVE_LEFT || key == EShortcut::MOVE_RIGHT
+	return key == openingShortcut || vstd::contains(capturedShortcuts, key)
+		|| (pageShortcuts && (key == pageShortcuts->previous || key == pageShortcuts->next)) || key == EShortcut::GLOBAL_ACCEPT
+		|| key == EShortcut::GLOBAL_CANCEL || key == EShortcut::MOUSE_LEFT || key == EShortcut::MOUSE_RIGHT || key == EShortcut::MOVE_LEFT || key == EShortcut::MOVE_RIGHT
 		|| key == EShortcut::MOVE_UP || key == EShortcut::MOVE_DOWN;
 }
 
-void BattleControllerRadial::keyPressed(EShortcut key)
+void ControllerRadial::keyPressed(EShortcut key)
 {
 	if(key == EShortcut::GLOBAL_ACCEPT)
 	{
@@ -382,31 +405,31 @@ void BattleControllerRadial::keyPressed(EShortcut key)
 	}
 	else if(key == EShortcut::GLOBAL_CANCEL)
 		closeWithoutCommit();
-	else if(key == EShortcut::BATTLE_DEFEND)
+	else if(pageShortcuts && key == pageShortcuts->previous)
 	{
 		if(!pageTransitionFrom)
 			changePage(-1);
 	}
-	else if(key == EShortcut::BATTLE_WAIT)
+	else if(pageShortcuts && key == pageShortcuts->next)
 	{
 		if(!pageTransitionFrom)
 			changePage(1);
 	}
 }
 
-void BattleControllerRadial::keyReleased(EShortcut key)
+void ControllerRadial::keyReleased(EShortcut key)
 {
 	if(key == EShortcut::GLOBAL_ACCEPT)
 		releaseConfirm();
 }
 
-void BattleControllerRadial::inputModeChanged(InputMode mode)
+void ControllerRadial::inputModeChanged(InputMode mode)
 {
 	if(mode != InputMode::CONTROLLER)
 		closeWithoutCommit();
 }
 
-void BattleControllerRadial::tick(uint32_t msPassed)
+void ControllerRadial::tick(uint32_t msPassed)
 {
 	if(!pageTransitionFrom)
 		return;
@@ -416,7 +439,7 @@ void BattleControllerRadial::tick(uint32_t msPassed)
 	ENGINE->windows().totalRedraw();
 }
 
-void BattleControllerRadial::changePage(int offset)
+void ControllerRadial::changePage(int offset)
 {
 	const size_t previousPage = state.currentPage();
 	if(!state.changePage(offset))
@@ -429,7 +452,7 @@ void BattleControllerRadial::changePage(int offset)
 	ENGINE->windows().totalRedraw();
 }
 
-void BattleControllerRadial::showAll(Canvas & to)
+void ControllerRadial::showAll(Canvas & to)
 {
 	const Point center(pos.center().x, pos.center().y - 18);
 	const int detailBarTop = std::min(
@@ -443,7 +466,7 @@ void BattleControllerRadial::showAll(Canvas & to)
 	const int promptY = detailBar.bottom() - GLYPH_SIZE - 4;
 	const auto items = currentItems();
 	const auto selected = state.selectedItem();
-	const auto selectedItem = selected ? std::ranges::find(items, *selected, &BattleControllerRadialItem::id) : items.end();
+	const auto selectedItem = selected ? std::ranges::find(items, *selected, &ControllerRadialItem::id) : items.end();
 	const bool confirmDisabled = selectedItem == items.end() || !selectedItem->enabled;
 
 	to.drawColorBlended(pos, OVERLAY_COLOR);
@@ -463,25 +486,25 @@ void BattleControllerRadial::showAll(Canvas & to)
 	}
 	else
 	{
-		if(currentPage > 0)
+		if(pageShortcuts && currentPage > 0)
 		{
 			const Point previousCenter = center - Point(PREVIEW_CENTER_OFFSET, 0);
 			drawWheel(to, items, currentPage - 1, previousCenter, PREVIEW_SCALE, false);
 			const int gapCenter = (previousCenter.x + static_cast<int>(std::lround(RING_OUTER_RADIUS * PREVIEW_SCALE)) + center.x - RING_OUTER_RADIUS) / 2;
-			drawPageSwitchPrompt(to, Point(gapCenter, center.y - 82), EShortcut::BATTLE_DEFEND, "<");
+			drawPageSwitchPrompt(to, Point(gapCenter, center.y - 82), pageShortcuts->previous, "<");
 		}
 		drawWheel(to, items, currentPage, center, 1.0, true);
-		if(currentPage + 1 < state.pageCount())
+		if(pageShortcuts && currentPage + 1 < state.pageCount())
 		{
 			const Point nextCenter = center + Point(PREVIEW_CENTER_OFFSET, 0);
 			drawWheel(to, items, currentPage + 1, nextCenter, PREVIEW_SCALE, false);
 			const int gapCenter = (center.x + RING_OUTER_RADIUS + nextCenter.x - static_cast<int>(std::lround(RING_OUTER_RADIUS * PREVIEW_SCALE))) / 2;
-			drawPageSwitchPrompt(to, Point(gapCenter, center.y - 82), EShortcut::BATTLE_WAIT, ">");
+			drawPageSwitchPrompt(to, Point(gapCenter, center.y - 82), pageShortcuts->next, ">");
 		}
 	}
 	if(selected)
 	{
-		const auto item = std::ranges::find(items, *selected, &BattleControllerRadialItem::id);
+		const auto item = std::ranges::find(items, *selected, &ControllerRadialItem::id);
 		if(item != items.end())
 		{
 			drawOutlinedText(to, Point(center.x, center.y - 4), FONT_MEDIUM, item->enabled ? Colors::WHITE : DISABLED_TEXT, item->label);
@@ -496,7 +519,7 @@ void BattleControllerRadial::showAll(Canvas & to)
 	drawDetailBar(to, detailBar);
 	if(selected)
 	{
-		const auto item = std::ranges::find(items, *selected, &BattleControllerRadialItem::id);
+		const auto item = std::ranges::find(items, *selected, &ControllerRadialItem::id);
 		if(item != items.end())
 		{
 			const bool hasUnavailableReason = !item->unavailableReason.empty();
@@ -535,26 +558,26 @@ void BattleControllerRadial::showAll(Canvas & to)
 		to,
 		Point(center.x - 115, promptY),
 		EShortcut::GLOBAL_ACCEPT,
-		LIBRARY->generaltexth->translate("vcmi.battleWindow.controller.select"),
+		selectLabel,
 		confirmPressed,
 		confirmDisabled
 	);
 	drawKeyPrompt(
-		to, Point(center.x + 45, promptY), EShortcut::GLOBAL_CANCEL, LIBRARY->generaltexth->translate("vcmi.battleWindow.controller.actionRadial.close"), false
+		to, Point(center.x + 45, promptY), EShortcut::GLOBAL_CANCEL, closeLabel, false
 	);
 }
 
-void BattleControllerRadial::onScreenResize()
+void ControllerRadial::onScreenResize()
 {
 	pos = Rect(Point(0, 0), ENGINE->screenDimensions());
 }
 
-bool BattleControllerRadial::usesNativeControllerAxis() const
+bool ControllerRadial::usesNativeControllerAxis() const
 {
 	return true;
 }
 
-bool BattleControllerRadial::controllerAxisMoved(int, const std::vector<EShortcut> & actions, double value)
+bool ControllerRadial::controllerAxisMoved(int, const std::vector<EShortcut> & actions, double value)
 {
 	if(vstd::contains(actions, EShortcut::MOUSE_CURSOR_X))
 		axisX = value;
@@ -565,7 +588,7 @@ bool BattleControllerRadial::controllerAxisMoved(int, const std::vector<EShortcu
 	return true;
 }
 
-void BattleControllerRadial::controllerInputReset()
+void ControllerRadial::controllerInputReset()
 {
 	closeWithoutCommit();
 }

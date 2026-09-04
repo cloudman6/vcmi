@@ -196,6 +196,7 @@ EShortcut ShortcutHandler::findShortcut(const std::string & identifier ) const
 		{"adventureThievesGuild",    EShortcut::ADVENTURE_THIEVES_GUILD   },
 		{"gameActivateConsole",      EShortcut::GAME_ACTIVATE_CONSOLE     },
 		{"adventureGameOptions",     EShortcut::ADVENTURE_GAME_OPTIONS    },
+		{"adventureControllerContext", EShortcut::ADVENTURE_CONTROLLER_CONTEXT},
 		{"adventureControllerCamera", EShortcut::ADVENTURE_CONTROLLER_CAMERA},
 		{"adventureControllerRecenter", EShortcut::ADVENTURE_CONTROLLER_RECENTER},
 		{"adventureToggleCursorMode", EShortcut::ADVENTURE_TOGGLE_CURSOR_MODE},
