@@ -1,0 +1,51 @@
+{
+	"schema": "vcmi.controller-e2e/v1",
+	"id": "battle.v3.spell-level-limited-parity",
+	"profile": "dualsense",
+	"settingsOverride": {
+		"battle": {"enableQuickSpellPanel": true},
+		"input": {"enableMouse": true},
+		"server": {"seed": 20260902}
+	},
+	"timeout_ms": 90000,
+	"fixture": {
+		"setup": "battle-map-start",
+		"map": "battle-e2e-spell-level-limited",
+		"quickSpells": ["core:fireball"],
+		"autofightPlayers": ["blue"]
+	},
+	"manual": {
+		"prelude": [],
+		"steps": [
+			{"op": "wait_until", "probe": "runtime", "field": "top_window", "changes": true, "timeout_ms": 60000},
+			{"op": "wait_until", "probe": "battle", "field": "open", "equals": true, "timeout_ms": 60000, "stable_for_frames": 3},
+			{"op": "manual_hold"}
+		]
+	},
+	"prelude": [{"op": "attach", "device": "pad0", "profile": "dualsense"}],
+	"steps": [
+		{"op": "wait_until", "probe": "runtime", "field": "top_window", "changes": true, "timeout_ms": 60000},
+		{"op": "tap", "device": "pad0", "control": "ps"},
+		{"op": "wait_until", "probe": "battle", "field": "open", "equals": true, "timeout_ms": 20000, "stable_for_frames": 3},
+		{"op": "wait_until", "probe": "battle", "field": "native_mode", "equals": true, "timeout_ms": 3000, "stable_for_frames": 3},
+		{"op": "set_axis", "device": "pad0", "control": "l2", "value": 1.0},
+		{"op": "wait_until", "probe": "battle", "field": "action_radial.open", "equals": true, "timeout_ms": 3000, "stable_for_frames": 3},
+		{"op": "assert", "probe": "battle", "field": "action_radial.confirm_prompt_disabled", "equals": true},
+		{"op": "assert", "probe": "battle", "field": "action_radial.items.core:fireball.enabled", "equals": false},
+		{"op": "assert", "probe": "battle", "field": "action_radial.items.core:fireball.reason", "equals": "The Recanter's Cloak prevents Sorsha from casting 3rd level or higher spells."},
+		{"op": "set_axis", "device": "pad0", "control": "left_stick_y", "value": -1.0},
+		{"op": "wait_until", "probe": "battle", "field": "action_radial.selected", "equals": "core:fireball", "timeout_ms": 3000, "stable_for_frames": 3},
+		{"op": "assert", "probe": "battle", "field": "action_radial.confirm_prompt_disabled", "equals": true},
+		{"op": "capture_frame", "name": "spell-radial-level-limited-reason"},
+		{"op": "neutralize", "device": "pad0"},
+		{"op": "tap", "device": "pad0", "control": "east"},
+		{"op": "tap", "device": "pad0", "control": "west"},
+		{"op": "wait_until", "probe": "battle", "field": "spellbook_open", "equals": true, "timeout_ms": 3000, "stable_for_frames": 3},
+		{"op": "tap", "device": "pad0", "control": "south"},
+		{"op": "wait_until", "probe": "navigation", "field": "top_window_is_info", "equals": true, "timeout_ms": 3000, "stable_for_frames": 3},
+		{"op": "assert", "probe": "navigation", "field": "top_window_info_text", "equals": "The Recanter's Cloak prevents Sorsha from casting 3rd level or higher spells."},
+		{"op": "capture_frame", "name": "spellbook-level-limited-reason"},
+		{"op": "tap", "device": "pad0", "control": "south"},
+		{"op": "request_shutdown"}
+	]
+}

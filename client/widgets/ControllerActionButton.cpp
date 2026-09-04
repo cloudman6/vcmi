@@ -69,6 +69,14 @@ public:
 		}
 	}
 
+#ifdef VCMI_CONTROLLER_E2E
+	std::string controllerE2ESpriteName() const
+	{
+		return spriteName.value_or("");
+	}
+
+#endif
+
 	void showAll(Canvas & to) override
 	{
 		if(!sprite)
@@ -198,6 +206,20 @@ bool CControllerActionButton::isControllerPromptVisible() const
 {
 	return controllerPromptVisible;
 }
+
+#ifdef VCMI_CONTROLLER_E2E
+std::string CControllerActionButton::controllerE2EPromptSpriteName() const
+{
+	return promptOverlay ? promptOverlay->controllerE2ESpriteName() : "";
+}
+
+std::string CControllerActionButton::controllerE2EPromptLabel() const
+{
+	return promptOverlay && promptBindings.size() == 1
+		? ControllerPrompt::buttonLabel(promptFamily, promptBindings.front())
+		: "";
+}
+#endif
 
 void CControllerActionButton::block(bool on)
 {

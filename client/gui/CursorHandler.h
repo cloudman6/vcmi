@@ -178,6 +178,12 @@ public:
 	void setControllerNativeHidden(bool hidden);
 	void onScreenResize();
 
+#ifdef VCMI_CONTROLLER_E2E
+	bool controllerE2EVisible() const { return showing; }
+	const std::string & getCursorIDForE2E() const { return currentCursorID; }
+	bool hasPendingImageForE2E() const { return cursorImageUpdatePending; }
+#endif
+
 	/// change cursor's positions to (x, y)
 	void cursorMove(const int & x, const int & y);
 

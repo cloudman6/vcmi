@@ -1,0 +1,82 @@
+{
+	"schema": "vcmi.controller-e2e/v1",
+	"id": "battle.v2.p1.navigation",
+	"profile": "dualsense",
+	"settingsOverride": {
+		"input": {
+			"enableMouse": true
+		},
+		"server": {
+			"seed": 20260814
+		}
+	},
+	"timeout_ms": 90000,
+	"fixture": {
+		"setup": "battle-map-start",
+		"map": "battle-e2e",
+		"autofightPlayers": ["blue"]
+	},
+	"prelude": [
+		{"op": "attach", "device": "pad0", "profile": "dualsense"}
+	],
+	"steps": [
+		{"op": "wait_until", "probe": "runtime", "field": "top_window", "changes": true, "timeout_ms": 60000},
+		{"op": "tap", "device": "pad0", "control": "ps"},
+		{"op": "wait_until", "probe": "runtime", "field": "input_mode", "equals": "controller", "timeout_ms": 10000},
+		{"op": "wait_until", "probe": "battle", "field": "focus_hex", "equals": 36, "timeout_ms": 20000, "stable_for_frames": 3},
+
+		{"op": "tap", "device": "pad0", "control": "dpad_right"},
+		{"op": "assert_unchanged", "probe": "battle", "field": "focus_hex", "frames": 8},
+		{"op": "set_axis", "device": "pad0", "control": "left_stick_x", "value": 0.19},
+		{"op": "assert_unchanged", "probe": "battle", "field": "focus_hex", "frames": 24},
+		{"op": "neutralize", "device": "pad0"},
+
+		{"op": "set_axis", "device": "pad0", "control": "left_stick_x", "value": 1.0},
+		{"op": "wait_until", "probe": "battle", "field": "focus_hex", "equals": 37, "timeout_ms": 3000},
+		{"op": "neutralize", "device": "pad0"},
+		{"op": "set_axis", "device": "pad0", "control": "left_stick_x", "value": -1.0},
+		{"op": "wait_until", "probe": "battle", "field": "focus_hex", "equals": 36, "timeout_ms": 3000},
+		{"op": "neutralize", "device": "pad0"},
+
+		{"op": "set_axis", "device": "pad0", "control": "left_stick_x", "value": 0.5},
+		{"op": "set_axis", "device": "pad0", "control": "left_stick_y", "value": 0.9},
+		{"op": "wait_until", "probe": "battle", "field": "focus_hex", "equals": 54, "timeout_ms": 3000},
+		{"op": "neutralize", "device": "pad0"},
+		{"op": "set_axis", "device": "pad0", "control": "left_stick_x", "value": -0.5},
+		{"op": "set_axis", "device": "pad0", "control": "left_stick_y", "value": -0.9},
+		{"op": "wait_until", "probe": "battle", "field": "focus_hex", "equals": 36, "timeout_ms": 3000},
+		{"op": "neutralize", "device": "pad0"},
+
+		{"op": "set_axis", "device": "pad0", "control": "left_stick_x", "value": -0.5},
+		{"op": "set_axis", "device": "pad0", "control": "left_stick_y", "value": 0.9},
+		{"op": "wait_until", "probe": "battle", "field": "focus_hex", "equals": 53, "timeout_ms": 3000},
+		{"op": "neutralize", "device": "pad0"},
+		{"op": "set_axis", "device": "pad0", "control": "left_stick_x", "value": 0.5},
+		{"op": "set_axis", "device": "pad0", "control": "left_stick_y", "value": -0.9},
+		{"op": "wait_until", "probe": "battle", "field": "focus_hex", "equals": 36, "timeout_ms": 3000},
+		{"op": "neutralize", "device": "pad0"},
+
+		{"op": "set_axis", "device": "pad0", "control": "left_stick_x", "value": 1.0},
+		{"op": "wait_until", "probe": "battle", "field": "focus_hex", "equals": 38, "timeout_ms": 5000},
+		{"op": "neutralize", "device": "pad0"},
+		{"op": "assert", "probe": "battle", "field": "hovered_hex", "equals": 38},
+		{"op": "assert", "probe": "runtime", "field": "cursor_visible", "equals": false},
+		{"op": "assert", "probe": "battle", "field": "commands_sent", "equals": 0},
+		{"op": "capture_frame", "name": "p1-navigation-native"},
+		{"op": "capture_region", "name": "p1-navigation-native-focus", "x": 205, "y": 165, "w": 60, "h": 60},
+		{"op": "capture_region", "name": "p1-navigation-native-battle", "x": 170, "y": 80, "w": 480, "h": 420},
+		{"op": "capture_region", "name": "p1-navigation-native-status", "x": 210, "y": 558, "w": 410, "h": 40},
+		{"op": "assert", "probe": "battle", "field": "focus_center_x", "equals": 234},
+		{"op": "assert", "probe": "battle", "field": "focus_center_y", "equals": 196},
+		{"op": "move_mouse", "x": 234, "y": 196},
+		{"op": "wait_until", "probe": "runtime", "field": "input_mode", "equals": "keyboard_and_mouse", "timeout_ms": 3000},
+		{"op": "wait_until", "probe": "battle", "field": "hovered_hex", "equals": 38, "timeout_ms": 3000, "stable_for_frames": 3},
+		{"op": "assert", "probe": "runtime", "field": "cursor_visible", "equals": true},
+		{"op": "assert", "probe": "battle", "field": "commands_sent", "equals": 0},
+		{"op": "capture_frame", "name": "p1-navigation-mouse"},
+		{"op": "capture_region", "name": "p1-navigation-mouse-focus", "x": 205, "y": 165, "w": 60, "h": 60},
+		{"op": "capture_region", "name": "p1-navigation-mouse-battle", "x": 170, "y": 80, "w": 480, "h": 420},
+		{"op": "capture_region", "name": "p1-navigation-mouse-status", "x": 210, "y": 558, "w": 410, "h": 40},
+		{"op": "request_shutdown"}
+	]
+}

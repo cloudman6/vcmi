@@ -1,0 +1,67 @@
+{
+	"schema": "vcmi.controller-e2e/v1",
+	"id": "battle.v2.p5.shoot-disabled-no-ammo",
+	"profile": "dualsense",
+	"settingsOverride": {
+		"input": {"enableMouse": true},
+		"server": {"seed": 20260814}
+	},
+	"timeout_ms": 90000,
+	"fixture": {
+		"setup": "battle-map-start",
+		"map": "battle-e2e",
+		"autofightPlayers": ["blue"],
+		"creatureBonuses": [
+			{"creature": "core:marksman", "bonus": "shots", "value": 1}
+		]
+	},
+	"prelude": [
+		{"op": "attach", "device": "pad0", "profile": "dualsense"}
+	],
+	"steps": [
+		{"op": "wait_until", "probe": "runtime", "field": "top_window", "changes": true, "timeout_ms": 60000},
+		{"op": "tap", "device": "pad0", "control": "ps"},
+		{"op": "wait_until", "probe": "battle", "field": "focus_hex", "equals": 36, "timeout_ms": 20000, "stable_for_frames": 3},
+		{"op": "set_axis", "device": "pad0", "control": "left_stick_x", "value": 0.5},
+		{"op": "set_axis", "device": "pad0", "control": "left_stick_y", "value": 0.9},
+		{"op": "wait_until", "probe": "battle", "field": "focus_hex", "equals": 54, "timeout_ms": 3000, "stable_for_frames": 3},
+		{"op": "neutralize", "device": "pad0"},
+		{"op": "tap", "device": "pad0", "control": "south"},
+		{"op": "wait_until", "probe": "battle", "field": "stacks_by_id.id_0.position", "equals": 54, "timeout_ms": 20000, "stable_for_frames": 3},
+		{"op": "wait_until", "probe": "battle", "field": "active_stack.id", "equals": 1, "timeout_ms": 20000, "stable_for_frames": 3},
+		{"op": "assert", "probe": "runtime", "field": "cursor_id", "equals": "combatQuery"},
+		{"op": "assert", "probe": "battle", "field": "active_stack.shots_available", "equals": 1},
+		{"op": "set_axis", "device": "pad0", "control": "right_stick_x", "value": 1.0},
+		{"op": "wait_until", "probe": "battle", "field": "focus_hex", "equals": 100, "timeout_ms": 3000, "stable_for_frames": 3},
+		{"op": "neutralize", "device": "pad0"},
+		{"op": "assert", "probe": "battle", "field": "primary_action", "equals": "shoot"},
+		{"op": "tap", "device": "pad0", "control": "south"},
+		{"op": "wait_until", "probe": "battle", "field": "commands_sent", "equals": 2, "timeout_ms": 3000},
+		{"op": "wait_until", "probe": "battle", "field": "round", "equals": 2, "timeout_ms": 30000, "stable_for_frames": 3},
+		{"op": "wait_until", "probe": "battle", "field": "active_stack.id", "equals": 0, "timeout_ms": 3000, "stable_for_frames": 3},
+		{"op": "assert", "probe": "runtime", "field": "cursor_id", "equals": "combatQuery"},
+		{"op": "set_axis", "device": "pad0", "control": "left_stick_x", "value": 0.5},
+		{"op": "set_axis", "device": "pad0", "control": "left_stick_y", "value": 0.9},
+		{"op": "wait_until", "probe": "battle", "field": "focus_hex", "equals": 71, "timeout_ms": 3000, "stable_for_frames": 3},
+		{"op": "neutralize", "device": "pad0"},
+		{"op": "tap", "device": "pad0", "control": "south"},
+		{"op": "wait_until", "probe": "battle", "field": "commands_sent", "equals": 3, "timeout_ms": 3000},
+		{"op": "wait_until", "probe": "battle", "field": "stacks_by_id.id_0.position", "equals": 71, "timeout_ms": 20000, "stable_for_frames": 3},
+		{"op": "wait_until", "probe": "battle", "field": "active_stack.id", "equals": 1, "timeout_ms": 20000, "stable_for_frames": 3},
+		{"op": "assert", "probe": "runtime", "field": "cursor_id", "equals": "combatQuery"},
+		{"op": "assert", "probe": "battle", "field": "active_stack.shots_available", "equals": 0},
+		{"op": "set_axis", "device": "pad0", "control": "right_stick_x", "value": 1.0},
+		{"op": "wait_until", "probe": "battle", "field": "focused_stack.id", "equals": 2, "timeout_ms": 3000, "stable_for_frames": 3},
+		{"op": "neutralize", "device": "pad0"},
+		{"op": "assert", "probe": "battle", "field": "primary_action", "equals": "inspect"},
+		{"op": "assert", "probe": "battle", "field": "shoot_disabled_reason", "equals": "no_ammo"},
+		{"op": "assert", "probe": "battle", "field": "commands_sent", "equals": 3},
+		{"op": "capture_frame", "name": "p5-shoot-disabled-no-ammo"},
+		{"op": "tap", "device": "pad0", "control": "south"},
+		{"op": "wait_until", "probe": "battle", "field": "inspect_open", "equals": true, "timeout_ms": 3000, "stable_for_frames": 3},
+		{"op": "assert", "probe": "battle", "field": "commands_sent", "equals": 3},
+		{"op": "tap", "device": "pad0", "control": "south"},
+		{"op": "wait_until", "probe": "battle", "field": "inspect_open", "equals": false, "timeout_ms": 3000, "stable_for_frames": 3},
+		{"op": "request_shutdown"}
+	]
+}

@@ -1,0 +1,65 @@
+{
+	"schema": "vcmi.controller-e2e/v1",
+	"id": "battle.v3.action-radial-escape-dialogs",
+	"profile": "dualsense",
+	"settingsOverride": {
+		"input": {"enableMouse": true},
+		"server": {"seed": 20260904}
+	},
+	"timeout_ms": 90000,
+	"fixture": {
+		"setup": "battle-map-start",
+		"map": "battle-e2e-spellbook-pages",
+		"autofightPlayers": ["blue"]
+	},
+	"manual": {
+		"prelude": [],
+		"steps": [
+			{"op": "wait_until", "probe": "runtime", "field": "top_window", "changes": true, "timeout_ms": 60000},
+			{"op": "wait_until", "probe": "battle", "field": "open", "equals": true, "timeout_ms": 60000, "stable_for_frames": 3},
+			{"op": "manual_hold"}
+		]
+	},
+	"prelude": [
+		{"op": "attach", "device": "pad0", "profile": "dualsense"}
+	],
+	"steps": [
+		{"op": "wait_until", "probe": "runtime", "field": "top_window", "changes": true, "timeout_ms": 60000},
+		{"op": "tap", "device": "pad0", "control": "ps"},
+		{"op": "wait_until", "probe": "battle", "field": "open", "equals": true, "timeout_ms": 20000, "stable_for_frames": 3},
+		{"op": "assert", "probe": "battle", "field": "active_interface_is_global", "equals": false},
+
+		{"op": "set_axis", "device": "pad0", "control": "r2", "value": 1.0},
+		{"op": "wait_until", "probe": "battle", "field": "action_radial.open", "equals": true, "timeout_ms": 3000, "stable_for_frames": 3},
+		{"op": "neutralize", "device": "pad0"},
+		{"op": "assert", "probe": "battle", "field": "action_radial.items.retreat.enabled", "equals": true},
+		{"op": "set_axis", "device": "pad0", "control": "left_stick_x", "value": 0.5},
+		{"op": "set_axis", "device": "pad0", "control": "left_stick_y", "value": 0.866},
+		{"op": "wait_until", "probe": "battle", "field": "action_radial.selected", "equals": "retreat", "timeout_ms": 3000, "stable_for_frames": 3},
+		{"op": "tap", "device": "pad0", "control": "south"},
+		{"op": "wait_until", "probe": "navigation", "field": "top_window_is_info", "equals": true, "timeout_ms": 3000, "stable_for_frames": 3},
+		{"op": "tap", "device": "pad0", "control": "south"},
+		{"op": "wait_until", "probe": "navigation", "field": "top_window_is_info", "equals": false, "timeout_ms": 3000, "stable_for_frames": 3},
+
+		{"op": "set_axis", "device": "pad0", "control": "r2", "value": 1.0},
+		{"op": "wait_until", "probe": "battle", "field": "action_radial.open", "equals": true, "timeout_ms": 3000, "stable_for_frames": 3},
+		{"op": "neutralize", "device": "pad0"},
+		{"op": "assert", "probe": "battle", "field": "action_radial.items.surrender.enabled", "equals": true},
+		{"op": "set_axis", "device": "pad0", "control": "left_stick_x", "value": -0.5},
+		{"op": "set_axis", "device": "pad0", "control": "left_stick_y", "value": 0.866},
+		{"op": "wait_until", "probe": "battle", "field": "action_radial.selected", "equals": "surrender", "timeout_ms": 3000, "stable_for_frames": 3},
+		{"op": "tap", "device": "pad0", "control": "south"},
+		{"op": "wait_until", "probe": "navigation", "field": "top_window_is_info", "equals": true, "timeout_ms": 3000, "stable_for_frames": 3},
+		{"op": "tap", "device": "pad0", "control": "south"},
+		{"op": "wait_until", "probe": "navigation", "field": "top_window_is_info", "equals": false, "timeout_ms": 3000, "stable_for_frames": 3},
+
+		{"op": "click_mouse", "button": "left", "x": 80, "y": 580},
+		{"op": "wait_until", "probe": "navigation", "field": "top_window_is_info", "equals": true, "timeout_ms": 3000, "stable_for_frames": 3},
+		{"op": "press_key", "key": "Return"},
+		{"op": "release_key", "key": "Return"},
+		{"op": "wait_until", "probe": "navigation", "field": "top_window_is_info", "equals": false, "timeout_ms": 3000, "stable_for_frames": 3},
+		{"op": "click_mouse", "button": "left", "x": 130, "y": 580},
+		{"op": "wait_until", "probe": "navigation", "field": "top_window_is_info", "equals": true, "timeout_ms": 3000, "stable_for_frames": 3},
+		{"op": "request_shutdown"}
+	]
+}

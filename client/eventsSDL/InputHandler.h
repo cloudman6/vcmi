@@ -134,6 +134,11 @@ public:
 
 	InputMode getCurrentInputMode();
 	ControllerPrompt::Family getActiveControllerPromptFamily() const;
+#ifdef VCMI_CONTROLLER_E2E
+	void seedControllerInputModeForE2E();
+	bool isControllerAxisPressedForE2E(int axis) const;
+	bool isControllerAxisOwnedByActiveControllerForE2E(int axis) const;
+#endif
 	void clearControllerAxisMotion();
 	void resetControllerInput();
 

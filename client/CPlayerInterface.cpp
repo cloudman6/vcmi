@@ -30,6 +30,11 @@
 #include "eventsSDL/InputHandler.h"
 #include "eventsSDL/NotificationHandler.h"
 
+#ifdef VCMI_CONTROLLER_E2E
+#include "controllerE2E/ControllerE2EExecutor.h"
+#include "../lib/constants/StringConstants.h"
+#endif
+
 #include "GameEngine.h"
 #include "GameInstance.h"
 #include "gui/CursorHandler.h"
@@ -682,6 +687,18 @@ void CPlayerInterface::battleStartBefore(const BattleID & battleID, const CCreat
 void CPlayerInterface::battleStart(const BattleID & battleID, const CCreatureSet *army1, const CCreatureSet *army2, int3 tile, const CGHeroInstance *hero1, const CGHeroInstance *hero2, BattleSide side, bool replayAllowed)
 {
 	EVENT_HANDLER_CALLED_BY_CLIENT;
+
+#ifdef VCMI_CONTROLLER_E2E
+	if(auto * controllerE2E = ControllerE2E::ControllerE2EExecutor::instance())
+	{
+		if(controllerE2E->shouldAutoFightE2E(GameConstants::PLAYER_COLOR_NAMES[playerID.getNum()]))
+		{
+			prepareAutoFightingAI(battleID, army1, army2, tile, hero1, hero2, side);
+			waitForAllDialogs();
+			return;
+		}
+	}
+#endif
 
 	bool useQuickCombat = settings["adventure"]["quickCombat"].Bool() || GAME->map().getMap()->battleOnly;
 	bool forceQuickCombat = settings["adventure"]["forceQuickCombat"].Bool();
@@ -1351,6 +1368,14 @@ void CPlayerInterface::requestRealized( PackageApplied *pa )
 		movementController->onQueryReplyApplied();
 	}
 }
+
+#ifdef VCMI_CONTROLLER_E2E
+void CPlayerInterface::controllerE2ERejectBattleAction()
+{
+	PackageApplied rejected(playerID, 0, CTypeList::getInstance().getTypeID<MakeAction>(nullptr), false);
+	requestRealized(&rejected);
+}
+#endif
 
 void CPlayerInterface::closeActiveLevelUpDialog()
 {

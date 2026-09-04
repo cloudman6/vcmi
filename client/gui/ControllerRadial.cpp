@@ -27,6 +27,7 @@
 #include "../windows/CMessage.h"
 
 #include "../../lib/GameLibrary.h"
+#include "../../lib/battle/PossiblePlayerBattleAction.h"
 #include "../../lib/texts/CGeneralTextHandler.h"
 
 namespace
@@ -56,6 +57,60 @@ constexpr double PREVIEW_SCALE = 0.66;
 constexpr uint32_t PAGE_TRANSITION_DURATION = 180;
 constexpr ColorRGBA OVERLAY_COLOR(10, 8, 5, 64);
 constexpr ColorRGBA SECTOR_EMPTY(70, 63, 53, 185);
+
+#ifdef VCMI_CONTROLLER_E2E
+std::string controllerE2EItemName(const ControllerRadialItemId & id)
+{
+	if(id.shortcut == EShortcut::BATTLE_SPELL_RADIAL)
+		return SpellID::encode(id.value);
+	if(id.shortcut == EShortcut::BATTLE_USE_CREATURE_SPELL)
+		return std::string("creature:") + SpellID::encode(id.value);
+
+	if(id.shortcut == EShortcut::BATTLE_ACTION_RADIAL)
+	{
+		switch(static_cast<PossiblePlayerBattleAction::Actions>(id.value))
+		{
+		case PossiblePlayerBattleAction::MOVE_STACK:
+			return "move";
+		case PossiblePlayerBattleAction::ATTACK:
+		case PossiblePlayerBattleAction::WALK_AND_ATTACK:
+			return "attack";
+		case PossiblePlayerBattleAction::SHOOT:
+			return "shoot";
+		case PossiblePlayerBattleAction::CATAPULT:
+			return "catapult";
+		case PossiblePlayerBattleAction::HEAL:
+			return "heal";
+		case PossiblePlayerBattleAction::RANDOM_GENIE_SPELL:
+			return "random_genie_spell";
+		default:
+			break;
+		}
+	}
+
+	switch(id.shortcut)
+	{
+	case EShortcut::BATTLE_WAIT:
+		return "wait";
+	case EShortcut::BATTLE_DEFEND:
+		return "defend";
+	case EShortcut::BATTLE_AUTOCOMBAT:
+		return "autocombat";
+	case EShortcut::BATTLE_RETREAT:
+		return "retreat";
+	case EShortcut::BATTLE_SURRENDER:
+		return "surrender";
+	case EShortcut::BATTLE_END_WITH_AUTOCOMBAT:
+		return "finish_with_autocombat";
+	case EShortcut::BATTLE_TACTICS_NEXT:
+		return "tactics_next";
+	case EShortcut::BATTLE_TACTICS_END:
+		return "tactics_end";
+	default:
+		return std::to_string(static_cast<int32_t>(id.shortcut)) + ":" + std::to_string(id.value);
+	}
+}
+#endif
 constexpr ColorRGBA SECTOR_NORMAL(132, 91, 38, 205);
 constexpr ColorRGBA SECTOR_SELECTED(226, 183, 69, 240);
 constexpr ColorRGBA SECTOR_DISABLED(102, 102, 98, 210);
@@ -220,6 +275,55 @@ ControllerRadial::ControllerRadial(
 	onScreenResize();
 	state.open(currentEntries(currentItems()));
 }
+
+#ifdef VCMI_CONTROLLER_E2E
+JsonNode ControllerRadial::controllerE2ESnapshot() const
+{
+	JsonNode snapshot;
+	snapshot["open"].Bool() = true;
+	snapshot["confirm_pressed"].Bool() = confirmPressed;
+	snapshot["axis_x"].Float() = axisX;
+	snapshot["axis_y"].Float() = axisY;
+	snapshot["kind"].String() = openingShortcut == EShortcut::BATTLE_SPELL_RADIAL ? "spells" : "actions";
+	snapshot["current_page"].Integer() = static_cast<si64>(state.currentPage());
+	snapshot["page_count"].Integer() = static_cast<si64>(state.pageCount());
+	snapshot["page_transition_active"].Bool() = pageTransitionFrom.has_value();
+
+	const auto selected = state.selectedItem();
+	snapshot["selected"].String() = selected ? controllerE2EItemName(*selected) : "none";
+
+	auto & items = snapshot["items"].Struct();
+	const auto current = currentItems();
+	snapshot["item_count"].Integer() = static_cast<si64>(current.size());
+	snapshot["has_wait"].Bool() = false;
+	snapshot["has_defend"].Bool() = false;
+	snapshot["has_autocombat"].Bool() = false;
+	std::string sequenceCsv;
+	for(size_t index = 0; index < current.size(); ++index)
+	{
+		const auto & item = current[index];
+		const auto name = controllerE2EItemName(item.id);
+		if(!sequenceCsv.empty())
+			sequenceCsv += ",";
+		sequenceCsv += name;
+		snapshot["has_wait"].Bool() |= name == "wait";
+		snapshot["has_defend"].Bool() |= name == "defend";
+		snapshot["has_autocombat"].Bool() |= name == "autocombat";
+		items[name]["enabled"].Bool() = item.enabled;
+		items[name]["reason"].String() = item.unavailableReason;
+		items[name]["detail_summary"].String() = item.detailSummary;
+		items[name]["detail_description"].String() = item.detailDescription;
+		auto & sequence = snapshot["sequence"][std::to_string(index)];
+		sequence["id"].String() = name;
+		sequence["page"].Integer() = static_cast<si64>(item.page);
+		sequence["slot"].Integer() = static_cast<si64>(item.slot);
+	}
+	const auto selectedItem = selected ? std::ranges::find(current, *selected, &ControllerRadialItem::id) : current.end();
+	snapshot["confirm_prompt_disabled"].Bool() = selectedItem == current.end() || !selectedItem->enabled;
+	snapshot["sequence_csv"].String() = sequenceCsv;
+	return snapshot;
+}
+#endif
 
 std::vector<ControllerRadialItem> ControllerRadial::currentItems() const
 {

@@ -1,0 +1,81 @@
+{
+	"schema": "vcmi.controller-e2e/v1",
+	"id": "battle.v3.action-radial-right-click-parity",
+	"profile": "dualsense",
+	"settingsOverride": {
+		"input": {"enableMouse": true},
+		"server": {"seed": 20260814}
+	},
+	"timeout_ms": 90000,
+	"fixture": {
+		"setup": "battle-map-start",
+		"map": "battle-e2e",
+		"autofightPlayers": ["blue"]
+	},
+	"prelude": [
+		{"op": "attach", "device": "pad0", "profile": "dualsense"}
+	],
+	"steps": [
+		{"op": "wait_until", "probe": "runtime", "field": "top_window", "changes": true, "timeout_ms": 60000},
+		{"op": "tap", "device": "pad0", "control": "ps"},
+		{"op": "wait_until", "probe": "battle", "field": "focus_hex", "equals": 36, "timeout_ms": 20000, "stable_for_frames": 3},
+
+		{"op": "set_axis", "device": "pad0", "control": "r2", "value": 1.0},
+		{"op": "wait_until", "probe": "battle", "field": "action_radial.open", "equals": true, "timeout_ms": 3000, "stable_for_frames": 3},
+		{"op": "neutralize", "device": "pad0"},
+		{"op": "assert", "probe": "battle", "field": "action_radial.items.move.enabled", "equals": true},
+		{"op": "set_axis", "device": "pad0", "control": "left_stick_y", "value": -1.0},
+		{"op": "wait_until", "probe": "battle", "field": "action_radial.selected", "equals": "move", "timeout_ms": 3000, "stable_for_frames": 3},
+		{"op": "tap", "device": "pad0", "control": "south"},
+		{"op": "wait_until", "probe": "battle", "field": "action_radial.open", "equals": false, "timeout_ms": 3000},
+		{"op": "assert", "probe": "battle", "field": "right_click_cancels_action", "equals": false},
+
+		{"op": "set_axis", "device": "pad0", "control": "right_stick_x", "value": 1.0},
+		{"op": "wait_until", "probe": "battle", "field": "focused_stack.id", "equals": 2, "timeout_ms": 3000, "stable_for_frames": 3},
+		{"op": "neutralize", "device": "pad0"},
+		{"op": "assert", "probe": "battle", "field": "hold_inspect_available", "equals": true},
+		{"op": "press", "device": "pad0", "control": "east"},
+		{"op": "wait_until", "probe": "battle", "field": "inspect_open", "equals": true, "timeout_ms": 3000, "stable_for_frames": 3},
+		{"op": "assert", "probe": "battle", "field": "right_click_cancels_action", "equals": false},
+		{"op": "release", "device": "pad0", "control": "east"},
+		{"op": "wait_until", "probe": "battle", "field": "inspect_open", "equals": false, "timeout_ms": 3000, "stable_for_frames": 3},
+
+		{"op": "set_axis", "device": "pad0", "control": "r2", "value": 1.0},
+		{"op": "wait_until", "probe": "battle", "field": "action_radial.open", "equals": true, "timeout_ms": 3000},
+		{"op": "neutralize", "device": "pad0"},
+		{"op": "set_axis", "device": "pad0", "control": "left_stick_x", "value": -1.0},
+		{"op": "wait_until", "probe": "battle", "field": "action_radial.selected", "equals": "wait", "timeout_ms": 3000},
+		{"op": "tap", "device": "pad0", "control": "south"},
+		{"op": "wait_until", "probe": "battle", "field": "active_stack.id", "equals": 1, "timeout_ms": 20000, "stable_for_frames": 3},
+
+		{"op": "set_axis", "device": "pad0", "control": "r2", "value": 1.0},
+		{"op": "wait_until", "probe": "battle", "field": "action_radial.open", "equals": true, "timeout_ms": 3000, "stable_for_frames": 3},
+		{"op": "neutralize", "device": "pad0"},
+		{"op": "assert", "probe": "battle", "field": "action_radial.items.shoot.enabled", "equals": true},
+		{"op": "set_axis", "device": "pad0", "control": "left_stick_x", "value": 0.5},
+		{"op": "set_axis", "device": "pad0", "control": "left_stick_y", "value": -0.866},
+		{"op": "wait_until", "probe": "battle", "field": "action_radial.selected", "equals": "shoot", "timeout_ms": 3000, "stable_for_frames": 3},
+		{"op": "tap", "device": "pad0", "control": "south"},
+		{"op": "wait_until", "probe": "battle", "field": "action_radial.open", "equals": false, "timeout_ms": 3000},
+		{"op": "assert", "probe": "battle", "field": "right_click_cancels_action", "equals": true},
+		{"op": "assert", "probe": "battle", "field": "hold_inspect_available", "equals": false},
+
+		{"op": "set_axis", "device": "pad0", "control": "right_stick_x", "value": 1.0},
+		{"op": "wait_until", "probe": "battle", "field": "focused_stack.id", "equals": 2, "timeout_ms": 3000, "stable_for_frames": 3},
+		{"op": "neutralize", "device": "pad0"},
+		{"op": "wait_until", "probe": "battle", "field": "primary_action", "equals": "shoot", "timeout_ms": 3000, "stable_for_frames": 3},
+		{"op": "tap", "device": "pad0", "control": "east"},
+		{"op": "wait_until", "probe": "battle", "field": "right_click_cancels_action", "equals": false, "timeout_ms": 3000, "stable_for_frames": 3},
+		{"op": "assert", "probe": "battle", "field": "inspect_open", "equals": false},
+		{"op": "assert", "probe": "battle", "field": "hold_inspect_available", "equals": true},
+
+		{"op": "set_axis", "device": "pad0", "control": "r2", "value": 1.0},
+		{"op": "wait_until", "probe": "battle", "field": "action_radial.open", "equals": true, "timeout_ms": 3000, "stable_for_frames": 3},
+		{"op": "neutralize", "device": "pad0"},
+		{"op": "assert", "probe": "battle", "field": "action_radial.items.move.enabled", "equals": true},
+		{"op": "assert", "probe": "battle", "field": "action_radial.items.shoot.enabled", "equals": true},
+		{"op": "tap", "device": "pad0", "control": "east"},
+		{"op": "wait_until", "probe": "battle", "field": "action_radial.open", "equals": false, "timeout_ms": 3000},
+		{"op": "request_shutdown"}
+	]
+}

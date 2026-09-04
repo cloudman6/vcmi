@@ -1,0 +1,26 @@
+{
+	"schema": "vcmi.controller-e2e/v1",
+	"id": "m2.remove-spell.cancel",
+	"profile": "dualsense",
+	"timeout_ms": 30000,
+	"fixture": {"setup": "battle-only-remove-spell", "preselected": [0, 1, 2]},
+	"prelude": [
+		{"op": "attach", "device": "pad0", "profile": "dualsense"}
+	],
+	"steps": [
+		{"op": "wait_until", "probe": "addSpell", "field": "open", "equals": true, "timeout_ms": 10000},
+		{"op": "assert", "probe": "domain", "field": "spell_count", "equals": 3},
+		{"op": "tap", "device": "pad0", "control": "dpad_down"},
+		{"op": "wait_until", "probe": "addSpell", "field": "controller_selection_active", "equals": true, "timeout_ms": 2000},
+		{"op": "assert", "probe": "addSpell", "field": "focus_index", "equals": 1},
+		{"op": "assert", "probe": "addSpell", "field": "accept_glyph_text", "equals": "Remove"},
+		{"op": "capture_frame", "name": "remove-spell-before-cancel"},
+		{"op": "press", "device": "pad0", "control": "east"},
+		{"op": "wait_frames", "frames": 2},
+		{"op": "capture_frame", "name": "remove-spell-cancel-pressed"},
+		{"op": "release", "device": "pad0", "control": "east"},
+		{"op": "wait_until", "probe": "addSpell", "field": "open", "equals": false, "timeout_ms": 2000},
+		{"op": "assert", "probe": "domain", "field": "spell_count", "equals": 3},
+		{"op": "request_shutdown"}
+	]
+}

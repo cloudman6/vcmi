@@ -1,0 +1,158 @@
+{
+	"schema": "vcmi.controller-e2e/v1",
+	"id": "battle.v3.spell-radial-full-config",
+	"profile": "dualsense",
+	"settingsOverride": {
+		"battle": {
+			"enableQuickSpellPanel": true
+		},
+		"input": {
+			"enableMouse": true
+		},
+		"server": {
+			"seed": 20260828
+		}
+	},
+	"timeout_ms": 90000,
+	"fixture": {
+		"setup": "battle-map-start",
+		"map": "battle-e2e-spells",
+		"quickSpells": [
+			"core:blind",
+			"core:slow",
+			"core:haste",
+			"core:fortune",
+			"core:mirth",
+			"core:disruptingRay",
+			"core:stoneSkin",
+			"core:weakness",
+			"core:bloodlust",
+			"core:curse",
+			"core:bless",
+			"core:cure"
+		],
+		"autofightPlayers": [
+			"blue"
+		]
+	},
+	"manual": {
+		"prelude": [],
+		"steps": [
+			{
+				"op": "wait_until",
+				"probe": "runtime",
+				"field": "top_window",
+				"changes": true,
+				"timeout_ms": 60000
+			},
+			{
+				"op": "wait_until",
+				"probe": "battle",
+				"field": "open",
+				"equals": true,
+				"timeout_ms": 60000,
+				"stable_for_frames": 3
+			},
+			{"op": "manual_hold"}
+		]
+	},
+	"prelude": [
+		{
+			"op": "attach",
+			"device": "pad0",
+			"profile": "dualsense"
+		}
+	],
+	"steps": [
+		{
+			"op": "wait_until",
+			"probe": "runtime",
+			"field": "top_window",
+			"changes": true,
+			"timeout_ms": 60000
+		},
+		{
+			"op": "tap",
+			"device": "pad0",
+			"control": "ps"
+		},
+		{
+			"op": "wait_until",
+			"probe": "battle",
+			"field": "open",
+			"equals": true,
+			"timeout_ms": 20000
+		},
+		{
+			"op": "set_axis",
+			"device": "pad0",
+			"control": "l2",
+			"value": 1
+		},
+		{
+			"op": "wait_until",
+			"probe": "battle",
+			"field": "action_radial.open",
+			"equals": true,
+			"timeout_ms": 3000,
+			"stable_for_frames": 3
+		},
+		{"op": "assert", "probe": "battle", "field": "action_radial.confirm_prompt_disabled", "equals": true},
+		{"op": "capture_frame", "name": "m3-3-spell-radial-no-selection"},
+		{
+			"op": "assert",
+			"probe": "battle",
+			"field": "action_radial.kind",
+			"equals": "spells"
+		},
+		{
+			"op": "assert",
+			"probe": "battle",
+			"field": "action_radial.item_count",
+			"equals": 18
+		},
+		{
+			"op": "assert",
+			"probe": "battle",
+			"field": "action_radial.page_count",
+			"equals": 2
+		},
+		{
+			"op": "assert",
+			"probe": "battle",
+			"field": "action_radial.sequence_csv",
+			"equals": "core:blind,core:slow,core:haste,core:fortune,core:mirth,core:disruptingRay,core:stoneSkin,core:weakness,core:bloodlust,core:curse,core:bless,core:cure,core:magicArrow,core:iceBolt,core:lightningBolt,core:shield,core:fireShield,core:dispel"
+		},
+		{
+			"op": "assert",
+			"probe": "battle",
+			"field": "action_radial.sequence.12.page",
+			"equals": 1
+		},
+		{
+			"op": "assert",
+			"probe": "battle",
+			"field": "action_radial.sequence.17.slot",
+			"equals": 5
+		},
+		{"op": "set_axis", "device": "pad0", "control": "left_stick_y", "value": -1.0},
+		{"op": "wait_until", "probe": "battle", "field": "action_radial.selected", "equals": "core:blind", "timeout_ms": 3000, "stable_for_frames": 3},
+		{"op": "assert", "probe": "battle", "field": "action_radial.confirm_prompt_disabled", "equals": false},
+		{"op": "capture_frame", "name": "m3-3-spell-radial-page-1"},
+		{"op": "neutralize", "device": "pad0"},
+		{"op": "wait_frames", "frames": 3},
+		{"op": "tap", "device": "pad0", "control": "r1"},
+		{
+			"op": "wait_until",
+			"probe": "battle",
+			"field": "action_radial.current_page",
+			"equals": 1,
+			"timeout_ms": 3000,
+			"stable_for_frames": 3
+		},
+		{"op": "capture_frame", "name": "m3-3-spell-radial-page-2"},
+		{
+			"op": "request_shutdown"
+		}
+	]
+}

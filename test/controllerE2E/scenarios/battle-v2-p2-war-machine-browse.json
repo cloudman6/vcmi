@@ -1,0 +1,47 @@
+{
+	"schema": "vcmi.controller-e2e/v1",
+	"id": "battle.v2.p2.war-machine-browse",
+	"profile": "dualsense",
+	"settingsOverride": {
+		"input": {"enableMouse": true},
+		"server": {"seed": 20260817}
+	},
+	"timeout_ms": 90000,
+	"fixture": {
+		"setup": "battle-map-start",
+		"map": "battle-e2e-war-machines",
+		"autofightPlayers": ["blue"]
+	},
+	"prelude": [
+		{"op": "attach", "device": "pad0", "profile": "dualsense"}
+	],
+	"steps": [
+		{"op": "wait_until", "probe": "runtime", "field": "top_window", "changes": true, "timeout_ms": 60000},
+		{"op": "tap", "device": "pad0", "control": "ps"},
+		{"op": "wait_until", "probe": "battle", "field": "focus_hex", "equals": 36, "timeout_ms": 20000, "stable_for_frames": 3},
+		{"op": "set_axis", "device": "pad0", "control": "right_stick_x", "value": -1.0},
+		{"op": "set_axis", "device": "pad0", "control": "right_stick_y", "value": 0.64},
+		{"op": "wait_until", "probe": "battle", "field": "focus_hex", "equals": 52, "timeout_ms": 3000, "stable_for_frames": 3},
+		{"op": "neutralize", "device": "pad0"},
+		{"op": "assert", "probe": "battle", "field": "hovered_hex", "equals": 52},
+		{"op": "assert", "probe": "battle", "field": "focused_stack.type", "equals": "core:ballista"},
+		{"op": "assert", "probe": "battle", "field": "primary_action", "equals": "inspect"},
+		{"op": "assert", "probe": "battle", "field": "commands_sent", "equals": 0},
+		{"op": "capture_frame", "name": "p2-friendly-ballista-focus"},
+		{"op": "set_axis", "device": "pad0", "control": "right_stick_y", "value": 1.0},
+		{"op": "wait_until", "probe": "battle", "field": "focus_hex", "equals": 154, "timeout_ms": 3000, "stable_for_frames": 3},
+		{"op": "neutralize", "device": "pad0"},
+		{"op": "assert", "probe": "battle", "field": "focused_stack.type", "equals": "core:firstAidTent"},
+		{"op": "assert", "probe": "battle", "field": "primary_action", "equals": "inspect"},
+		{"op": "capture_frame", "name": "p2-friendly-tent-focus"},
+		{"op": "set_axis", "device": "pad0", "control": "right_stick_x", "value": 1.0},
+		{"op": "set_axis", "device": "pad0", "control": "right_stick_y", "value": -0.41},
+		{"op": "wait_until", "probe": "battle", "field": "focus_hex", "equals": 66, "timeout_ms": 3000, "stable_for_frames": 3},
+		{"op": "neutralize", "device": "pad0"},
+		{"op": "assert", "probe": "battle", "field": "focused_stack.type", "equals": "core:ballista"},
+		{"op": "assert", "probe": "battle", "field": "primary_action", "equals": "inspect"},
+		{"op": "assert", "probe": "battle", "field": "commands_sent", "equals": 0},
+		{"op": "capture_frame", "name": "p2-enemy-ballista-focus"},
+		{"op": "request_shutdown"}
+	]
+}

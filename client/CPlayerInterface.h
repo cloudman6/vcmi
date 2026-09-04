@@ -196,6 +196,10 @@ protected: // Call-ins from server, should not be called directly, but only via 
 
 public: // public interface for use by client via GAME->interface() access
 
+#ifdef VCMI_CONTROLLER_E2E
+	void controllerE2ERejectBattleAction();
+#endif
+
 	// part of GameInterface that is also used by client code
 	void update();
 	void showPuzzleMap() override;

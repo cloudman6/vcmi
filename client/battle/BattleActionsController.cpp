@@ -431,6 +431,9 @@ void BattleActionsController::castThisSpell(SpellID spellID)
 	if (spellSelMode.get() == PossiblePlayerBattleAction::NO_LOCATION) //user does not have to select location
 	{
 		heroSpellToCast->aimToHex(BattleHex::INVALID);
+#ifdef VCMI_CONTROLLER_E2E
+		if(!owner.controllerE2ERejectNextBattleAction())
+#endif
 		owner.curInt->cb->battleMakeSpellAction(owner.getBattleID(), *heroSpellToCast);
 		endCastingSpell();
 	}
@@ -1090,6 +1093,9 @@ void BattleActionsController::actionRealize(PossiblePlayerBattleAction action, c
 					heroSpellToCast->aimToUnit(targetStack); //victim
 				else
 					heroSpellToCast->aimToHex(targetHex);
+#ifdef VCMI_CONTROLLER_E2E
+				if(!owner.controllerE2ERejectNextBattleAction())
+#endif
 				owner.curInt->cb->battleMakeSpellAction(owner.getBattleID(), *heroSpellToCast);
 				endCastingSpell();
 			}

@@ -1,0 +1,50 @@
+{
+	"schema": "vcmi.controller-e2e/v1",
+	"id": "battle.v3.ballista-context-action",
+	"profile": "dualsense",
+	"settingsOverride": {
+		"input": {"enableMouse": true},
+		"server": {"seed": 20260818}
+	},
+	"timeout_ms": 90000,
+	"fixture": {
+		"setup": "battle-map-start",
+		"map": "battle-e2e-manual-ballista",
+		"autofightPlayers": ["blue"]
+	},
+	"prelude": [
+		{"op": "attach", "device": "pad0", "profile": "dualsense"}
+	],
+	"steps": [
+		{"op": "wait_until", "probe": "runtime", "field": "top_window", "changes": true, "timeout_ms": 60000},
+		{"op": "tap", "device": "pad0", "control": "ps"},
+		{"op": "wait_until", "probe": "battle", "field": "active_stack.type", "equals": "core:marksman", "timeout_ms": 20000, "stable_for_frames": 3},
+		{"op": "set_axis", "device": "pad0", "control": "right_stick_x", "value": 1.0},
+		{"op": "wait_until", "probe": "battle", "field": "focused_stack.type", "equals": "core:pikeman", "timeout_ms": 3000, "stable_for_frames": 3},
+		{"op": "neutralize", "device": "pad0"},
+		{"op": "wait_until", "probe": "battle", "field": "primary_action", "equals": "shoot", "timeout_ms": 3000, "stable_for_frames": 3},
+		{"op": "tap", "device": "pad0", "control": "south"},
+		{"op": "wait_until", "probe": "battle", "field": "commands_sent", "equals": 1, "timeout_ms": 3000},
+		{"op": "wait_frames", "frames": 150},
+		{"op": "wait_until", "probe": "battle", "field": "active_stack.type", "equals": "core:ballista", "timeout_ms": 20000, "stable_for_frames": 3},
+		{"op": "set_axis", "device": "pad0", "control": "right_stick_x", "value": 1.0},
+		{"op": "wait_until", "probe": "battle", "field": "focused_stack.type", "equals": "core:pikeman", "timeout_ms": 3000, "stable_for_frames": 3},
+		{"op": "neutralize", "device": "pad0"},
+		{"op": "assert", "probe": "battle", "field": "primary_action", "equals": "shoot"},
+		{"op": "assert", "probe": "battle", "field": "shoot_disabled_reason", "equals": "none"},
+		{"op": "assert", "probe": "battle", "field": "commands_sent", "equals": 1},
+		{"op": "set_axis", "device": "pad0", "control": "r2", "value": 1.0},
+		{"op": "wait_until", "probe": "battle", "field": "action_radial.open", "equals": true, "timeout_ms": 3000},
+		{"op": "assert", "probe": "battle", "field": "action_radial.items.shoot.enabled", "equals": true},
+		{"op": "neutralize", "device": "pad0"},
+		{"op": "set_axis", "device": "pad0", "control": "left_stick_y", "value": -0.9},
+		{"op": "wait_until", "probe": "battle", "field": "action_radial.selected", "equals": "shoot", "timeout_ms": 3000},
+		{"op": "capture_frame", "name": "m3-4-ballista-context-action"},
+		{"op": "tap", "device": "pad0", "control": "south"},
+		{"op": "wait_until", "probe": "battle", "field": "controller_context_mode", "equals": true, "timeout_ms": 3000},
+		{"op": "wait_until", "probe": "battle", "field": "primary_action", "equals": "shoot", "timeout_ms": 3000},
+		{"op": "tap", "device": "pad0", "control": "south"},
+		{"op": "wait_until", "probe": "battle", "field": "commands_sent", "equals": 2, "timeout_ms": 3000},
+		{"op": "request_shutdown"}
+	]
+}

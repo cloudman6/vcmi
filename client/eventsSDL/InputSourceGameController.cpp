@@ -126,6 +126,19 @@ ControllerPrompt::Family InputSourceGameController::getActiveControllerPromptFam
 	return controllerPromptFamily(active->second.get());
 }
 
+#ifdef VCMI_CONTROLLER_E2E
+bool InputSourceGameController::isAxisPressedForE2E(int axis) const
+{
+	return pressedAxes.contains(static_cast<SDL_GameControllerAxis>(axis));
+}
+
+bool InputSourceGameController::isAxisOwnedByActiveControllerForE2E(int axis) const
+{
+	const auto pressed = pressedAxes.find(static_cast<SDL_GameControllerAxis>(axis));
+	return pressed != pressedAxes.end() && pressed->second.instanceId == activeController;
+}
+#endif
+
 int InputSourceGameController::getJoystickIndex(SDL_GameController * controller)
 {
 	SDL_Joystick * joystick = SDL_GameControllerGetJoystick(controller);

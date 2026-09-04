@@ -1,0 +1,35 @@
+{
+	"schema": "vcmi.controller-e2e/v1",
+	"id": "battle.v3.tactics-direct-control",
+	"profile": "dualsense",
+	"settingsOverride": {
+		"input": {"enableMouse": true},
+		"server": {"seed": 20260818}
+	},
+	"timeout_ms": 90000,
+	"fixture": {
+		"setup": "battle-map-start",
+		"map": "battle-e2e-tactics",
+		"autofightPlayers": ["blue"]
+	},
+	"prelude": [
+		{"op": "attach", "device": "pad0", "profile": "dualsense"}
+	],
+	"steps": [
+		{"op": "wait_until", "probe": "runtime", "field": "top_window", "changes": true, "timeout_ms": 60000},
+		{"op": "tap", "device": "pad0", "control": "ps"},
+		{"op": "wait_until", "probe": "battle", "field": "tactics_mode", "equals": true, "timeout_ms": 20000, "stable_for_frames": 3},
+		{"op": "wait_until", "probe": "battle", "field": "focus_hex", "equals": 36, "timeout_ms": 20000, "stable_for_frames": 3},
+		{"op": "set_axis", "device": "pad0", "control": "left_stick_x", "value": 1.0},
+		{"op": "wait_until", "probe": "battle", "field": "focus_hex", "equals": 37, "timeout_ms": 3000, "stable_for_frames": 3},
+		{"op": "neutralize", "device": "pad0"},
+		{"op": "assert", "probe": "battle", "field": "primary_action", "equals": "move"},
+		{"op": "assert", "probe": "battle", "field": "commands_sent", "equals": 0},
+		{"op": "capture_frame", "name": "m3-4-tactics-direct-control"},
+		{"op": "tap", "device": "pad0", "control": "south"},
+		{"op": "wait_until", "probe": "battle", "field": "commands_sent", "equals": 1, "timeout_ms": 3000},
+		{"op": "wait_until", "probe": "battle", "field": "stacks_by_id.id_0.position", "equals": 37, "timeout_ms": 10000, "stable_for_frames": 3},
+		{"op": "assert", "probe": "battle", "field": "tactics_mode", "equals": true},
+		{"op": "request_shutdown"}
+	]
+}

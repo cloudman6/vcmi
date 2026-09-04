@@ -77,6 +77,10 @@ public:
 	void setActiveController(int instanceID);
 	bool isAxisMotionActive(const SDL_ControllerAxisEvent & axis) const;
 	ControllerPrompt::Family getActiveControllerPromptFamily() const;
+#ifdef VCMI_CONTROLLER_E2E
+	bool isAxisPressedForE2E(int axis) const;
+	bool isAxisOwnedByActiveControllerForE2E(int axis) const;
+#endif
 	void tryOpenAllGameControllers();
 	void handleEventDeviceAdded(const SDL_ControllerDeviceEvent & device);
 	void handleEventDeviceRemoved(const SDL_ControllerDeviceEvent & device);

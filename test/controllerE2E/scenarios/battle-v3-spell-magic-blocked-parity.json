@@ -1,0 +1,47 @@
+{
+	"schema": "vcmi.controller-e2e/v1",
+	"id": "battle.v3.spell-magic-blocked-parity",
+	"profile": "dualsense",
+	"settingsOverride": {
+		"battle": {"enableQuickSpellPanel": true},
+		"input": {"enableMouse": true},
+		"server": {"seed": 20260902}
+	},
+	"timeout_ms": 90000,
+	"fixture": {
+		"setup": "battle-map-start",
+		"map": "battle-e2e-magic-blocked",
+		"quickSpells": ["core:magicArrow"],
+		"autofightPlayers": ["blue"]
+	},
+	"manual": {
+		"prelude": [],
+		"steps": [
+			{"op": "wait_until", "probe": "runtime", "field": "top_window", "changes": true, "timeout_ms": 60000},
+			{"op": "wait_until", "probe": "battle", "field": "open", "equals": true, "timeout_ms": 60000, "stable_for_frames": 3},
+			{"op": "manual_hold"}
+		]
+	},
+	"prelude": [{"op": "attach", "device": "pad0", "profile": "dualsense"}],
+	"steps": [
+		{"op": "wait_until", "probe": "runtime", "field": "top_window", "changes": true, "timeout_ms": 60000},
+		{"op": "tap", "device": "pad0", "control": "ps"},
+		{"op": "wait_until", "probe": "battle", "field": "open", "equals": true, "timeout_ms": 20000, "stable_for_frames": 3},
+		{"op": "wait_until", "probe": "battle", "field": "native_mode", "equals": true, "timeout_ms": 3000, "stable_for_frames": 3},
+		{"op": "press", "device": "pad0", "control": "west"},
+		{"op": "wait_until", "probe": "navigation", "field": "top_window_is_info", "equals": true, "timeout_ms": 3000, "stable_for_frames": 3},
+		{"op": "assert", "probe": "navigation", "field": "top_window_info_text", "equals": "Sorsha wields the Orb of Inhibition, an ancient artifact which creates a pocket dead to all magic."},
+		{"op": "capture_frame", "name": "spellbook-magic-blocked-reason"},
+		{"op": "release", "device": "pad0", "control": "west"},
+		{"op": "tap", "device": "pad0", "control": "south"},
+		{"op": "wait_until", "probe": "navigation", "field": "top_window_is_info", "equals": false, "timeout_ms": 3000, "stable_for_frames": 3},
+		{"op": "set_axis", "device": "pad0", "control": "l2", "value": 1.0},
+		{"op": "wait_until", "probe": "navigation", "field": "top_window_is_info", "equals": true, "timeout_ms": 3000, "stable_for_frames": 3},
+		{"op": "assert", "probe": "navigation", "field": "top_window_info_text", "equals": "Sorsha wields the Orb of Inhibition, an ancient artifact which creates a pocket dead to all magic."},
+		{"op": "assert", "probe": "battle", "field": "action_radial.open", "equals": false},
+		{"op": "capture_frame", "name": "spell-radial-magic-blocked-reason"},
+		{"op": "neutralize", "device": "pad0"},
+		{"op": "tap", "device": "pad0", "control": "south"},
+		{"op": "request_shutdown"}
+	]
+}

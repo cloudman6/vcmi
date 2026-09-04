@@ -1,0 +1,25 @@
+{
+	"schema": "vcmi.controller-e2e/v1",
+	"id": "canary.input-chain.dualsense",
+	"profile": "dualsense",
+	"timeout_ms": 30000,
+	"fixture": {},
+	"prelude": [
+		{"op": "attach", "device": "pad0", "profile": "dualsense"}
+	],
+	"steps": [
+		{"op": "wait_frames", "frames": 5},
+		{"op": "assert", "probe": "runtime", "field": "input_mode", "equals": "keyboard_and_mouse"},
+		{"op": "assert", "probe": "runtime", "field": "scenario_devices_attached", "equals": 1},
+		{"op": "checkpoint", "name": "before-activation"},
+		{"op": "press", "device": "pad0", "control": "create"},
+		{"op": "wait_until", "probe": "input", "field": "mode", "equals": "controller", "timeout_ms": 2000, "stable_for_frames": 2},
+		{"op": "assert_event_count", "kind": "controller_button_down", "count": 1},
+		{"op": "assert", "probe": "runtime", "field": "presentation", "equals": "playstation"},
+		{"op": "release", "device": "pad0", "control": "create"},
+		{"op": "wait_frames", "frames": 3},
+		{"op": "assert_event_count", "kind": "controller_button_up", "count": 1},
+		{"op": "capture_frame", "name": "canary-active"},
+		{"op": "request_shutdown"}
+	]
+}

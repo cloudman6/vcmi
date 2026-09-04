@@ -1,0 +1,41 @@
+{
+	"schema": "vcmi.controller-e2e/v1",
+	"id": "battle.unit-browse.war-machines",
+	"profile": "dualsense",
+	"settingsOverride": {
+		"input": {"enableMouse": true},
+		"server": {"seed": 20260829}
+	},
+	"timeout_ms": 90000,
+	"fixture": {
+		"setup": "battle-map-start",
+		"map": "battle-e2e-war-machines",
+		"autofightPlayers": ["blue"]
+	},
+	"prelude": [
+		{"op": "attach", "device": "pad0", "profile": "dualsense"}
+	],
+	"steps": [
+		{"op": "wait_until", "probe": "runtime", "field": "battle_open", "equals": true, "timeout_ms": 60000, "stable_for_frames": 3},
+		{"op": "move_mouse", "x": 146, "y": 196},
+		{"op": "wait_until", "probe": "battle", "field": "focus_hex", "equals": 36, "timeout_ms": 20000, "stable_for_frames": 3},
+		{"op": "set_axis", "device": "pad0", "control": "right_stick_x", "value": -1.0},
+		{"op": "wait_until", "probe": "battle", "field": "focus_hex", "equals": 52, "timeout_ms": 3000, "stable_for_frames": 3},
+		{"op": "neutralize", "device": "pad0"},
+		{"op": "assert", "probe": "battle", "field": "focused_stack.type", "equals": "core:ballista"},
+		{"op": "set_axis", "device": "pad0", "control": "right_stick_x", "value": -1.0},
+		{"op": "assert_unchanged", "probe": "battle", "field": "focus_hex", "frames": 8},
+		{"op": "neutralize", "device": "pad0"},
+		{"op": "wait_frames", "frames": 1},
+		{"op": "set_axis", "device": "pad0", "control": "right_stick_y", "value": 1.0},
+		{"op": "wait_until", "probe": "battle", "field": "focus_hex", "equals": 154, "timeout_ms": 3000, "stable_for_frames": 3},
+		{"op": "neutralize", "device": "pad0"},
+		{"op": "assert", "probe": "battle", "field": "focused_stack.type", "equals": "core:firstAidTent"},
+		{"op": "set_axis", "device": "pad0", "control": "right_stick_x", "value": 1.0},
+		{"op": "wait_until", "probe": "battle", "field": "focus_hex", "equals": 168, "timeout_ms": 3000, "stable_for_frames": 3},
+		{"op": "neutralize", "device": "pad0"},
+		{"op": "assert", "probe": "battle", "field": "focused_stack.type", "equals": "core:firstAidTent"},
+		{"op": "assert", "probe": "battle", "field": "commands_sent", "equals": 0},
+		{"op": "request_shutdown"}
+	]
+}

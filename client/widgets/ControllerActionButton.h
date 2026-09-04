@@ -40,6 +40,12 @@ public:
 	void setControllerPrompt(const JsonPath & buttonImage, Point position, const std::string & actionText,
 		std::function<void()> visibilityChanged);
 	bool isControllerPromptVisible() const;
+
+#ifdef VCMI_CONTROLLER_E2E
+	std::string controllerE2EPromptSpriteName() const;
+	std::string controllerE2EPromptLabel() const;
+#endif
+
 	void block(bool on);
 
 	void activate() override;

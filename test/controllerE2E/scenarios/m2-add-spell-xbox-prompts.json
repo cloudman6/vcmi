@@ -1,0 +1,34 @@
+{
+	"schema": "vcmi.controller-e2e/v1",
+	"id": "m2.add-spell.xbox-prompts",
+	"profile": "xbox-series",
+	"timeout_ms": 30000,
+	"fixture": {"setup": "battle-only-add-spell"},
+	"prelude": [
+		{"op": "attach", "device": "pad0", "profile": "xbox-series"}
+	],
+	"steps": [
+		{"op": "wait_until", "probe": "addSpell", "field": "open", "equals": true, "timeout_ms": 10000},
+		{"op": "tap", "device": "pad0", "control": "dpad_down"},
+		{"op": "wait_until", "probe": "input", "field": "mode", "equals": "controller", "timeout_ms": 2000},
+		{"op": "assert", "probe": "runtime", "field": "presentation", "equals": "xbox"},
+		{"op": "wait_until", "probe": "addSpell", "field": "accept_visual_visible", "equals": true, "timeout_ms": 2000},
+		{"op": "assert", "probe": "addSpell", "field": "cancel_visual_visible", "equals": true},
+		{"op": "assert", "probe": "addSpell", "field": "accept_glyph_text", "equals": "Add"},
+		{"op": "assert", "probe": "addSpell", "field": "cancel_glyph_text", "equals": "Cancel"},
+		{"op": "assert", "probe": "addSpell", "field": "accept_prompt_sprite", "equals": "controllerActionBar/xbox-a-normal.png"},
+		{"op": "assert", "probe": "addSpell", "field": "cancel_prompt_sprite", "equals": "controllerActionBar/xbox-b-normal.png"},
+		{"op": "assert", "probe": "addSpell", "field": "accept_prompt_label", "equals": "A"},
+		{"op": "assert", "probe": "addSpell", "field": "cancel_prompt_label", "equals": "B"},
+		{"op": "capture_frame", "name": "xbox-action-prompts"},
+		{"op": "press", "device": "pad0", "control": "south"},
+		{"op": "wait_frames", "frames": 2},
+		{"op": "assert", "probe": "addSpell", "field": "accept_prompt_sprite", "equals": "controllerActionBar/xbox-a-pressed.png"},
+		{"op": "assert", "probe": "addSpell", "field": "accept_prompt_label", "equals": "A"},
+		{"op": "capture_frame", "name": "xbox-action-prompts-pressed"},
+		{"op": "release", "device": "pad0", "control": "south"},
+		{"op": "wait_until", "probe": "addSpell", "field": "open", "equals": false, "timeout_ms": 2000},
+		{"op": "assert", "probe": "domain", "field": "spell_count", "equals": 1},
+		{"op": "request_shutdown"}
+	]
+}

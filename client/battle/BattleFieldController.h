@@ -104,7 +104,6 @@ class BattleFieldController : public CIntObject
 	std::vector<BattleHex::EDir> controllerMeleeDirections() const;
 	bool cycleControllerMeleeDirection(bool forward);
 	Point attackDirectionPoint(const BattleHex & target, BattleHex::EDir direction) const;
-	std::string getControllerPrimaryActionName() const;
 	bool drawControllerPrompts(Canvas & to);
 
 	BattleHex getHexAtPosition(Point hoverPosition);
@@ -175,6 +174,15 @@ public:
 	void controllerStackMoved(const CStack * stack);
 	void controllerStackRemoved(uint32_t stackId);
 	BattleHex getControllerFocusedHex() const;
+	std::string getControllerPrimaryActionName() const;
+#ifdef VCMI_CONTROLLER_E2E
+	bool wasControllerFocusCursorDrawnForE2E() const { return controllerFocusCursorDrawn; }
+	bool wasControllerActionPromptDrawnForE2E() const { return controllerActionPromptDrawn; }
+	int controllerMeleeCycleAttemptsForE2E() const { return controllerMeleeCycleAttempts; }
+	int controllerMeleeCycleSuccessesForE2E() const { return controllerMeleeCycleSuccesses; }
+	int controllerMeleeCycleBeforeSyncForE2E() const { return controllerMeleeCycleBeforeSync; }
+	int controllerMeleeCycleAfterSyncForE2E() const { return controllerMeleeCycleAfterSync; }
+#endif
 
 private:
 	void updateShake();
@@ -190,6 +198,14 @@ private:
 	std::optional<bool> controllerMeleeRepeatDirection;
 	ControllerNavigationRepeatState controllerMeleeRepeat;
 	std::map<std::string, std::shared_ptr<IImage>> controllerPromptSprites;
+#ifdef VCMI_CONTROLLER_E2E
+	bool controllerFocusCursorDrawn = false;
+	bool controllerActionPromptDrawn = false;
+	int controllerMeleeCycleAttempts = 0;
+	int controllerMeleeCycleSuccesses = 0;
+	int controllerMeleeCycleBeforeSync = -1;
+	int controllerMeleeCycleAfterSync = -1;
+#endif
 
 	/// current shake offset and animation progress
 	Point shakeOffset;

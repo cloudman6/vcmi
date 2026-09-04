@@ -1,0 +1,55 @@
+{
+	"schema": "vcmi.controller-e2e/v1",
+	"id": "battle.v3.spell-radial-teleport-target-lost",
+	"profile": "dualsense",
+	"settingsOverride": {
+		"input": {"enableMouse": true},
+		"server": {"seed": 20260829}
+	},
+	"timeout_ms": 90000,
+	"fixture": {
+		"setup": "battle-map-start",
+		"map": "battle-e2e-spell-targets",
+		"quickSpells": ["core:teleport"],
+		"autofightPlayers": ["blue"]
+	},
+	"prelude": [
+		{"op": "attach", "device": "pad0", "profile": "dualsense"}
+	],
+	"steps": [
+		{"op": "wait_until", "probe": "runtime", "field": "top_window", "changes": true, "timeout_ms": 60000},
+		{"op": "tap", "device": "pad0", "control": "ps"},
+		{"op": "wait_until", "probe": "battle", "field": "focus_hex", "equals": 36, "timeout_ms": 20000, "stable_for_frames": 3},
+		{"op": "set_axis", "device": "pad0", "control": "l2", "value": 1},
+		{"op": "wait_until", "probe": "battle", "field": "action_radial.open", "equals": true, "timeout_ms": 3000, "stable_for_frames": 3},
+		{"op": "neutralize", "device": "pad0"},
+		{"op": "wait_frames", "frames": 3},
+		{"op": "set_axis", "device": "pad0", "control": "left_stick_y", "value": -1},
+		{"op": "wait_until", "probe": "battle", "field": "action_radial.selected", "equals": "core:teleport", "timeout_ms": 3000, "stable_for_frames": 3},
+		{"op": "tap", "device": "pad0", "control": "south"},
+		{"op": "wait_until", "probe": "battle", "field": "hero_spellcasting_mode", "equals": true, "timeout_ms": 3000, "stable_for_frames": 3},
+		{"op": "set_axis", "device": "pad0", "control": "right_stick_y", "value": 1},
+		{"op": "wait_until", "probe": "battle", "field": "focus_hex", "equals": 137, "timeout_ms": 3000, "stable_for_frames": 3},
+		{"op": "neutralize", "device": "pad0"},
+		{"op": "wait_until", "probe": "battle", "field": "primary_action", "equals": "cast", "timeout_ms": 3000, "stable_for_frames": 3},
+		{"op": "tap", "device": "pad0", "control": "south"},
+		{"op": "wait_frames", "frames": 3},
+		{"op": "set_axis", "device": "pad0", "control": "left_stick_x", "value": 1},
+		{"op": "wait_until", "probe": "battle", "field": "focus_hex", "equals": 138, "timeout_ms": 3000, "stable_for_frames": 3},
+		{"op": "neutralize", "device": "pad0"},
+		{"op": "wait_until", "probe": "battle", "field": "primary_action", "equals": "cast", "timeout_ms": 3000, "stable_for_frames": 3},
+		{"op": "authority_remove_battle_stack", "stack_id": 1},
+		{"op": "wait_until", "probe": "battle", "field": "alive_unit_ids", "equals": [0, 2], "timeout_ms": 3000, "stable_for_frames": 3},
+		{"op": "assert", "probe": "battle", "field": "hero_spellcasting_mode", "equals": true},
+		{"op": "wait_until", "probe": "battle", "field": "primary_action", "equals": "none", "timeout_ms": 3000, "stable_for_frames": 3},
+		{"op": "tap", "device": "pad0", "control": "south"},
+		{"op": "assert", "probe": "battle", "field": "hero_spellcasting_mode", "equals": true},
+		{"op": "assert", "probe": "battle", "field": "commands_sent", "equals": 0},
+		{"op": "tap", "device": "pad0", "control": "east"},
+		{"op": "wait_until", "probe": "battle", "field": "hero_spellcasting_mode", "equals": false, "timeout_ms": 3000, "stable_for_frames": 3},
+		{"op": "wait_until", "probe": "battle", "field": "active_stack.id", "equals": 0, "timeout_ms": 3000, "stable_for_frames": 3},
+		{"op": "wait_frames", "frames": 30},
+		{"op": "assert", "probe": "battle", "field": "active_stack.id", "equals": 0},
+		{"op": "request_shutdown"}
+	]
+}

@@ -14,6 +14,7 @@
 #include "../gui/CIntObject.h"
 
 class IImage;
+class JsonNode;
 
 struct ControllerRadialItem
 {
@@ -98,4 +99,8 @@ public:
 	bool usesNativeControllerAxis() const override;
 	bool controllerAxisMoved(int instanceId, const std::vector<EShortcut> & actions, double value) override;
 	void controllerInputReset() override;
+
+#ifdef VCMI_CONTROLLER_E2E
+	JsonNode controllerE2ESnapshot() const;
+#endif
 };

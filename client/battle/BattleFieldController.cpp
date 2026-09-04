@@ -740,6 +740,9 @@ bool BattleFieldController::controllerMeleeDirectionAvailable() const
 
 bool BattleFieldController::cycleControllerMeleeDirection(bool forward)
 {
+#ifdef VCMI_CONTROLLER_E2E
+	++controllerMeleeCycleAttempts;
+#endif
 	const auto directions = controllerMeleeDirections();
 	if(directions.size() <= 1)
 		return false;
@@ -749,7 +752,17 @@ bool BattleFieldController::cycleControllerMeleeDirection(bool forward)
 	size_t index = iterator == directions.end() ? 0 : std::distance(directions.begin(), iterator);
 	index = forward ? (index + 1) % directions.size() : (index + directions.size() - 1) % directions.size();
 	currentAttackOriginPoint = attackDirectionPoint(hoveredHex, directions[index]);
+#ifdef VCMI_CONTROLLER_E2E
+	++controllerMeleeCycleSuccesses;
+	const bool allowLongWeapon = controllerActionAt(hoveredHex)->get() == PossiblePlayerBattleAction::LONG_WEAPON_ATTACK;
+	controllerMeleeCycleBeforeSync = owner.getBattle()->fromWhichHexAttack(
+		owner.stacksController->getActiveStack(), hoveredHex, directions[index], allowLongWeapon).toInt();
+#endif
 	refreshControllerPresentation();
+#ifdef VCMI_CONTROLLER_E2E
+	controllerMeleeCycleAfterSync = owner.getBattle()->fromWhichHexAttack(
+		owner.stacksController->getActiveStack(), hoveredHex, selectAttackDirection(hoveredHex), allowLongWeapon).toInt();
+#endif
 	return true;
 }
 
@@ -1613,6 +1626,10 @@ void BattleFieldController::tick(uint32_t msPassed)
 
 void BattleFieldController::show(Canvas & to)
 {
+#ifdef VCMI_CONTROLLER_E2E
+	controllerFocusCursorDrawn = false;
+	controllerActionPromptDrawn = false;
+#endif
 	CanvasClipRectGuard guard(to, pos);
 
 	renderBattlefield(to);
@@ -1621,7 +1638,12 @@ void BattleFieldController::show(Canvas & to)
 		&& owner.actionsController->hasActionOwner())
 	{
 		to.draw(ENGINE->cursor().getCurrentImage(), hexPositionAbsolute(getHoveredHex()).center() - ENGINE->cursor().getPivotOffset());
+#ifdef VCMI_CONTROLLER_E2E
+		controllerActionPromptDrawn = drawControllerPrompts(to);
+		controllerFocusCursorDrawn = true;
+#else
 		drawControllerPrompts(to);
+#endif
 	}
 	else if (isActive() && isGesturing() && getHoveredHex() != BattleHex::INVALID)
 		to.draw(ENGINE->cursor().getCurrentImage(), hexPositionAbsolute(getHoveredHex()).center() - ENGINE->cursor().getPivotOffset());

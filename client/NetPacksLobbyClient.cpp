@@ -10,6 +10,9 @@
 #include "StdInc.h"
 
 #include "LobbyClientNetPackVisitors.h"
+#ifdef VCMI_CONTROLLER_E2E
+#include "controllerE2E/ControllerE2EExecutor.h"
+#endif
 #include "lobby/CSelectionBase.h"
 #include "lobby/CLobbyScreen.h"
 
@@ -269,5 +272,10 @@ void ApplyOnLobbyScreenNetPackVisitor::visitLobbyShowMessage(LobbyShowMessage & 
 void ApplyOnLobbyScreenNetPackVisitor::visitLobbySetBattleOnlyModeStartInfo(LobbySetBattleOnlyModeStartInfo & pack)
 {
 	if(lobby && lobby->tabBattleOnlyMode)
+	{
 		lobby->tabBattleOnlyMode->applyStartInfo(pack.startInfo);
+#ifdef VCMI_CONTROLLER_E2E
+		ControllerE2E::Hooks::recordBattleOnlyStartInfoApplied(pack.startInfo);
+#endif
+	}
 }

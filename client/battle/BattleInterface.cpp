@@ -13,6 +13,7 @@
 #include "BattleActionsController.h"
 #include "BattleAnimationClasses.h"
 #include "BattleConsole.h"
+#include "../gui/ControllerRadial.h"
 #include "BattleEffectsController.h"
 #include "BattleFieldController.h"
 #include "BattleHero.h"
@@ -24,6 +25,12 @@
 #include "BattleStacksController.h"
 #include "BattleWindow.h"
 #include "CreatureAnimation.h"
+
+#ifdef VCMI_CONTROLLER_E2E
+#include "../controllerE2E/ControllerE2EExecutor.h"
+#include "../controllerE2E/ControllerE2EProbes.h"
+#include "../windows/CSpellWindow.h"
+#endif
 
 #include "../CPlayerInterface.h"
 #include "../GameEngine.h"
@@ -105,6 +112,10 @@ BattleInterface::BattleInterface(const BattleID & battleID, const CCreatureSet *
 	windowObject->updateQueue();
 
 	playIntroSoundAndUnlockInterface();
+
+#ifdef VCMI_CONTROLLER_E2E
+	registerControllerE2EProbe();
+#endif
 }
 
 bool BattleInterface::isInTacticsMode()
@@ -198,6 +209,10 @@ void BattleInterface::openingEnd()
 BattleInterface::~BattleInterface()
 {
 	CPlayerInterface::battleInt = nullptr;
+
+#ifdef VCMI_CONTROLLER_E2E
+	ControllerE2E::ProbeRegistry::instance().unregisterProbe("battle");
+#endif
 
 	if (adventureInt)
 		adventureInt->onAudioResumed();
@@ -314,9 +329,258 @@ void BattleInterface::giveCommand(EActionType action, const std::vector<BattleHe
 	sendCommand(ba, actor);
 }
 
+#ifdef VCMI_CONTROLLER_E2E
+namespace
+{
+si64 controllerE2EHexId(const BattleHex & hex)
+{
+	return hex.isValid() ? hex.getX() + hex.getY() * GameConstants::BFIELD_WIDTH : -1;
+}
+
+JsonNode controllerE2EStackNode(const battle::Unit & stack)
+{
+	JsonNode node;
+	node["id"].Integer() = stack.unitId();
+	node["type"].String() = stack.unitType() ? stack.unitType()->getJsonKey() : "";
+	node["position"].Integer() = controllerE2EHexId(stack.getPosition());
+	node["count"].Integer() = stack.getCount();
+	node["available_health"].Integer() = stack.getAvailableHealth();
+	node["alive"].Bool() = stack.alive();
+	if(const auto * clientStack = dynamic_cast<const CStack *>(&stack))
+		node["shots_available"].Integer() = clientStack->shots.available();
+	return node;
+}
+
+std::string controllerE2EMeleeActionName(PossiblePlayerBattleAction::Actions action)
+{
+	switch(action)
+	{
+		case PossiblePlayerBattleAction::ATTACK:
+			return "attack";
+		case PossiblePlayerBattleAction::LONG_WEAPON_ATTACK:
+			return "long_weapon_attack";
+		case PossiblePlayerBattleAction::WALK_AND_ATTACK:
+			return "walk_and_attack";
+		case PossiblePlayerBattleAction::ATTACK_AND_RETURN:
+			return "attack_and_return";
+		default:
+			return "none";
+	}
+}
+
+std::string controllerE2EShootDisabledReasonTextKey(BattleInterface & owner, const BattleHex & focusedHex)
+{
+	if(owner.isInTacticsMode())
+		return "";
+
+	const auto battle = owner.getBattle();
+	const auto * activeStack = owner.stacksController->getActiveStack();
+	if(activeStack != nullptr && activeStack->hasBonusOfType(BonusType::SIEGE_WEAPON))
+		return "";
+	const auto * targetStack = focusedHex.isValid()
+		? battle->battleGetStackByPos(focusedHex, true)
+		: nullptr;
+	const bool shootingConcern = activeStack != nullptr
+		&& activeStack->isShooter()
+		&& targetStack != nullptr
+		&& targetStack->alive()
+		&& battle->battleMatchOwner(activeStack, targetStack);
+	if(!shootingConcern || battle->battleCanShoot(activeStack, focusedHex))
+		return "";
+	if(!activeStack->shots.canUse())
+		return "vcmi.battleWindow.controller.shootDisabled.noAmmo";
+	if(activeStack->canShoot() && !activeStack->canShootBlocked() && battle->battleIsUnitBlocked(activeStack))
+		return "vcmi.battleWindow.controller.shootDisabled.blocked";
+	if(const auto limitedRange = activeStack->getBonus(Selector::type()(BonusType::LIMITED_SHOOTING_RANGE));
+		limitedRange && !battle->isEnemyUnitWithinSpecifiedRange(
+			activeStack->getPosition(), targetStack, limitedRange->val))
+		return "vcmi.battleWindow.controller.shootDisabled.outOfRange";
+	return "vcmi.battleWindow.controller.shootDisabled.prohibited";
+}
+
+std::string controllerE2EShootDisabledReasonName(const std::string & textKey)
+{
+	if(textKey == "vcmi.battleWindow.controller.shootDisabled.noAmmo")
+		return "no_ammo";
+	if(textKey == "vcmi.battleWindow.controller.shootDisabled.blocked")
+		return "blocked_by_adjacent_enemy";
+	if(textKey == "vcmi.battleWindow.controller.shootDisabled.outOfRange")
+		return "out_of_range";
+	if(textKey == "vcmi.battleWindow.controller.shootDisabled.prohibited")
+		return "rule_prohibited";
+	return "none";
+}
+}
+
+void BattleInterface::registerControllerE2EProbe()
+{
+	ControllerE2E::ProbeRegistry::instance().registerProbe("battle", []()
+	{
+		JsonNode snapshot;
+		auto observed = CPlayerInterface::battleInt;
+		if(!observed)
+		{
+			snapshot["open"].Bool() = false;
+			return snapshot;
+		}
+
+		snapshot["open"].Bool() = true;
+		snapshot["active_interface_is_global"].Bool() = GAME->interface() == observed->curInt.get();
+		snapshot["round"].Integer() = observed->round;
+		snapshot["tactics_mode"].Bool() = observed->isInTacticsMode();
+		const auto * field = observed->fieldController.get();
+		const BattleHex controllerFocus = field ? field->getControllerFocusedHex() : BattleHex::INVALID;
+		if(controllerFocus.isValid() && controllerFocus != observed->controllerE2ELastObservedFocus)
+		{
+			observed->controllerE2ELastObservedFocus = controllerFocus;
+			++observed->controllerE2EFocusVisitCounts[controllerFocus.toInt()];
+		}
+		for(const auto & [hex, visits] : observed->controllerE2EFocusVisitCounts)
+			snapshot["focus_visit_counts"]["hex_" + std::to_string(hex)].Integer() = visits;
+		snapshot["native_mode"].Bool() = field && field->isControllerNativeMode();
+		snapshot["cursor_mode"].Bool() = field && field->isControllerCursorMode();
+		snapshot["focus_cursor_drawn"].Bool() = field && field->wasControllerFocusCursorDrawnForE2E();
+		snapshot["action_prompt_drawn"].Bool() = field && field->wasControllerActionPromptDrawnForE2E();
+		snapshot["primary_action"].String() = field ? field->getControllerPrimaryActionName() : "none";
+		snapshot["shoot_disabled_reason"].String() = controllerE2EShootDisabledReasonName(
+			controllerE2EShootDisabledReasonTextKey(*observed, controllerFocus));
+		snapshot["hero_spellcasting_mode"].Bool() = observed->actionsController->heroSpellcastingModeActive();
+		snapshot["creature_spellcasting_mode"].Bool() = observed->actionsController->creatureSpellcastingModeActive();
+		snapshot["right_click_cancels_action"].Bool() = observed->actionsController->rightClickCancelsAction();
+		snapshot["controller_context_mode"].Bool() = observed->actionsController->rightClickCancelsAction();
+		snapshot["hold_inspect_available"].Bool() = field && field->controllerInspectAvailable();
+		snapshot["inspect_open"].Bool() = observed->windowObject
+			&& observed->windowObject->controllerInspectOpenForE2E();
+		snapshot["ui_blocked"].Bool() = observed->windowObject
+			&& observed->windowObject->controllerE2EUIBlocked();
+		snapshot["autocombat_active"].Bool() = observed->curInt->isAutoFightOn;
+		snapshot["end_with_autocombat_setting"].Bool() = settings["battle"]["endWithAutocombat"].Bool();
+		snapshot["only_one_player_human"].Bool() = observed->windowObject
+			&& observed->windowObject->controllerE2EOnlyOnePlayerHuman();
+		snapshot["spellbook_open"].Bool() = ENGINE->windows().topWindow<CSpellWindow>() != nullptr;
+		const auto actionRadial = ENGINE->windows().topWindow<ControllerRadial>();
+		if(actionRadial)
+			snapshot["action_radial"] = actionRadial->controllerE2ESnapshot();
+		else
+			snapshot["action_radial"]["open"].Bool() = false;
+		snapshot["melee_cycle_attempts"].Integer() = field ? field->controllerMeleeCycleAttemptsForE2E() : 0;
+		snapshot["melee_cycle_successes"].Integer() = field ? field->controllerMeleeCycleSuccessesForE2E() : 0;
+		snapshot["melee_cycle_before_sync"].Integer() = field ? field->controllerMeleeCycleBeforeSyncForE2E() : -1;
+		snapshot["melee_cycle_after_sync"].Integer() = field ? field->controllerMeleeCycleAfterSyncForE2E() : -1;
+		if(const auto * hero = observed->getBattle()->battleGetMyHero())
+		{
+			snapshot["hero_has_spellbook"].Bool() = hero->hasSpellbook();
+			snapshot["hero_can_cast_spells"].Bool() = observed->getBattle()->battleCanCastSpell(
+				hero, spells::Mode::HERO) == ESpellCastProblem::OK;
+		}
+
+		const auto legalAction = field ? observed->actionsController->legalActionAt(controllerFocus) : std::nullopt;
+		const auto * activeStackForMelee = observed->stacksController->getActiveStack();
+		const bool meleeAction = legalAction && (legalAction->get() == PossiblePlayerBattleAction::ATTACK
+			|| legalAction->get() == PossiblePlayerBattleAction::LONG_WEAPON_ATTACK
+			|| legalAction->get() == PossiblePlayerBattleAction::WALK_AND_ATTACK
+			|| legalAction->get() == PossiblePlayerBattleAction::ATTACK_AND_RETURN);
+		if(meleeAction && activeStackForMelee)
+		{
+			const auto direction = field->selectAttackDirection(controllerFocus);
+			const bool allowLongWeapon = legalAction->get() == PossiblePlayerBattleAction::LONG_WEAPON_ATTACK;
+			const auto attackFrom = observed->getBattle()->fromWhichHexAttack(
+				activeStackForMelee, controllerFocus, direction, allowLongWeapon);
+			auto & melee = snapshot["melee_selection"];
+			melee["valid"].Bool() = attackFrom.isValid();
+			melee["action"].String() = controllerE2EMeleeActionName(legalAction->get());
+			melee["target_hex"].Integer() = controllerE2EHexId(controllerFocus);
+			melee["attack_from"].Integer() = controllerE2EHexId(attackFrom);
+			melee["direction"].Integer() = direction;
+			melee["allows_long_weapon"].Bool() = allowLongWeapon;
+			melee["returns_after_attack"].Bool() = legalAction->get() == PossiblePlayerBattleAction::ATTACK_AND_RETURN;
+		}
+		else
+			snapshot["melee_selection"]["valid"].Bool() = false;
+
+		if(observed->controllerE2ELastCommandType >= 0)
+		{
+			auto & lastCommand = snapshot["last_command"];
+			lastCommand["type"].Integer() = observed->controllerE2ELastCommandType;
+			lastCommand["actor_id"].Integer() = observed->controllerE2ELastCommandActor;
+			lastCommand["target_count"].Integer() = observed->controllerE2ELastCommandTargets.size();
+			auto & targets = lastCommand["targets"].Vector();
+			for(std::size_t index = 0; index < observed->controllerE2ELastCommandTargets.size(); ++index)
+			{
+				const auto & target = observed->controllerE2ELastCommandTargets[index];
+				targets.push_back(JsonNode(controllerE2EHexId(target)));
+				lastCommand["target_" + std::to_string(index)].Integer() = controllerE2EHexId(target);
+			}
+		}
+		const BattleHex hoveredHex = observed->fieldController
+			? observed->fieldController->getHoveredHex()
+			: BattleHex::INVALID;
+		snapshot["focus_hex"].Integer() = controllerE2EHexId(controllerFocus);
+		snapshot["hovered_hex"].Integer() = controllerE2EHexId(hoveredHex);
+		snapshot["commands_sent"].Integer() = observed->controllerE2ECommandsSent;
+		snapshot["status_text"].String() = observed->console ? observed->console->controllerE2EHoverText() : "";
+
+		if(hoveredHex.isValid())
+		{
+			const Point center = observed->fieldController->hexPositionAbsolute(hoveredHex).center();
+			snapshot["focus_center_x"].Integer() = center.x;
+			snapshot["focus_center_y"].Integer() = center.y;
+			const auto * focusedStack = observed->getBattle()->battleGetStackByPos(hoveredHex, true);
+			if(focusedStack)
+				snapshot["focused_stack"] = controllerE2EStackNode(*focusedStack);
+		}
+
+		const CStack * activeStack = observed->stacksController
+			? observed->stacksController->getActiveStack()
+			: nullptr;
+		if(activeStack)
+			snapshot["active_stack"] = controllerE2EStackNode(*activeStack);
+		else
+			snapshot["active_stack"]["id"].Integer() = -1;
+
+		auto & stacks = snapshot["stacks"].Vector();
+		auto & stacksById = snapshot["stacks_by_id"].Struct();
+		auto & allStacksById = snapshot["all_stacks_by_id"].Struct();
+		for(const auto * stack : observed->getBattle()->battleGetAllStacks(true))
+			if(stack)
+				allStacksById["id_" + std::to_string(stack->unitId())] = controllerE2EStackNode(*stack);
+		std::vector<uint32_t> aliveUnitIds;
+		for(const auto * stack : observed->getBattle()->battleAliveUnits())
+			if(stack)
+			{
+				JsonNode stackNode = controllerE2EStackNode(*stack);
+				stackNode["double_wide"].Bool() = stack->doubleWide();
+				stackNode["occupied_position"].Integer() = controllerE2EHexId(stack->occupiedHex());
+				stacks.push_back(stackNode);
+				stacksById["id_" + std::to_string(stack->unitId())] = std::move(stackNode);
+				aliveUnitIds.push_back(stack->unitId());
+			}
+		std::sort(aliveUnitIds.begin(), aliveUnitIds.end());
+		auto & aliveIds = snapshot["alive_unit_ids"].Vector();
+		for(const auto unitId : aliveUnitIds)
+			aliveIds.push_back(JsonNode(static_cast<si64>(unitId)));
+
+		return snapshot;
+	});
+}
+#endif
+
 void BattleInterface::sendCommand(BattleAction command, const CStack * actor)
 {
+#ifdef VCMI_CONTROLLER_E2E
+	++controllerE2ECommandsSent;
+#endif
 	command.stackNumber = actor ? actor->unitId() : ((command.side == BattleSide::ATTACKER) ? -1 : -2);
+#ifdef VCMI_CONTROLLER_E2E
+	controllerE2ELastCommandType = static_cast<int>(command.actionType);
+	controllerE2ELastCommandActor = command.stackNumber;
+	controllerE2ELastCommandTargets.clear();
+	for(const auto & target : command.target)
+		controllerE2ELastCommandTargets.push_back(target.hexValue);
+
+	auto * executor = ControllerE2E::ControllerE2EExecutor::instance();
+	const bool rejectByHarness = executor && executor->consumeNextBattleActionRejection();
+#endif
 	// A synchronous rejection callback can restore the active stack and its
 	// presentation before this function returns. Establish the in-flight cursor
 	// first so that the restored presentation remains authoritative.
@@ -326,6 +590,11 @@ void BattleInterface::sendCommand(BattleAction command, const CStack * actor)
 	{
 		logGlobal->trace("Setting command for %s", (actor ? actor->nodeName() : "hero"));
 		stacksController->setActiveStack(nullptr);
+#ifdef VCMI_CONTROLLER_E2E
+		if(rejectByHarness)
+			curInt->controllerE2ERejectBattleAction();
+		else
+#endif
 		curInt->cb->battleMakeUnitAction(battleID, command);
 	}
 	else
@@ -335,6 +604,17 @@ void BattleInterface::sendCommand(BattleAction command, const CStack * actor)
 		//next stack will be activated when action ends
 	}
 }
+
+#ifdef VCMI_CONTROLLER_E2E
+bool BattleInterface::controllerE2ERejectNextBattleAction()
+{
+	auto * executor = ControllerE2E::ControllerE2EExecutor::instance();
+	if(!executor || !executor->consumeNextBattleActionRejection())
+		return false;
+	curInt->controllerE2ERejectBattleAction();
+	return true;
+}
+#endif
 
 const CGHeroInstance * BattleInterface::getActiveHero()
 {

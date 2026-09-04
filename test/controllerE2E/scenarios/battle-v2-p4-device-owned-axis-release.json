@@ -1,0 +1,45 @@
+{
+	"schema": "vcmi.controller-e2e/v1",
+	"id": "battle.v2.p4.device-owned-axis-release",
+	"profile": "dualsense",
+	"settingsOverride": {
+		"input": {"enableMouse": true},
+		"server": {"seed": 20260829}
+	},
+	"timeout_ms": 90000,
+	"fixture": {
+		"setup": "battle-map-start",
+		"map": "battle-e2e",
+		"autofightPlayers": ["blue"]
+	},
+	"prelude": [
+		{"op": "attach", "device": "pad0", "profile": "dualsense"},
+		{"op": "attach", "device": "pad1", "profile": "xbox-series"}
+	],
+	"steps": [
+		{"op": "wait_until", "probe": "runtime", "field": "top_window", "changes": true, "timeout_ms": 60000},
+		{"op": "tap", "device": "pad0", "control": "ps"},
+		{"op": "wait_until", "probe": "battle", "field": "native_mode", "equals": true, "timeout_ms": 20000, "stable_for_frames": 3},
+		{"op": "set_axis", "device": "pad0", "control": "l2", "value": 1.0},
+		{"op": "wait_until", "probe": "runtime", "field": "left_trigger_pressed", "equals": true, "timeout_ms": 3000},
+		{"op": "assert", "probe": "runtime", "field": "left_trigger_owned_by_active_controller", "equals": true},
+		{"op": "set_axis", "device": "pad1", "control": "lt", "value": 1.0},
+		{"op": "wait_until", "probe": "runtime", "field": "presentation", "equals": "xbox", "timeout_ms": 3000},
+		{"op": "assert", "probe": "runtime", "field": "left_trigger_pressed", "equals": true},
+		{"op": "assert", "probe": "runtime", "field": "left_trigger_owned_by_active_controller", "equals": true},
+		{"op": "set_axis", "device": "pad0", "control": "l2", "value": 0.0},
+		{"op": "wait_frames", "frames": 4},
+		{"op": "assert", "probe": "runtime", "field": "left_trigger_pressed", "equals": true},
+		{"op": "assert", "probe": "runtime", "field": "left_trigger_owned_by_active_controller", "equals": true},
+		{"op": "set_axis", "device": "pad1", "control": "lt", "value": 0.0},
+		{"op": "wait_until", "probe": "runtime", "field": "left_trigger_pressed", "equals": false, "timeout_ms": 3000},
+		{"op": "set_axis", "device": "pad0", "control": "left_stick_x", "value": 1.0},
+		{"op": "wait_until", "probe": "battle", "field": "focus_hex", "equals": 37, "timeout_ms": 3000},
+		{"op": "set_axis", "device": "pad1", "control": "left_stick_x", "value": 1.0},
+		{"op": "wait_until", "probe": "battle", "field": "focus_hex", "equals": 38, "timeout_ms": 3000},
+		{"op": "set_axis", "device": "pad0", "control": "left_stick_x", "value": 0.0},
+		{"op": "wait_until", "probe": "battle", "field": "focus_hex", "equals": 39, "timeout_ms": 3000},
+		{"op": "neutralize", "device": "pad1"},
+		{"op": "request_shutdown"}
+	]
+}

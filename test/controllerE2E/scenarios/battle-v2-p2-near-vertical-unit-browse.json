@@ -1,0 +1,33 @@
+{
+	"schema": "vcmi.controller-e2e/v1",
+	"id": "battle.v2.p2.near-vertical-unit-browse",
+	"profile": "dualsense",
+	"settingsOverride": {
+		"input": {"enableMouse": true},
+		"server": {"seed": 20260829}
+	},
+	"timeout_ms": 90000,
+	"fixture": {
+		"setup": "battle-map-start",
+		"map": "battle-e2e-three-stack",
+		"autofightPlayers": ["blue"]
+	},
+	"prelude": [
+		{"op": "attach", "device": "pad0", "profile": "dualsense"}
+	],
+	"steps": [
+		{"op": "wait_until", "probe": "runtime", "field": "battle_open", "equals": true, "timeout_ms": 60000, "stable_for_frames": 3},
+		{"op": "tap", "device": "pad0", "control": "ps"},
+		{"op": "wait_until", "probe": "battle", "field": "focus_hex", "equals": 87, "timeout_ms": 20000, "stable_for_frames": 3},
+		{"op": "set_axis", "device": "pad0", "control": "right_stick_x", "value": 1.0},
+		{"op": "wait_until", "probe": "battle", "field": "focus_hex", "changes": true, "timeout_ms": 3000},
+		{"op": "neutralize", "device": "pad0"},
+		{"op": "assert", "probe": "battle", "field": "focus_hex", "equals": 99},
+		{"op": "set_axis", "device": "pad0", "control": "right_stick_y", "value": 0.5},
+		{"op": "wait_until", "probe": "battle", "field": "focus_hex", "equals": 151, "timeout_ms": 3000},
+		{"op": "neutralize", "device": "pad0"},
+		{"op": "set_axis", "device": "pad0", "control": "right_stick_y", "value": -0.5},
+		{"op": "wait_until", "probe": "battle", "field": "focus_visit_counts.hex_99", "equals": 2, "timeout_ms": 3000},
+		{"op": "request_shutdown"}
+	]
+}

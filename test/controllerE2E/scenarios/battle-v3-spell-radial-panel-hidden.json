@@ -1,0 +1,110 @@
+{
+	"schema": "vcmi.controller-e2e/v1",
+	"id": "battle.v3.spell-radial-panel-hidden",
+	"profile": "dualsense",
+	"settingsOverride": {
+		"battle": {
+			"enableQuickSpellPanel": false
+		},
+		"input": {
+			"enableMouse": true
+		},
+		"server": {
+			"seed": 20260828
+		}
+	},
+	"timeout_ms": 90000,
+	"fixture": {
+		"setup": "battle-map-start",
+		"map": "battle-e2e-spells",
+		"quickSpells": [
+			"core:cure",
+			null,
+			"core:slow"
+		],
+		"autofightPlayers": [
+			"blue"
+		]
+	},
+	"prelude": [
+		{
+			"op": "attach",
+			"device": "pad0",
+			"profile": "dualsense"
+		}
+	],
+	"steps": [
+		{
+			"op": "wait_until",
+			"probe": "runtime",
+			"field": "top_window",
+			"changes": true,
+			"timeout_ms": 60000
+		},
+		{
+			"op": "tap",
+			"device": "pad0",
+			"control": "ps"
+		},
+		{
+			"op": "wait_until",
+			"probe": "battle",
+			"field": "open",
+			"equals": true,
+			"timeout_ms": 20000
+		},
+		{
+			"op": "set_axis",
+			"device": "pad0",
+			"control": "l2",
+			"value": 1
+		},
+		{
+			"op": "wait_until",
+			"probe": "battle",
+			"field": "action_radial.open",
+			"equals": true,
+			"timeout_ms": 3000,
+			"stable_for_frames": 3
+		},
+		{
+			"op": "assert",
+			"probe": "battle",
+			"field": "action_radial.kind",
+			"equals": "spells"
+		},
+		{
+			"op": "assert",
+			"probe": "battle",
+			"field": "action_radial.item_count",
+			"equals": 18
+		},
+		{
+			"op": "assert",
+			"probe": "battle",
+			"field": "action_radial.page_count",
+			"equals": 2
+		},
+		{
+			"op": "assert",
+			"probe": "battle",
+			"field": "action_radial.sequence_csv",
+			"equals": "core:cure,core:magicArrow,core:slow,core:iceBolt,core:lightningBolt,core:shield,core:fireShield,core:dispel,core:bless,core:curse,core:bloodlust,core:weakness,core:stoneSkin,core:disruptingRay,core:mirth,core:fortune,core:haste,core:blind"
+		},
+		{
+			"op": "assert",
+			"probe": "battle",
+			"field": "action_radial.sequence.12.page",
+			"equals": 1
+		},
+		{
+			"op": "assert",
+			"probe": "battle",
+			"field": "action_radial.sequence.17.slot",
+			"equals": 5
+		},
+		{
+			"op": "request_shutdown"
+		}
+	]
+}

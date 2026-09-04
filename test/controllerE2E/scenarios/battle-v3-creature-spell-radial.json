@@ -1,0 +1,80 @@
+{
+	"schema": "vcmi.controller-e2e/v1",
+	"id": "battle.v3.creature-spell-radial",
+	"profile": "dualsense",
+	"settingsOverride": {
+		"battle": {"enableQuickSpellPanel": true},
+		"input": {"enableMouse": true},
+		"server": {"seed": 20260829}
+	},
+	"timeout_ms": 90000,
+	"fixture": {
+		"setup": "battle-map-start",
+		"map": "battle-e2e-creature-spell",
+		"quickSpells": [
+			"core:blind",
+			"core:slow",
+			"core:haste",
+			"core:fortune",
+			"core:mirth",
+			"core:disruptingRay",
+			"core:stoneSkin",
+			"core:weakness",
+			"core:bloodlust",
+			"core:curse",
+			"core:bless",
+			"core:cure"
+		],
+		"autofightPlayers": ["blue"]
+	},
+	"manual": {
+		"prelude": [],
+		"steps": [
+			{"op": "wait_until", "probe": "runtime", "field": "top_window", "changes": true, "timeout_ms": 60000},
+			{"op": "wait_until", "probe": "battle", "field": "open", "equals": true, "timeout_ms": 60000, "stable_for_frames": 3},
+			{"op": "manual_hold"}
+		]
+	},
+	"prelude": [{"op": "attach", "device": "pad0", "profile": "dualsense"}],
+	"steps": [
+		{"op": "wait_until", "probe": "runtime", "field": "top_window", "changes": true, "timeout_ms": 60000},
+		{"op": "tap", "device": "pad0", "control": "ps"},
+		{"op": "wait_until", "probe": "battle", "field": "active_stack.type", "equals": "core:stormElemental", "timeout_ms": 20000, "stable_for_frames": 3},
+		{"op": "set_axis", "device": "pad0", "control": "r2", "value": 1.0},
+		{"op": "wait_until", "probe": "battle", "field": "action_radial.open", "equals": true, "timeout_ms": 3000},
+		{"op": "assert", "probe": "battle", "field": "action_radial.items.creature:core:protectAir.enabled", "equals": true},
+		{"op": "neutralize", "device": "pad0"},
+		{"op": "wait_frames", "frames": 3},
+		{"op": "set_axis", "device": "pad0", "control": "left_stick_x", "value": -0.9},
+		{"op": "set_axis", "device": "pad0", "control": "left_stick_y", "value": -0.5},
+		{"op": "wait_until", "probe": "battle", "field": "action_radial.selected", "equals": "creature:core:protectAir", "timeout_ms": 3000},
+		{"op": "capture_frame", "name": "m3-4-creature-spell-radial"},
+		{"op": "tap", "device": "pad0", "control": "south"},
+		{"op": "wait_until", "probe": "battle", "field": "controller_context_mode", "equals": true, "timeout_ms": 3000},
+		{"op": "assert", "probe": "battle", "field": "creature_spellcasting_mode", "equals": true},
+		{"op": "tap", "device": "pad0", "control": "east"},
+		{"op": "wait_until", "probe": "battle", "field": "controller_context_mode", "equals": false, "timeout_ms": 3000},
+		{"op": "assert", "probe": "battle", "field": "creature_spellcasting_mode", "equals": false},
+		{"op": "neutralize", "device": "pad0"},
+		{"op": "wait_frames", "frames": 3},
+		{"op": "set_axis", "device": "pad0", "control": "right_stick_x", "value": 0.5},
+		{"op": "set_axis", "device": "pad0", "control": "right_stick_y", "value": 1.0},
+		{"op": "wait_until", "probe": "battle", "field": "focused_stack.type", "equals": "core:marksman", "timeout_ms": 3000, "stable_for_frames": 3},
+		{"op": "neutralize", "device": "pad0"},
+		{"op": "wait_frames", "frames": 3},
+		{"op": "set_axis", "device": "pad0", "control": "r2", "value": 1.0},
+		{"op": "wait_until", "probe": "battle", "field": "action_radial.open", "equals": true, "timeout_ms": 3000},
+		{"op": "neutralize", "device": "pad0"},
+		{"op": "wait_frames", "frames": 3},
+		{"op": "set_axis", "device": "pad0", "control": "left_stick_x", "value": -0.9},
+		{"op": "set_axis", "device": "pad0", "control": "left_stick_y", "value": -0.5},
+		{"op": "wait_until", "probe": "battle", "field": "action_radial.selected", "equals": "creature:core:protectAir", "timeout_ms": 3000},
+		{"op": "tap", "device": "pad0", "control": "south"},
+		{"op": "wait_until", "probe": "battle", "field": "action_radial.open", "equals": false, "timeout_ms": 3000},
+		{"op": "neutralize", "device": "pad0"},
+		{"op": "wait_until", "probe": "battle", "field": "primary_action", "equals": "cast", "timeout_ms": 3000},
+		{"op": "tap", "device": "pad0", "control": "south"},
+		{"op": "wait_until", "probe": "battle", "field": "commands_sent", "equals": 1, "timeout_ms": 3000},
+		{"op": "request_shutdown"}
+	]
+}

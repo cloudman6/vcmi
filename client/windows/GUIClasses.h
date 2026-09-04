@@ -214,6 +214,13 @@ class CObjectListWindow : public CWindowObject
 	std::vector< std::pair<int, std::string> > items; //all items present in list
 	std::vector< std::pair<int, std::string> > itemsVisible; //visible items present in list
 
+#ifdef VCMI_CONTROLLER_E2E
+	bool controllerE2EActionPromptsConfigured = false;
+	std::string controllerE2EAcceptActionText;
+	std::string controllerE2ECancelActionText;
+	void registerControllerE2EProbe();
+#endif
+
 	void init(std::shared_ptr<CIntObject> titleWidget_, std::string _title, std::string _descr, bool searchBoxEnabled, bool blue);
 	void trimTextIfTooWide(std::string & text, bool preserveCountSuffix) const; // trim item's text to fit within window's width
 	void updateControllerCursorVisibility();

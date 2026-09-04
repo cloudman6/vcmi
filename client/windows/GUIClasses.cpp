@@ -44,6 +44,12 @@
 #include "../render/IImage.h"
 #include "../render/IFont.h"
 
+#ifdef VCMI_CONTROLLER_E2E
+#include "../controllerE2E/ControllerE2EProbes.h"
+#include "../eventsSDL/InputHandler.h"
+#include "../../lib/json/JsonNode.h"
+#endif
+
 #include "../../lib/GameLibrary.h"
 #include "../../lib/callback/CCallback.h"
 #include "../../lib/entities/building/CBuilding.h"
@@ -1897,6 +1903,13 @@ void CObjectListWindow::setControllerActionPrompts(const std::string & acceptAct
 	ok->setControllerPrompt(buttonConfig, Point(15, 402), acceptActionText, visibilityChanged);
 	exit->setControllerPrompt(buttonConfig, Point(168, 402), cancelActionText, visibilityChanged);
 	updateControllerCursorVisibility();
+
+#ifdef VCMI_CONTROLLER_E2E
+	controllerE2EActionPromptsConfigured = true;
+	controllerE2EAcceptActionText = acceptActionText;
+	controllerE2ECancelActionText = cancelActionText;
+	registerControllerE2EProbe();
+#endif
 }
 
 void CObjectListWindow::activate()
@@ -1923,6 +1936,55 @@ void CObjectListWindow::updateControllerCursorVisibility()
 		&& exit->isControllerPromptVisible();
 	ENGINE->cursor().setControllerNativeHidden(shouldHide);
 }
+
+#ifdef VCMI_CONTROLLER_E2E
+void CObjectListWindow::registerControllerE2EProbe()
+{
+	ControllerE2E::ProbeRegistry::instance().registerProbe("addSpell", []()
+	{
+		JsonNode snapshot;
+		if(!ENGINE)
+		{
+			snapshot["open"].Bool() = false;
+			return snapshot;
+		}
+
+		const auto listWindows = ENGINE->windows().findWindows<CObjectListWindow>();
+		CObjectListWindow * observed = nullptr;
+		for(const auto & window : listWindows)
+			if(window->controllerE2EActionPromptsConfigured)
+				observed = window.get();
+
+		if(!observed)
+		{
+			snapshot["open"].Bool() = false;
+			return snapshot;
+		}
+
+		const bool hasSelection = !observed->itemsVisible.empty()
+			&& observed->selected < observed->itemsVisible.size();
+		const bool controllerMode = ENGINE->input().getCurrentInputMode() == InputMode::CONTROLLER;
+		const bool acceptVisible = observed->ok->isControllerPromptVisible();
+		const bool cancelVisible = observed->exit->isControllerPromptVisible();
+
+		snapshot["open"].Bool() = true;
+		snapshot["focus_index"].Integer() = hasSelection ? static_cast<si64>(observed->selected) : -1;
+		snapshot["focused_enabled"].Bool() = hasSelection && !observed->ok->isBlocked();
+		snapshot["focused_disabled_reason"].String() = "";
+		snapshot["selected_index"].Integer() = hasSelection ? static_cast<si64>(observed->selected) : -1;
+		snapshot["controller_selection_active"].Bool() = controllerMode && hasSelection;
+		snapshot["accept_visual_visible"].Bool() = acceptVisible;
+		snapshot["cancel_visual_visible"].Bool() = cancelVisible;
+		snapshot["accept_glyph_text"].String() = acceptVisible ? observed->controllerE2EAcceptActionText : "";
+		snapshot["cancel_glyph_text"].String() = cancelVisible ? observed->controllerE2ECancelActionText : "";
+		snapshot["accept_prompt_sprite"].String() = acceptVisible ? observed->ok->controllerE2EPromptSpriteName() : "";
+		snapshot["cancel_prompt_sprite"].String() = cancelVisible ? observed->exit->controllerE2EPromptSpriteName() : "";
+		snapshot["accept_prompt_label"].String() = acceptVisible ? observed->ok->controllerE2EPromptLabel() : "";
+		snapshot["cancel_prompt_label"].String() = cancelVisible ? observed->exit->controllerE2EPromptLabel() : "";
+		return snapshot;
+	});
+}
+#endif
 
 void CObjectListWindow::trimTextIfTooWide(std::string & text, bool preserveCountSuffix) const
 {

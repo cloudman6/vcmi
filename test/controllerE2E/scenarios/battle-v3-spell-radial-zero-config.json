@@ -1,0 +1,222 @@
+{
+	"schema": "vcmi.controller-e2e/v1",
+	"id": "battle.v3.spell-radial-zero-config",
+	"profile": "dualsense",
+	"settingsOverride": {
+		"battle": {
+			"enableQuickSpellPanel": true
+		},
+		"input": {
+			"enableMouse": true
+		},
+		"server": {
+			"seed": 20260828
+		}
+	},
+	"timeout_ms": 90000,
+	"fixture": {
+		"setup": "battle-map-start",
+		"map": "battle-e2e-spells",
+		"quickSpells": [],
+		"autofightPlayers": [
+			"blue"
+		]
+	},
+	"prelude": [
+		{
+			"op": "attach",
+			"device": "pad0",
+			"profile": "dualsense"
+		}
+	],
+	"steps": [
+		{
+			"op": "wait_until",
+			"probe": "runtime",
+			"field": "top_window",
+			"changes": true,
+			"timeout_ms": 60000
+		},
+		{
+			"op": "tap",
+			"device": "pad0",
+			"control": "ps"
+		},
+		{
+			"op": "wait_until",
+			"probe": "battle",
+			"field": "open",
+			"equals": true,
+			"timeout_ms": 20000
+		},
+		{
+			"op": "set_axis",
+			"device": "pad0",
+			"control": "l2",
+			"value": 1
+		},
+		{
+			"op": "wait_until",
+			"probe": "battle",
+			"field": "action_radial.open",
+			"equals": true,
+			"timeout_ms": 3000,
+			"stable_for_frames": 3
+		},
+		{
+			"op": "assert",
+			"probe": "battle",
+			"field": "action_radial.kind",
+			"equals": "spells"
+		},
+		{
+			"op": "assert",
+			"probe": "battle",
+			"field": "action_radial.item_count",
+			"equals": 18
+		},
+		{
+			"op": "assert",
+			"probe": "battle",
+			"field": "action_radial.page_count",
+			"equals": 2
+		},
+		{
+			"op": "assert",
+			"probe": "battle",
+			"field": "action_radial.sequence_csv",
+			"equals": "core:magicArrow,core:iceBolt,core:lightningBolt,core:shield,core:fireShield,core:dispel,core:cure,core:bless,core:curse,core:bloodlust,core:weakness,core:stoneSkin,core:disruptingRay,core:mirth,core:fortune,core:haste,core:slow,core:blind"
+		},
+		{
+			"op": "assert",
+			"probe": "battle",
+			"field": "action_radial.sequence.12.page",
+			"equals": 1
+		},
+		{
+			"op": "assert",
+			"probe": "battle",
+			"field": "action_radial.sequence.17.slot",
+			"equals": 5
+		},
+		{
+			"op": "assert",
+			"probe": "battle",
+			"field": "action_radial.items.core:dispel.enabled",
+			"equals": false
+		},
+		{
+			"op": "assert",
+			"probe": "battle",
+			"field": "action_radial.items.core:dispel.reason",
+			"equals": "That spell will affect no one!"
+		},
+		{
+			"op": "assert",
+			"probe": "battle",
+			"field": "action_radial.items.core:cure.enabled",
+			"equals": false
+		},
+		{
+			"op": "assert",
+			"probe": "battle",
+			"field": "action_radial.items.core:cure.reason",
+			"equals": "That spell will affect no one!"
+		},
+		{
+			"op": "assert",
+			"probe": "battle",
+			"field": "action_radial.items.core:cure.detail_summary",
+			"equals": "Water - 1st lev - Spell Points: 6"
+		},
+		{
+			"op": "assert",
+			"probe": "battle",
+			"field": "action_radial.items.core:cure.detail_description",
+			"equals": "  Removes all negative spell effects and heals a small number of hit points on the selected unit. "
+		},
+		{
+			"op": "neutralize",
+			"device": "pad0"
+		},
+		{
+			"op": "set_axis",
+			"device": "pad0",
+			"control": "left_stick_y",
+			"value": 1
+		},
+		{
+			"op": "wait_until",
+			"probe": "battle",
+			"field": "action_radial.selected",
+			"equals": "core:cure",
+			"timeout_ms": 3000
+		},
+		{
+			"op": "capture_frame",
+			"name": "m3-3-spell-radial-cure-unavailable-reason"
+		},
+		{
+			"op": "tap",
+			"device": "pad0",
+			"control": "south"
+		},
+		{
+			"op": "assert",
+			"probe": "battle",
+			"field": "action_radial.open",
+			"equals": true
+		},
+		{
+			"op": "assert",
+			"probe": "battle",
+			"field": "commands_sent",
+			"equals": 0
+		},
+		{
+			"op": "tap",
+			"device": "pad0",
+			"control": "r1"
+		},
+		{
+			"op": "wait_until",
+			"probe": "battle",
+			"field": "action_radial.current_page",
+			"equals": 1,
+			"timeout_ms": 3000
+		},
+		{
+			"op": "wait_until",
+			"probe": "battle",
+			"field": "action_radial.page_transition_active",
+			"equals": false,
+			"timeout_ms": 3000
+		},
+		{
+			"op": "capture_frame",
+			"name": "m3-3-spell-radial-page-with-empty-slots"
+		},
+		{
+			"op": "tap",
+			"device": "pad0",
+			"control": "l1"
+		},
+		{
+			"op": "wait_until",
+			"probe": "battle",
+			"field": "action_radial.current_page",
+			"equals": 0,
+			"timeout_ms": 3000
+		},
+		{
+			"op": "wait_until",
+			"probe": "battle",
+			"field": "action_radial.page_transition_active",
+			"equals": false,
+			"timeout_ms": 3000
+		},
+		{
+			"op": "request_shutdown"
+		}
+	]
+}

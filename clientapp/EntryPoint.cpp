@@ -14,6 +14,8 @@
 #include "../Global.h"
 #include <vstd/DateUtils.h>
 
+#include "SDL_hints.h"
+
 #include "../client/ClientCommandManager.h"
 #include "../client/CMT.h"
 #include "../client/CPlayerInterface.h"
@@ -49,6 +51,10 @@
 
 #include <SDL_main.h>
 #include <SDL.h>
+
+#ifdef VCMI_CONTROLLER_E2E
+#include "../client/controllerE2E/ControllerE2EExecutor.h"
+#endif
 
 #ifdef VCMI_ANDROID
 #include "../lib/CAndroidVMHelper.h"
@@ -161,7 +167,42 @@ int main(int argc, char * argv[])
 		("nointro,i", "skips intro movies")
 		("donotstartserver,d","do not attempt to start server and just connect to it instead server")
 		("serverport", po::value<si64>(), "override port specified in config file")
-		("savefrequency", po::value<si64>(), "limit auto save creation to each N days");
+		("savefrequency", po::value<si64>(), "limit auto save creation to each N days")
+#ifdef VCMI_CONTROLLER_E2E
+		("controller-e2e-scenario", po::value<std::string>(), "test-only: controller E2E scenario file")
+		("controller-e2e-output", po::value<std::string>(), "test-only: controller E2E evidence output directory")
+#endif
+		;
+
+#ifndef VCMI_CONTROLLER_E2E
+	// Production builds must reject E2E options instead of logging a parser warning and starting normally.
+	auto matchesE2EOption = [](const std::string & argument)
+	{
+		for(const char * prefix : {"--controller-e2e-scenario", "--controller-e2e-output"})
+		{
+			const std::string prefixString = prefix;
+			if(argument.size() < prefixString.size())
+				continue;
+			bool equal = true;
+			for(size_t position = 0; position < prefixString.size(); ++position)
+			{
+				if(std::tolower(static_cast<unsigned char>(argument[position])) != prefixString[position])
+					equal = false;
+			}
+			if(equal)
+				return true;
+		}
+		return false;
+	};
+	for(int argIndex = 1; argIndex < argc; ++argIndex)
+	{
+		if(matchesE2EOption(argv[argIndex]))
+		{
+			std::cerr << "controller-e2e requested but this vcmiclient was built without test support" << std::endl;
+			return 16;
+		}
+	}
+#endif
 
 	if(argc > 1)
 	{
@@ -194,6 +235,24 @@ int main(int argc, char * argv[])
 		return 0;
 #endif
 	}
+
+#ifdef VCMI_CONTROLLER_E2E
+	if(vm.count("controller-e2e-scenario") || vm.count("controller-e2e-output"))
+	{
+		if(!vm.count("controller-e2e-scenario") || !vm.count("controller-e2e-output"))
+		{
+			std::cerr << "controller-e2e requires both --controller-e2e-scenario and --controller-e2e-output"
+				<< std::endl;
+			return ControllerE2E::E2E_SCENARIO_ERROR;
+		}
+		SDL_SetHintWithPriority(SDL_HINT_JOYSTICK_ALLOW_BACKGROUND_EVENTS, "1", SDL_HINT_OVERRIDE);
+		const int earlyExit = ControllerE2E::ControllerE2EExecutor::earlyLoad(
+			vm["controller-e2e-scenario"].as<std::string>(),
+			vm["controller-e2e-output"].as<std::string>());
+		if(earlyExit != ControllerE2E::E2E_PASS)
+			return earlyExit;
+	}
+#endif
 
 	// Init old logging system and new (temporary) logging system
 	CStopWatch total;
@@ -372,13 +431,37 @@ int main(int argc, char * argv[])
 		}
 		else if (!settings["session"]["headless"].Bool())
 		{
-			GAME->mainmenu()->makeActiveInterface();
-
-			bool playIntroVideo = !vm.count("battle") && !vm.count("nointro") && settings["video"]["showIntro"].Bool();
-			if(playIntroVideo)
-				GAME->mainmenu()->playIntroVideos();
+#ifdef VCMI_CONTROLLER_E2E
+			auto * controllerE2E = ControllerE2E::ControllerE2EExecutor::instance();
+			if(controllerE2E && controllerE2E->fixtureKind() == "battle-only-add-spell")
+			{
+				controllerE2E->pushAddSpellFixture();
+			}
+			else if(controllerE2E && controllerE2E->fixtureKind() == "battle-only-remove-spell")
+			{
+				controllerE2E->pushRemoveSpellFixture();
+			}
+			else if(controllerE2E && controllerE2E->fixtureKind() == "battle-map-start")
+			{
+				if(controllerE2E->startBattleMapGame() != ControllerE2E::E2E_PASS)
+					return controllerE2E->finalize();
+			}
 			else
-				GAME->mainmenu()->playMusic();
+#endif
+			{
+				GAME->mainmenu()->makeActiveInterface();
+
+				bool playIntroVideo =
+					!vm.count("battle") && !vm.count("nointro") && settings["video"]["showIntro"].Bool();
+#ifdef VCMI_CONTROLLER_E2E
+				if(ControllerE2E::ControllerE2EExecutor::instance())
+					playIntroVideo = false;
+#endif
+				if(playIntroVideo)
+					GAME->mainmenu()->playIntroVideos();
+				else
+					GAME->mainmenu()->playMusic();
+			}
 		}
 	
 #ifndef VCMI_UNIX
@@ -458,6 +541,10 @@ int main(int argc, char * argv[])
 
 		auto onExit = vstd::makeScopeGuard(cleanupEngine);
 		runMainLoop();
+#ifdef VCMI_CONTROLLER_E2E
+		if(auto * controllerE2E = ControllerE2E::ControllerE2EExecutor::instance())
+			return controllerE2E->finalize();
+#endif
 	}
 	catch (const GameShutdownException &)
 	{

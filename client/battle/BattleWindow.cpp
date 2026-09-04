@@ -794,6 +794,9 @@ void BattleWindow::openControllerInspect(const CStack * stack)
 	controllerInspectRestoreHex = owner.fieldController->getControllerFocusedHex();
 	auto window = std::make_shared<BattleControllerStackWindow>(stack, false);
 	ENGINE->windows().pushWindow(window);
+#ifdef VCMI_CONTROLLER_E2E
+	controllerInspectWindowForE2E = window;
+#endif
 }
 
 void BattleWindow::openControllerHoldInspect()
@@ -812,7 +815,18 @@ void BattleWindow::openControllerHoldInspect(const CStack * stack)
 	auto window = std::make_shared<BattleControllerStackWindow>(stack, true);
 	controllerHoldInspectWindow = window;
 	ENGINE->windows().pushWindow(window);
+#ifdef VCMI_CONTROLLER_E2E
+	controllerInspectWindowForE2E = controllerHoldInspectWindow;
+#endif
 }
+
+#ifdef VCMI_CONTROLLER_E2E
+bool BattleWindow::controllerInspectOpenForE2E() const
+{
+	const auto window = controllerInspectWindowForE2E.lock();
+	return window && ENGINE->windows().isTopWindow(window);
+}
+#endif
 
 void BattleWindow::closeControllerHoldInspect()
 {
@@ -1451,6 +1465,10 @@ void BattleWindow::bTacticPhaseEnd()
 
 void BattleWindow::blockUI(bool on)
 {
+#ifdef VCMI_CONTROLLER_E2E
+	controllerE2EUIBlockedState = on;
+#endif
+
 	bool canCastSpells = false;
 	auto hero = owner.getBattle()->battleGetMyHero();
 

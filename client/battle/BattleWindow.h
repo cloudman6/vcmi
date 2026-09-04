@@ -110,10 +110,16 @@ class BattleWindow : public InterfaceObjectConfigurable
 	void closeControllerHoldInspect();
 	std::weak_ptr<CStackWindow> controllerHoldInspectWindow;
 	std::optional<BattleHex> controllerInspectRestoreHex;
+#ifdef VCMI_CONTROLLER_E2E
+	std::weak_ptr<CStackWindow> controllerInspectWindowForE2E;
+	bool controllerE2EUIBlockedState = false;
+#endif
 
 public:
 	BattleWindow(BattleInterface & owner );
-
+#ifdef VCMI_CONTROLLER_E2E
+	bool controllerE2EOnlyOnePlayerHuman() const { return onlyOnePlayerHuman; }
+#endif
 	/// Closes window once battle finished
 	void close();
 
@@ -177,4 +183,8 @@ public:
 
 	/// Opens the canonical persistent stack info view with Battle Native button ownership.
 	void openControllerInspect(const CStack * stack);
+#ifdef VCMI_CONTROLLER_E2E
+	bool controllerInspectOpenForE2E() const;
+	bool controllerE2EUIBlocked() const { return controllerE2EUIBlockedState; }
+#endif
 };

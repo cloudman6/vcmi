@@ -32,6 +32,10 @@
 #include "../../lib/AsyncRunner.h"
 #include "../../lib/CConfigHandler.h"
 
+#ifdef VCMI_CONTROLLER_E2E
+#include "../controllerE2E/ControllerE2EExecutor.h"
+#endif
+
 #include <SDL_events.h>
 #include <SDL_timer.h>
 #include <SDL_clipboard.h>
@@ -162,10 +166,29 @@ InputMode InputHandler::getCurrentInputMode()
 	return currentInputMode;
 }
 
+#ifdef VCMI_CONTROLLER_E2E
+void InputHandler::seedControllerInputModeForE2E()
+{
+	setCurrentInputMode(InputMode::CONTROLLER);
+}
+#endif
+
 ControllerPrompt::Family InputHandler::getActiveControllerPromptFamily() const
 {
 	return gameControllerHandler->getActiveControllerPromptFamily();
 }
+
+#ifdef VCMI_CONTROLLER_E2E
+bool InputHandler::isControllerAxisPressedForE2E(int axis) const
+{
+	return gameControllerHandler->isAxisPressedForE2E(axis);
+}
+
+bool InputHandler::isControllerAxisOwnedByActiveControllerForE2E(int axis) const
+{
+	return gameControllerHandler->isAxisOwnedByActiveControllerForE2E(axis);
+}
+#endif
 
 void InputHandler::clearControllerAxisMotion()
 {
@@ -265,6 +288,9 @@ bool InputHandler::ignoreEventsUntilInput()
 
 void InputHandler::preprocessEvent(const SDL_Event & ev)
 {
+#ifdef VCMI_CONTROLLER_E2E
+	ControllerE2E::Hooks::recordSdlEvent(ev);
+#endif
 	if(ev.type == SDL_QUIT)
 	{
 		std::scoped_lock interfaceLock(ENGINE->interfaceMutex);

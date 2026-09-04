@@ -118,6 +118,15 @@ class BattleInterface
 
 	void playIntroSoundAndUnlockInterface();
 	void onIntroSoundPlayed();
+#ifdef VCMI_CONTROLLER_E2E
+	void registerControllerE2EProbe();
+	int controllerE2ECommandsSent = 0;
+	int controllerE2ELastCommandType = -1;
+	int controllerE2ELastCommandActor = -1;
+	std::vector<BattleHex> controllerE2ELastCommandTargets;
+	BattleHex controllerE2ELastObservedFocus = BattleHex::INVALID;
+	std::map<int, int> controllerE2EFocusVisitCounts;
+#endif
 public:
 	/// copy of initial armies (for result window)
 	const CCreatureSet *army1;
@@ -164,6 +173,9 @@ public:
 	void giveCommand(EActionType action, const std::vector<BattleHex> & tiles, SpellID spell = SpellID::NONE);
 
 	void sendCommand(BattleAction command, const CStack * actor = nullptr);
+#ifdef VCMI_CONTROLLER_E2E
+	bool controllerE2ERejectNextBattleAction();
+#endif
 
 	const CGHeroInstance *getActiveHero(); //returns hero that can currently cast a spell
 
