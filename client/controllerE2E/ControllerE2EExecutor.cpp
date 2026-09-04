@@ -45,6 +45,7 @@
 #include "../windows/CWindowObject.h"
 #include "../windows/CSpellWindow.h"
 #include "../windows/CHeroWindow.h"
+#include "../windows/CCastleInterface.h"
 #include "../windows/InfoWindows.h"
 
 #include "../../lib/GameLibrary.h"
@@ -430,6 +431,8 @@ void ControllerE2EExecutor::registerBuiltinProbes()
 			&& ENGINE->windows().topWindow<CSpellWindow>() != nullptr;
 		snapshot["hero_window_open"].Bool() = ENGINE
 			&& ENGINE->windows().topWindow<CHeroWindow>() != nullptr;
+		snapshot["town_window_open"].Bool() = ENGINE
+			&& ENGINE->windows().topWindow<CCastleInterface>() != nullptr;
 		snapshot["world_view"].Bool() = adventureInt
 			&& adventureInt->getState() == EAdventureState::WORLD_VIEW;
 		snapshot["casting"].Bool() = adventureInt
