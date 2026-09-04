@@ -44,7 +44,6 @@
 		{"op": "wait_until", "probe": "controller_object_focus", "field": "actor_id", "equals": -1, "timeout_ms": 3000, "stable_for_frames": 3},
 		{"op": "wait_until", "probe": "controller_object_focus", "field": "id", "equals": -1, "timeout_ms": 3000, "stable_for_frames": 3},
 		{"op": "assert", "probe": "controller_object_focus", "field": "town_count", "equals": 0},
-		{"op": "capture_frame", "name": "adventure-empty-actor-lists"},
 		{"op": "request_shutdown"}
 	]
 }
