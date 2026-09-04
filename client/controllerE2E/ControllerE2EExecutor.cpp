@@ -59,8 +59,10 @@
 #include "../../lib/mapping/CMapInfo.h"
 #include "../../lib/mapObjects/CGObjectInstance.h"
 #include "../../lib/mapObjects/CGHeroInstance.h"
+#include "../../lib/mapObjects/MiscObjects.h"
 #include "../../lib/mapObjects/army/CArmedInstance.h"
 #include "../../lib/networkPacks/PacksForLobby.h"
+#include "../../lib/networkPacks/PacksForClient.h"
 #include "../../lib/networkPacks/PacksForClientBattle.h"
 #include "../../lib/pathfinder/CGPathNode.h"
 #include "../../lib/spells/CSpellHandler.h"
@@ -458,6 +460,9 @@ void ControllerE2EExecutor::registerBuiltinProbes()
 		snapshot["camera_center_x"].Integer() = -1;
 		snapshot["camera_center_y"].Integer() = -1;
 		snapshot["primary_attempts"].Integer() = 0;
+		snapshot["hero_count"].Integer() = 0;
+		snapshot["town_count"].Integer() = 0;
+		snapshot["target_actor_aligned"].Bool() = false;
 		snapshot["actor_in_boat"].Bool() = false;
 		snapshot["actor_visitable_x"].Integer() = -1;
 		snapshot["actor_visitable_y"].Integer() = -1;
@@ -480,16 +485,22 @@ void ControllerE2EExecutor::registerBuiltinProbes()
 		snapshot["camera_center_x"].Integer() = cameraCenter.x;
 		snapshot["camera_center_y"].Integer() = cameraCenter.y;
 		snapshot["primary_attempts"].Integer() = adventureInt->controllerE2EPrimaryAttempts;
+		snapshot["hero_count"].Integer() = player->localState->getWanderingHeroes().size();
+		snapshot["town_count"].Integer() = player->localState->getOwnedTowns().size();
 
+		std::optional<ObjectInstanceID> expectedActorTarget;
 		if(const auto * actor = player->localState->getCurrentArmy())
 		{
 			snapshot["actor_kind"].String() = actor->ID == Obj::TOWN ? "town" : "hero";
 			snapshot["actor_id"].Integer() = actor->id.getNum();
+			expectedActorTarget = actor->id;
 			if(const auto * hero = dynamic_cast<const CGHeroInstance *>(actor))
 			{
 				snapshot["actor_in_boat"].Bool() = hero->inBoat();
 				snapshot["actor_visitable_x"].Integer() = hero->visitablePos().x;
 				snapshot["actor_visitable_y"].Integer() = hero->visitablePos().y;
+				if(hero->inBoat() && hero->getBoat())
+					expectedActorTarget = hero->getBoat()->id;
 			}
 		}
 
@@ -503,6 +514,8 @@ void ControllerE2EExecutor::registerBuiltinProbes()
 		const auto target = adventureInt->revalidateControllerTarget();
 		if(!target)
 			return snapshot;
+		snapshot["target_actor_aligned"].Bool() = expectedActorTarget && target->objectId
+			&& *expectedActorTarget == *target->objectId;
 		snapshot["target_x"].Integer() = target->visualTile.x;
 		snapshot["target_y"].Integer() = target->visualTile.y;
 		snapshot["interaction_x"].Integer() = target->interactionTile.x;
@@ -921,6 +934,41 @@ ControllerE2EExecutor::applyPrePollStep(const ScenarioStep & step, std::string &
 		});
 		return StepApplyResult::APPLIED;
 	}
+	case ScenarioStep::Kind::AUTHORITY_SWAP_ADVENTURE_HEROES:
+	{
+		if(!GAME || !GAME->interface() || !GAME->interface()->localState)
+		{
+			error = "authority adventure hero swap requires an active local adventure client";
+			return StepApplyResult::FAILED;
+		}
+		const auto & heroes = GAME->interface()->localState->getWanderingHeroes();
+		if(static_cast<size_t>(step.firstIndex) >= heroes.size()
+			|| static_cast<size_t>(step.secondIndex) >= heroes.size())
+		{
+			error = "authority adventure hero swap index is outside the canonical hero list";
+			return StepApplyResult::FAILED;
+		}
+		GAME->interface()->localState->swapWanderingHero(step.firstIndex, step.secondIndex);
+		return StepApplyResult::APPLIED;
+	}
+	case ScenarioStep::Kind::AUTHORITY_REMOVE_ADVENTURE_OBJECT:
+	{
+		if(!GAME || !GAME->interface() || !GAME->interface()->localState || !GAME->server().client)
+		{
+			error = "authority adventure object removal requires an active local adventure client";
+			return StepApplyResult::FAILED;
+		}
+		const auto * object = GAME->interface()->cb->getObj(ObjectInstanceID(step.objectId), false);
+		if(!object || object->tempOwner != GAME->interface()->playerID
+			|| (object->ID != Obj::HERO && object->ID != Obj::TOWN))
+		{
+			error = "authority adventure object removal requires an owned hero or town";
+			return StepApplyResult::FAILED;
+		}
+		RemoveObject pack(ObjectInstanceID(step.objectId), PlayerColor::UNFLAGGABLE);
+		GAME->server().client->handlePack(pack);
+		return StepApplyResult::APPLIED;
+	}
 	default:
 		error = "operation '" + step.kindName() + "' cannot run before poll";
 		return StepApplyResult::FAILED;
@@ -1117,6 +1165,8 @@ void ControllerE2EExecutor::onBeforePoll()
 		case ScenarioStep::Kind::REJECT_NEXT_BATTLE_ACTION:
 		case ScenarioStep::Kind::AUTHORITY_REMOVE_BATTLE_STACK:
 		case ScenarioStep::Kind::AUTHORITY_SET_ACTIVE_BATTLE_STACK:
+		case ScenarioStep::Kind::AUTHORITY_SWAP_ADVENTURE_HEROES:
+		case ScenarioStep::Kind::AUTHORITY_REMOVE_ADVENTURE_OBJECT:
 		{
 			std::string error;
 			const auto result = applyPrePollStep(step, error);
@@ -1211,6 +1261,8 @@ void ControllerE2EExecutor::onAfterPresent()
 	case ScenarioStep::Kind::REJECT_NEXT_BATTLE_ACTION:
 	case ScenarioStep::Kind::AUTHORITY_REMOVE_BATTLE_STACK:
 	case ScenarioStep::Kind::AUTHORITY_SET_ACTIVE_BATTLE_STACK:
+	case ScenarioStep::Kind::AUTHORITY_SWAP_ADVENTURE_HEROES:
+	case ScenarioStep::Kind::AUTHORITY_REMOVE_ADVENTURE_OBJECT:
 		return;
 	case ScenarioStep::Kind::WAIT_FRAMES:
 	{

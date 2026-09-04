@@ -126,6 +126,31 @@ TEST_F(ScenarioProtocolTest, AcceptsAuthorityActiveBattleStackStep)
 	EXPECT_EQ(result.scenario->steps.at(1).stackId, 7);
 }
 
+TEST_F(ScenarioProtocolTest, AcceptsAuthorityAdventureHeroSwapStep)
+{
+	const std::string scenario = replaceToken(VALID_SCENARIO,
+		"{\"op\": \"wait_frames\", \"frames\": 2}",
+		"{\"op\": \"authority_swap_adventure_heroes\", \"first_index\": 1, \"second_index\": 2}");
+	const auto result = parseScenarioText(scenario);
+
+	ASSERT_TRUE(result.ok());
+	EXPECT_EQ(result.scenario->steps.at(1).kind, ScenarioStep::Kind::AUTHORITY_SWAP_ADVENTURE_HEROES);
+	EXPECT_EQ(result.scenario->steps.at(1).firstIndex, 1);
+	EXPECT_EQ(result.scenario->steps.at(1).secondIndex, 2);
+}
+
+TEST_F(ScenarioProtocolTest, AcceptsAuthorityAdventureObjectRemovalStep)
+{
+	const std::string scenario = replaceToken(VALID_SCENARIO,
+		"{\"op\": \"wait_frames\", \"frames\": 2}",
+		"{\"op\": \"authority_remove_adventure_object\", \"object_id\": 7}");
+	const auto result = parseScenarioText(scenario);
+
+	ASSERT_TRUE(result.ok());
+	EXPECT_EQ(result.scenario->steps.at(1).kind, ScenarioStep::Kind::AUTHORITY_REMOVE_ADVENTURE_OBJECT);
+	EXPECT_EQ(result.scenario->steps.at(1).objectId, 7);
+}
+
 TEST_F(ScenarioProtocolTest, AcceptsManualHoldStep)
 {
 	const std::string scenario = replaceToken(VALID_SCENARIO,

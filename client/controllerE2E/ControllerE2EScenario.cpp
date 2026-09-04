@@ -42,6 +42,8 @@ const std::map<std::string, ScenarioStep::Kind> KIND_BY_OP = {
 	{"reject_next_battle_action", ScenarioStep::Kind::REJECT_NEXT_BATTLE_ACTION},
 	{"authority_remove_battle_stack", ScenarioStep::Kind::AUTHORITY_REMOVE_BATTLE_STACK},
 	{"authority_set_active_battle_stack", ScenarioStep::Kind::AUTHORITY_SET_ACTIVE_BATTLE_STACK},
+	{"authority_swap_adventure_heroes", ScenarioStep::Kind::AUTHORITY_SWAP_ADVENTURE_HEROES},
+	{"authority_remove_adventure_object", ScenarioStep::Kind::AUTHORITY_REMOVE_ADVENTURE_OBJECT},
 	{"wait_frames", ScenarioStep::Kind::WAIT_FRAMES},
 	{"wait_until", ScenarioStep::Kind::WAIT_UNTIL},
 	{"assert", ScenarioStep::Kind::ASSERT},
@@ -85,6 +87,8 @@ const std::map<ScenarioStep::Kind, std::set<std::string>> ALLOWED_FIELDS = {
 	{ScenarioStep::Kind::REJECT_NEXT_BATTLE_ACTION, {"op"}},
 	{ScenarioStep::Kind::AUTHORITY_REMOVE_BATTLE_STACK, {"op", "stack_id"}},
 	{ScenarioStep::Kind::AUTHORITY_SET_ACTIVE_BATTLE_STACK, {"op", "stack_id"}},
+	{ScenarioStep::Kind::AUTHORITY_SWAP_ADVENTURE_HEROES, {"op", "first_index", "second_index"}},
+	{ScenarioStep::Kind::AUTHORITY_REMOVE_ADVENTURE_OBJECT, {"op", "object_id"}},
 	{ScenarioStep::Kind::WAIT_FRAMES, {"op", "frames"}},
 	{ScenarioStep::Kind::WAIT_UNTIL, {"op", "probe", "field", "equals", "changes", "timeout_ms", "stable_for_frames"}},
 	{ScenarioStep::Kind::ASSERT, {"op", "probe", "field", "equals"}},
@@ -118,6 +122,8 @@ const std::map<ScenarioStep::Kind, std::set<std::string>> REQUIRED_FIELDS = {
 	{ScenarioStep::Kind::REJECT_NEXT_BATTLE_ACTION, {}},
 	{ScenarioStep::Kind::AUTHORITY_REMOVE_BATTLE_STACK, {"stack_id"}},
 	{ScenarioStep::Kind::AUTHORITY_SET_ACTIVE_BATTLE_STACK, {"stack_id"}},
+	{ScenarioStep::Kind::AUTHORITY_SWAP_ADVENTURE_HEROES, {"first_index", "second_index"}},
+	{ScenarioStep::Kind::AUTHORITY_REMOVE_ADVENTURE_OBJECT, {"object_id"}},
 	{ScenarioStep::Kind::WAIT_FRAMES, {"frames"}},
 	{ScenarioStep::Kind::WAIT_UNTIL, {"probe", "field", "timeout_ms"}},
 	{ScenarioStep::Kind::ASSERT, {"probe", "field", "equals"}},
@@ -328,6 +334,13 @@ void parseStepFields(
 	case ScenarioStep::Kind::AUTHORITY_REMOVE_BATTLE_STACK:
 	case ScenarioStep::Kind::AUTHORITY_SET_ACTIVE_BATTLE_STACK:
 		requireIntField(node, "stack_id", step.stackId, 0, 1000000, where, errors);
+		break;
+	case ScenarioStep::Kind::AUTHORITY_SWAP_ADVENTURE_HEROES:
+		requireIntField(node, "first_index", step.firstIndex, 0, 1000, where, errors);
+		requireIntField(node, "second_index", step.secondIndex, 0, 1000, where, errors);
+		break;
+	case ScenarioStep::Kind::AUTHORITY_REMOVE_ADVENTURE_OBJECT:
+		requireIntField(node, "object_id", step.objectId, 0, 1000000, where, errors);
 		break;
 	case ScenarioStep::Kind::WAIT_FRAMES:
 		requireIntField(node, "frames", step.frames, 0, 1000000, where, errors);

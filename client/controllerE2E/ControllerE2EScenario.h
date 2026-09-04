@@ -47,6 +47,8 @@ struct ScenarioStep
 		REJECT_NEXT_BATTLE_ACTION,
 		AUTHORITY_REMOVE_BATTLE_STACK,
 		AUTHORITY_SET_ACTIVE_BATTLE_STACK,
+		AUTHORITY_SWAP_ADVENTURE_HEROES,
+		AUTHORITY_REMOVE_ADVENTURE_OBJECT,
 		WAIT_FRAMES,
 		WAIT_UNTIL,
 		ASSERT,
@@ -101,6 +103,9 @@ struct ScenarioStep
 	int wheelY = 0;
 	bool moveMousePointer = true;
 	int stackId = -1; /// authority battle-state injection
+	int objectId = -1; /// authority adventure object removal
+	int firstIndex = -1; /// authority adventure list reorder
+	int secondIndex = -1; /// authority adventure list reorder
 
 	/// evidence
 	std::string name;
