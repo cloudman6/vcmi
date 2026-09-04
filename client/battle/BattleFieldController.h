@@ -13,6 +13,7 @@
 #include "../../lib/battle/PossiblePlayerBattleAction.h"
 #include "../../lib/Point.h"
 #include "../gui/CIntObject.h"
+#include "../gui/ControllerNavigationState.h"
 
 class CStack;
 class Rect;
@@ -31,31 +32,6 @@ class BattleFieldController : public CIntObject
 		NONE,
 		HEX,
 		UNIT
-	};
-
-	struct RepeatState
-	{
-		uint32_t elapsed = 0;
-		bool initialPending = false;
-		bool repeating = false;
-
-		void start(bool settleFirst);
-		bool ready(uint32_t msPassed);
-		void reset();
-	};
-
-	struct NavigationState
-	{
-		double x = 0.0;
-		double y = 0.0;
-		double directionX = 0.0;
-		double directionY = 0.0;
-		bool active = false;
-		RepeatState repeat;
-
-		void update(bool horizontal, double value);
-		bool ready(uint32_t msPassed);
-		void reset();
 	};
 
 	BattleInterface & owner;
@@ -202,8 +178,8 @@ public:
 
 private:
 	void updateShake();
-	NavigationState hexNavigation;
-	NavigationState unitNavigation;
+	ControllerNavigationState hexNavigation;
+	ControllerNavigationState unitNavigation;
 	NavigationOwner navigationOwner = NavigationOwner::NONE;
 	int controllerInstance = -1;
 	bool controllerCursorMode = false;
@@ -212,7 +188,7 @@ private:
 	BattleHex controllerPressedHex = BattleHex::INVALID;
 	std::optional<PossiblePlayerBattleAction> controllerPressedAction;
 	std::optional<bool> controllerMeleeRepeatDirection;
-	RepeatState controllerMeleeRepeat;
+	ControllerNavigationRepeatState controllerMeleeRepeat;
 	std::map<std::string, std::shared_ptr<IImage>> controllerPromptSprites;
 
 	/// current shake offset and animation progress

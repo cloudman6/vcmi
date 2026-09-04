@@ -10,6 +10,8 @@
 #pragma once
 
 #include "../gui/CIntObject.h"
+#include "../../lib/GameConstants.h"
+#include "../../lib/int3.h"
 
 struct ObjectPosInfo;
 class CGObjectInstance;
@@ -19,6 +21,14 @@ class MapViewActions;
 class MapViewController;
 class MapViewModel;
 class MapViewCache;
+
+struct MapViewObjectCandidate
+{
+	ObjectInstanceID id;
+	Point visualCenter;
+	int3 visualTile;
+	int3 interactionTile;
+};
 
 /// Internal class that contains logic shared between all map views
 class BasicMapView : public CIntObject
@@ -79,6 +89,15 @@ public:
 
 	/// Moves current view to specified object
 	void onCenteredObject(const CGObjectInstance * target);
+
+	/// Returns the screen-space area occupied by a map tile.
+	Rect getTargetTileArea(const int3 & tile) const;
+
+	/// Returns whether the complete tile is visible in the map viewport.
+	bool isTargetTileVisible(const int3 & tile) const;
+
+	/// Projects unique objects actually presented by the active renderer context.
+	std::vector<MapViewObjectCandidate> getVisibleObjectCandidates() const;
 
 	/// Switches view to "View Earth" / "View Air" mode, displaying downscaled map with overlay
 	void onViewSpellActivated(uint32_t tileSize, const std::vector<ObjectPosInfo> & objectPositions, bool showTerrain);

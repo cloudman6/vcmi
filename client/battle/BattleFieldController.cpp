@@ -218,19 +218,6 @@ static const std::map<int, int> hexEdgeMaskToFrameIndex =
 
 namespace
 {
-constexpr uint32_t NAVIGATION_SETTLE_DELAY_MS = 16;
-constexpr uint32_t NAVIGATION_INITIAL_REPEAT_MS = 320;
-constexpr uint32_t NAVIGATION_REPEAT_MS = 110;
-constexpr double NAVIGATION_DIRECTION_CHANGE_DEGREES = 30.0;
-
-double angularDistance(double x1, double y1, double x2, double y2)
-{
-	const double first = std::atan2(y1, x1) * 180.0 / M_PI;
-	const double second = std::atan2(y2, x2) * 180.0 / M_PI;
-	double result = std::fmod(std::abs(first - second), 360.0);
-	return result > 180.0 ? 360.0 - result : result;
-}
-
 bool isMeleeAction(PossiblePlayerBattleAction::Actions action)
 {
 	return action == PossiblePlayerBattleAction::ATTACK
@@ -238,73 +225,6 @@ bool isMeleeAction(PossiblePlayerBattleAction::Actions action)
 		|| action == PossiblePlayerBattleAction::WALK_AND_ATTACK
 		|| action == PossiblePlayerBattleAction::ATTACK_AND_RETURN;
 }
-}
-
-void BattleFieldController::RepeatState::start(bool settleFirst)
-{
-	elapsed = 0;
-	initialPending = settleFirst;
-	repeating = false;
-}
-
-bool BattleFieldController::RepeatState::ready(uint32_t msPassed)
-{
-	elapsed += msPassed;
-	if(initialPending)
-	{
-		if(elapsed < NAVIGATION_SETTLE_DELAY_MS)
-			return false;
-		initialPending = false;
-		elapsed = 0;
-		return true;
-	}
-
-	const uint32_t threshold = repeating ? NAVIGATION_REPEAT_MS : NAVIGATION_INITIAL_REPEAT_MS;
-	if(elapsed < threshold)
-		return false;
-	elapsed -= threshold;
-	repeating = true;
-	return true;
-}
-
-void BattleFieldController::RepeatState::reset()
-{
-	elapsed = 0;
-	initialPending = false;
-	repeating = false;
-}
-
-void BattleFieldController::NavigationState::update(bool horizontal, double value)
-{
-	(horizontal ? x : y) = value;
-	const bool nextActive = !vstd::isAlmostZero(x) || !vstd::isAlmostZero(y);
-	if(!nextActive)
-	{
-		active = false;
-		directionX = directionY = 0.0;
-		repeat.reset();
-		return;
-	}
-
-	if(!active || angularDistance(directionX, directionY, x, y) > NAVIGATION_DIRECTION_CHANGE_DEGREES)
-		repeat.start(true);
-	active = true;
-	directionX = x;
-	directionY = y;
-}
-
-bool BattleFieldController::NavigationState::ready(uint32_t msPassed)
-{
-	if(!active)
-		return false;
-	return repeat.ready(msPassed);
-}
-
-void BattleFieldController::NavigationState::reset()
-{
-	x = y = directionX = directionY = 0.0;
-	active = false;
-	repeat.reset();
 }
 
 BattleFieldController::BattleFieldController(BattleInterface & owner):
@@ -550,13 +470,13 @@ BattleHex BattleFieldController::getControllerFocusedHex() const
 
 void BattleFieldController::updateNavigationOwner(NavigationOwner changedOwner)
 {
-	NavigationState & changed = changedOwner == NavigationOwner::HEX ? hexNavigation : unitNavigation;
-	NavigationState & other = changedOwner == NavigationOwner::HEX ? unitNavigation : hexNavigation;
+	ControllerNavigationState & changed = changedOwner == NavigationOwner::HEX ? hexNavigation : unitNavigation;
+	ControllerNavigationState & other = changedOwner == NavigationOwner::HEX ? unitNavigation : hexNavigation;
 
-	if(navigationOwner == NavigationOwner::NONE && changed.active)
+	if(navigationOwner == NavigationOwner::NONE && changed.isActive())
 		navigationOwner = changedOwner;
-	else if(navigationOwner == changedOwner && !changed.active)
-		navigationOwner = other.active
+	else if(navigationOwner == changedOwner && !changed.isActive())
+		navigationOwner = other.isActive()
 			? (changedOwner == NavigationOwner::HEX ? NavigationOwner::UNIT : NavigationOwner::HEX)
 			: NavigationOwner::NONE;
 }
@@ -616,7 +536,7 @@ void BattleFieldController::resetControllerInput()
 
 BattleHex::EDir BattleFieldController::controllerHexDirection() const
 {
-	const double angle = std::atan2(hexNavigation.directionY, hexNavigation.directionX) * 180.0 / M_PI;
+	const double angle = std::atan2(hexNavigation.y(), hexNavigation.x()) * 180.0 / M_PI;
 	if(angle < -150.0 || angle >= 150.0) return BattleHex::LEFT;
 	if(angle < -90.0) return BattleHex::TOP_LEFT;
 	if(angle < -30.0) return BattleHex::TOP_RIGHT;
@@ -648,8 +568,8 @@ bool BattleFieldController::moveControllerHex()
 	if(tryDirection(direction))
 		return true;
 
-	const double angle = std::atan2(hexNavigation.directionY, hexNavigation.directionX) * 180.0 / M_PI;
-	const double verticalAngle = hexNavigation.directionY < 0.0 ? -90.0 : 90.0;
+	const double angle = std::atan2(hexNavigation.y(), hexNavigation.x()) * 180.0 / M_PI;
+	const double verticalAngle = hexNavigation.y() < 0.0 ? -90.0 : 90.0;
 	if(std::abs(angle - verticalAngle) > 10.0)
 		return false;
 	if(direction == BattleHex::TOP_LEFT) return tryDirection(BattleHex::TOP_RIGHT);
@@ -679,8 +599,8 @@ bool BattleFieldController::browseControllerUnit()
 	const CStack * originStack = focusedStack != nullptr && focusedStack->getPosition() == hoveredHex
 		? focusedStack : nullptr;
 	const Point origin = originStack ? stackCenter(*originStack) : hexPositionAbsolute(hoveredHex).center();
-	const double directionMagnitudeSquared = unitNavigation.directionX * unitNavigation.directionX
-		+ unitNavigation.directionY * unitNavigation.directionY;
+	const double directionMagnitudeSquared = unitNavigation.x() * unitNavigation.x()
+		+ unitNavigation.y() * unitNavigation.y();
 	const CStack * bestStack = nullptr;
 	bool bestInsideCone = false;
 	double bestAlignment = -1.0;
@@ -702,7 +622,7 @@ bool BattleFieldController::browseControllerUnit()
 		const Point candidate = stackCenter(*stack);
 		const double deltaX = candidate.x - origin.x;
 		const double deltaY = candidate.y - origin.y;
-		const double dot = deltaX * unitNavigation.directionX + deltaY * unitNavigation.directionY;
+		const double dot = deltaX * unitNavigation.x() + deltaY * unitNavigation.y();
 		if(dot <= 0.0)
 			continue;
 		const si64 distance = static_cast<si64>(deltaX * deltaX + deltaY * deltaY);

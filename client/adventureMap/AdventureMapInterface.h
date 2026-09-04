@@ -10,6 +10,8 @@
 #pragma once
 
 #include "../gui/CIntObject.h"
+#include "../gui/ControllerNavigationState.h"
+#include "AdventureMapControllerState.h"
 #include "AdventureMapShortcuts.h"
 
 #include "../../lib/int3.h"
@@ -70,6 +72,18 @@ private:
 	std::shared_ptr<AdventureMapWidget> widget;
 	std::shared_ptr<AdventureMapShortcuts> shortcuts;
 	std::shared_ptr<TurnTimerWidget> watches;
+	AdventureMapControllerState controllerState;
+	ControllerNavigationState controllerTileNavigation;
+	ControllerNavigationState controllerObjectNavigation;
+	int controllerInstance = -1;
+
+	enum class ControllerNavigationOwner
+	{
+		NONE,
+		TILE,
+		OBJECT
+	};
+	ControllerNavigationOwner controllerNavigationOwner = ControllerNavigationOwner::NONE;
 
 private:
 	EAdventureState getState() const;
@@ -83,7 +97,19 @@ private:
 
 	void showMoveDetailsInStatusbar(const CGHeroInstance & hero, const CGPathNode & pathNode);
 
-	const CGObjectInstance *getActiveObject(const int3 &tile);
+	const CGObjectInstance *getActiveObject(const int3 &tile) const;
+	const CGObjectInstance * getControllerObject(ObjectInstanceID id, const int3 & interactionTile) const;
+	bool handleTilePrimary(const int3 & targetPosition, std::optional<ObjectInstanceID> fixedObject, bool execute);
+	void presentControllerTarget();
+	void ensureControllerTarget();
+	std::optional<AdventureMapControllerTarget> revalidateControllerTarget();
+	std::vector<AdventureMapControllerObjectCandidate> getControllerObjectCandidates();
+	bool moveControllerTile();
+	bool browseControllerObject();
+	void updateControllerNavigationOwner(ControllerNavigationOwner changedOwner);
+	void drawControllerTarget(Canvas & to);
+	bool isControllerNativeMode() const;
+	void onTileHovered(const int3 & targetPosition, std::optional<ObjectInstanceID> fixedObject);
 
 	/// exits currently opened world view mode and returns to normal map
 	void exitCastingMode();
@@ -116,6 +142,12 @@ protected:
 	void showAll(Canvas & to) override;
 
 	void keyPressed(EShortcut key) override;
+	void keyReleased(EShortcut key) override;
+	bool captureThisKey(EShortcut key) override;
+	void inputModeChanged(InputMode inputMode) override;
+	bool usesNativeControllerAxis() const override;
+	bool controllerAxisMoved(int instanceId, const std::vector<EShortcut> & actions, double value) override;
+	void controllerInputReset() override;
 
 	void onScreenResize() override;
 

@@ -15,6 +15,7 @@
 #include "MapViewCache.h"
 #include "MapViewController.h"
 #include "MapViewModel.h"
+#include "IMapRendererContext.h"
 #include "mapHandler.h"
 
 #include "../CPlayerInterface.h"
@@ -187,6 +188,59 @@ void MapView::onCenteredTile(const int3 & tile)
 void MapView::onCenteredObject(const CGObjectInstance * target)
 {
 	controller->setViewCenter(target->getSightCenter());
+}
+
+Rect MapView::getTargetTileArea(const int3 & tile) const
+{
+	const auto local = model->getTargetTileArea(tile);
+	return Rect(local.topLeft() + pos.topLeft(), Point(local.w, local.h));
+}
+
+bool MapView::isTargetTileVisible(const int3 & tile) const
+{
+	const Rect target = getTargetTileArea(tile);
+	return target.left() >= pos.left() && target.top() >= pos.top()
+		&& target.right() <= pos.right() && target.bottom() <= pos.bottom();
+}
+
+std::vector<MapViewObjectCandidate> MapView::getVisibleObjectCandidates() const
+{
+	std::map<ObjectInstanceID, std::vector<int3>> presentedTiles;
+	const auto context = controller->getContext();
+	const Rect visibleTiles = model->getTilesTotalRect();
+	for(int x = visibleTiles.left(); x < visibleTiles.right(); ++x)
+	{
+		for(int y = visibleTiles.top(); y < visibleTiles.bottom(); ++y)
+		{
+			const int3 tile(x, y, model->getLevel());
+			if(!context->isInMap(tile) || !context->isVisible(tile))
+				continue;
+			for(const auto objectId : context->getObjects(tile))
+				if(context->objectTransparency(objectId, tile) > 0.0)
+					presentedTiles[objectId].push_back(tile);
+		}
+	}
+
+	std::vector<MapViewObjectCandidate> result;
+	result.reserve(presentedTiles.size());
+	for(const auto & [objectId, tiles] : presentedTiles)
+	{
+		const auto * object = context->getObject(objectId);
+		if(!object || tiles.empty())
+			continue;
+
+		Point center;
+		for(const auto & tile : tiles)
+			center += Point(tile);
+		center = center / static_cast<int>(tiles.size());
+
+		const auto visual = std::ranges::min_element(tiles, [&center](const int3 & left, const int3 & right)
+		{
+			return (Point(left) - center).lengthSquared() < (Point(right) - center).lengthSquared();
+		});
+		result.push_back({objectId, center, *visual, object->visitablePos()});
+	}
+	return result;
 }
 
 void MapView::onViewSpellActivated(uint32_t tileSize, const std::vector<ObjectPosInfo> & objectPositions, bool showTerrain)

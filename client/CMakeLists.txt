@@ -1,6 +1,7 @@
 set(vcmiclientcommon_SRCS
 	StdInc.cpp
 
+	adventureMap/AdventureMapControllerState.cpp
 	adventureMap/AdventureMapInterface.cpp
 	adventureMap/AdventureMapShortcuts.cpp
 	adventureMap/AdventureMapWidget.cpp
@@ -46,6 +47,7 @@ set(vcmiclientcommon_SRCS
 	eventsSDL/InputSourceGameController.cpp
 
 	gui/CIntObject.cpp
+	gui/ControllerNavigationState.cpp
 	gui/CursorHandler.cpp
 	gui/EventDispatcher.cpp
 	gui/EventsReceiver.cpp
@@ -235,6 +237,7 @@ set(vcmiclientcommon_SRCS
 set(vcmiclientcommon_HEADERS
 	StdInc.h
 
+	adventureMap/AdventureMapControllerState.h
 	adventureMap/AdventureMapInterface.h
 	adventureMap/AdventureMapShortcuts.h
 	adventureMap/AdventureMapWidget.h
@@ -282,6 +285,7 @@ set(vcmiclientcommon_HEADERS
 	eventsSDL/InputSourceGameController.h
 
 	gui/CIntObject.h
+	gui/ControllerNavigationState.h
 	gui/CursorHandler.h
 	gui/EventDispatcher.h
 	gui/EventsReceiver.h

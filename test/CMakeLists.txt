@@ -284,6 +284,16 @@ if(ENABLE_CLIENT)
 		WORKING_DIRECTORY "${CMAKE_BINARY_DIR}/bin/"
 		DISCOVERY_TIMEOUT 60)
 	vcmi_set_output_dir(vcmi_battle_radial_test "")
+
+	add_executable(vcmi_adventure_controller_test
+		AdventureMapControllerStateTest.cpp)
+	target_link_libraries(vcmi_adventure_controller_test PRIVATE gtest_main vcmiclientcommon)
+	target_include_directories(vcmi_adventure_controller_test PRIVATE
+		${GTestSrc}/include)
+	gtest_discover_tests(vcmi_adventure_controller_test
+		WORKING_DIRECTORY "${CMAKE_BINARY_DIR}/bin/"
+		DISCOVERY_TIMEOUT 60)
+	vcmi_set_output_dir(vcmi_adventure_controller_test "")
 endif()
 
 file (GLOB_RECURSE testdata "testdata/*.*")

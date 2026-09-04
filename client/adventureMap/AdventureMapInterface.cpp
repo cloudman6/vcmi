@@ -29,6 +29,7 @@
 #include "../gui/CursorHandler.h"
 #include "../GameEngine.h"
 #include "../GameInstance.h"
+#include "../eventsSDL/InputHandler.h"
 #include "../gui/Shortcut.h"
 #include "../gui/WindowHandler.h"
 #include "../render/Canvas.h"
@@ -57,6 +58,22 @@
 
 std::shared_ptr<AdventureMapInterface> adventureInt;
 
+namespace
+{
+int3 controllerTileDirection(double x, double y)
+{
+	const double angle = std::atan2(y, x) * 180.0 / M_PI;
+	if(angle < -157.5 || angle >= 157.5) return int3(-1, 0, 0);
+	if(angle < -112.5) return int3(-1, -1, 0);
+	if(angle < -67.5) return int3(0, -1, 0);
+	if(angle < -22.5) return int3(1, -1, 0);
+	if(angle < 22.5) return int3(1, 0, 0);
+	if(angle < 67.5) return int3(1, 1, 0);
+	if(angle < 112.5) return int3(0, 1, 0);
+	return int3(-1, 1, 0);
+}
+}
+
 AdventureMapInterface::AdventureMapInterface():
 	mapAudio(new MapAudioPlayer()),
 	spellBeingCasted(nullptr),
@@ -78,7 +95,7 @@ AdventureMapInterface::AdventureMapInterface():
 	if(GAME->interface()->cb->getStartInfo()->turnTimerInfo.turnTimer != 0)
 		watches = std::make_shared<TurnTimerWidget>(Point(24, 24));
 	
-	addUsedEvents(KEYBOARD | TIME);
+	addUsedEvents(KEYBOARD | TIME | INPUT_MODE_CHANGE);
 }
 
 void AdventureMapInterface::onMapViewMoved(const Rect & visibleArea, int mapLevel)
@@ -145,6 +162,12 @@ void AdventureMapInterface::activate()
 	}
 
 	ENGINE->fakeMouseMove(); //to restore the cursor
+	if(isControllerNativeMode())
+	{
+		ENGINE->cursor().setControllerNativeHidden(true);
+		ensureControllerTarget();
+		presentControllerTarget();
+	}
 
 	// workaround for an edge case:
 	// if player unequips Angel Wings / Boots of Levitation of currently active hero
@@ -155,17 +178,247 @@ void AdventureMapInterface::activate()
 
 void AdventureMapInterface::deactivate()
 {
+	controllerInputReset();
 	CIntObject::deactivate();
+	ENGINE->cursor().setControllerNativeHidden(false);
 	ENGINE->cursor().set(Cursor::Map::POINTER);
 
 	if(GAME->interface())
 		GAME->interface()->cingconsole->deactivate();
 }
 
+bool AdventureMapInterface::isControllerNativeMode() const
+{
+	return ENGINE->input().getCurrentInputMode() == InputMode::CONTROLLER
+		&& shortcuts->optionMapViewActive();
+}
+
+bool AdventureMapInterface::usesNativeControllerAxis() const
+{
+	return isControllerNativeMode();
+}
+
+void AdventureMapInterface::inputModeChanged(InputMode inputMode)
+{
+	controllerInputReset();
+	ENGINE->cursor().setControllerNativeHidden(inputMode == InputMode::CONTROLLER);
+	if(isControllerNativeMode())
+	{
+		ensureControllerTarget();
+		presentControllerTarget();
+	}
+	redraw();
+}
+
+void AdventureMapInterface::controllerInputReset()
+{
+	controllerTileNavigation.reset();
+	controllerObjectNavigation.reset();
+	controllerNavigationOwner = ControllerNavigationOwner::NONE;
+	controllerInstance = -1;
+	controllerState.resetInput();
+}
+
+void AdventureMapInterface::updateControllerNavigationOwner(ControllerNavigationOwner changedOwner)
+{
+	auto & changed = changedOwner == ControllerNavigationOwner::TILE
+		? controllerTileNavigation : controllerObjectNavigation;
+	auto & other = changedOwner == ControllerNavigationOwner::TILE
+		? controllerObjectNavigation : controllerTileNavigation;
+
+	if(controllerNavigationOwner == ControllerNavigationOwner::NONE && changed.isActive())
+		controllerNavigationOwner = changedOwner;
+	else if(controllerNavigationOwner == changedOwner && !changed.isActive())
+		controllerNavigationOwner = other.isActive()
+			? (changedOwner == ControllerNavigationOwner::TILE
+				? ControllerNavigationOwner::OBJECT : ControllerNavigationOwner::TILE)
+			: ControllerNavigationOwner::NONE;
+}
+
+bool AdventureMapInterface::controllerAxisMoved(int instanceId, const std::vector<EShortcut> & actions, double value)
+{
+	if(controllerInstance != -1 && controllerInstance != instanceId)
+		controllerInputReset();
+	controllerInstance = instanceId;
+
+	bool handled = false;
+	for(const auto action : actions)
+	{
+		switch(action)
+		{
+		case EShortcut::MOUSE_CURSOR_X:
+			controllerTileNavigation.update(true, value);
+			updateControllerNavigationOwner(ControllerNavigationOwner::TILE);
+			handled = true;
+			break;
+		case EShortcut::MOUSE_CURSOR_Y:
+			controllerTileNavigation.update(false, value);
+			updateControllerNavigationOwner(ControllerNavigationOwner::TILE);
+			handled = true;
+			break;
+		case EShortcut::MOUSE_SWIPE_X:
+			controllerObjectNavigation.update(true, value);
+			updateControllerNavigationOwner(ControllerNavigationOwner::OBJECT);
+			handled = true;
+			break;
+		case EShortcut::MOUSE_SWIPE_Y:
+			controllerObjectNavigation.update(false, value);
+			updateControllerNavigationOwner(ControllerNavigationOwner::OBJECT);
+			handled = true;
+			break;
+		default:
+			break;
+		}
+	}
+	return handled;
+}
+
+const CGObjectInstance * AdventureMapInterface::getControllerObject(
+	ObjectInstanceID id, const int3 & interactionTile) const
+{
+	const auto * object = GAME->interface()->cb->getObj(id, false);
+	if(!object || !object->isVisitable() || object->visitablePos() != interactionTile)
+		return nullptr;
+	return object;
+}
+
+std::optional<AdventureMapControllerTarget> AdventureMapInterface::revalidateControllerTarget()
+{
+	if(!controllerState.target())
+		return std::nullopt;
+	const auto target = *controllerState.target();
+	if(!target.objectId)
+	{
+		if(!GAME->interface()->cb->isInTheMap(target.interactionTile)
+			|| target.interactionTile.z != mapViewCenter.z)
+			return std::nullopt;
+		return target;
+	}
+
+	for(const auto & candidate : widget->getMapView()->getVisibleObjectCandidates())
+	{
+		if(candidate.id != *target.objectId)
+			continue;
+		if(!handleTilePrimary(candidate.interactionTile, candidate.id, false))
+			return std::nullopt;
+		return AdventureMapControllerTarget{
+			candidate.visualTile, candidate.id, candidate.interactionTile};
+	}
+	return std::nullopt;
+}
+
+void AdventureMapInterface::ensureControllerTarget()
+{
+	if(const auto current = revalidateControllerTarget())
+	{
+		controllerState.setTarget(*current);
+		return;
+	}
+
+	const auto * selected = GAME->interface()->localState->getCurrentArmy();
+	if(!selected)
+	{
+		controllerState.clearTarget();
+		return;
+	}
+
+	for(const auto & candidate : widget->getMapView()->getVisibleObjectCandidates())
+	{
+		if(candidate.id == selected->id)
+		{
+			controllerState.setTarget({candidate.visualTile, candidate.id, candidate.interactionTile});
+			return;
+		}
+	}
+	controllerState.setTarget({selected->visitablePos(), selected->id, selected->visitablePos()});
+}
+
+std::vector<AdventureMapControllerObjectCandidate> AdventureMapInterface::getControllerObjectCandidates()
+{
+	std::vector<AdventureMapControllerObjectCandidate> result;
+	for(const auto & candidate : widget->getMapView()->getVisibleObjectCandidates())
+	{
+		if(!handleTilePrimary(candidate.interactionTile, candidate.id, false))
+			continue;
+		result.push_back({candidate.id, candidate.visualCenter, candidate.interactionTile});
+	}
+	return result;
+}
+
+void AdventureMapInterface::presentControllerTarget()
+{
+	const auto target = revalidateControllerTarget();
+	if(!target)
+	{
+		ensureControllerTarget();
+		if(!controllerState.target())
+			return;
+		onTileHovered(controllerState.target()->interactionTile, controllerState.target()->objectId);
+		return;
+	}
+	controllerState.setTarget(*target);
+	onTileHovered(target->interactionTile, target->objectId);
+}
+
+bool AdventureMapInterface::moveControllerTile()
+{
+	ensureControllerTarget();
+	if(!controllerState.target())
+		return false;
+
+	const int3 target = controllerState.target()->visualTile
+		+ controllerTileDirection(controllerTileNavigation.x(), controllerTileNavigation.y());
+	if(!GAME->interface()->cb->isInTheMap(target))
+		return false;
+
+	controllerState.setTarget({target, std::nullopt, target});
+	if(!widget->getMapView()->isTargetTileVisible(target))
+		centerOnTile(target);
+	presentControllerTarget();
+	redraw();
+	return true;
+}
+
+bool AdventureMapInterface::browseControllerObject()
+{
+	ensureControllerTarget();
+	if(!controllerState.target())
+		return false;
+
+	const auto current = *controllerState.target();
+	const auto selected = AdventureMapControllerObjectSelector::select(
+		getControllerObjectCandidates(), Point(current.visualTile), current.objectId,
+		controllerObjectNavigation.x(), controllerObjectNavigation.y());
+	if(!selected)
+		return false;
+
+	for(const auto & candidate : widget->getMapView()->getVisibleObjectCandidates())
+	{
+		if(candidate.id != selected->id)
+			continue;
+		controllerState.setTarget({candidate.visualTile, candidate.id, candidate.interactionTile});
+		presentControllerTarget();
+		redraw();
+		return true;
+	}
+	return false;
+}
+
+void AdventureMapInterface::drawControllerTarget(Canvas & to)
+{
+	if(!isControllerNativeMode() || !isActive() || !controllerState.target())
+		return;
+
+	CanvasClipRectGuard guard(to, terrainAreaPixels());
+	const Rect target = widget->getMapView()->getTargetTileArea(controllerState.target()->visualTile);
+	to.draw(ENGINE->cursor().getCurrentImage(), target.center() - ENGINE->cursor().getPivotOffset());
+}
+
 void AdventureMapInterface::showAll(Canvas & to)
 {
 	CIntObject::showAll(to);
 	dim(to);
+	drawControllerTarget(to);
 	GAME->interface()->cingconsole->show(to);
 }
 
@@ -173,6 +426,7 @@ void AdventureMapInterface::show(Canvas & to)
 {
 	CIntObject::show(to);
 	dim(to);
+	drawControllerTarget(to);
 	GAME->interface()->cingconsole->show(to);
 }
 
@@ -205,6 +459,15 @@ void AdventureMapInterface::dim(Canvas & to)
 void AdventureMapInterface::tick(uint32_t msPassed)
 {
 	handleMapScrollingUpdate(msPassed);
+	if(isControllerNativeMode())
+	{
+		if(controllerNavigationOwner == ControllerNavigationOwner::TILE
+			&& controllerTileNavigation.ready(msPassed))
+			moveControllerTile();
+		if(controllerNavigationOwner == ControllerNavigationOwner::OBJECT
+			&& controllerObjectNavigation.ready(msPassed))
+			browseControllerObject();
+	}
 
 	// we want animations to be active during enemy turn but map itself to be non-interactive
 	// so call timer update directly on inactive element
@@ -213,6 +476,12 @@ void AdventureMapInterface::tick(uint32_t msPassed)
 
 void AdventureMapInterface::handleMapScrollingUpdate(uint32_t timePassed)
 {
+	if(isControllerNativeMode())
+	{
+		scrollingWasActive = false;
+		return;
+	}
+
 	/// Width of window border, in pixels, that triggers map scrolling
 	static constexpr int32_t borderScrollWidth = 15;
 
@@ -307,12 +576,69 @@ int3 AdventureMapInterface::getMapViewCenter() const
 
 void AdventureMapInterface::keyPressed(EShortcut key)
 {
+	if(isControllerNativeMode())
+	{
+		if(key == EShortcut::GLOBAL_ACCEPT)
+		{
+			if(getState() == EAdventureState::WORLD_VIEW)
+				hotkeyExitWorldView();
+			else
+			{
+				ensureControllerTarget();
+				controllerState.pressPrimary();
+			}
+			return;
+		}
+		if(key == EShortcut::GLOBAL_CANCEL)
+		{
+			if(spellBeingCasted)
+				hotkeyAbortCastingMode();
+			else if(getState() == EAdventureState::DISEMBARKING)
+				exitDisembarkMode();
+			else if(getState() == EAdventureState::WORLD_VIEW)
+				hotkeyExitWorldView();
+			else
+			{
+				controllerState.clearTarget();
+				ensureControllerTarget();
+				presentControllerTarget();
+			}
+			return;
+		}
+		if(key == EShortcut::MOUSE_LEFT || key == EShortcut::MOUSE_RIGHT
+			|| key == EShortcut::ADVENTURE_VIEW_SELECTED)
+			return;
+	}
 	if (key == EShortcut::GLOBAL_CANCEL && spellBeingCasted)
 		hotkeyAbortCastingMode();
 	if (key == EShortcut::GLOBAL_CANCEL && getState() == EAdventureState::DISEMBARKING)
 		exitDisembarkMode();
 	//fake mouse use to trigger onTileHovered()
 	ENGINE->fakeMouseMove();
+}
+
+void AdventureMapInterface::keyReleased(EShortcut key)
+{
+	if(!isControllerNativeMode() || key != EShortcut::GLOBAL_ACCEPT)
+		return;
+	if(getState() == EAdventureState::WORLD_VIEW)
+		return;
+
+	const auto current = revalidateControllerTarget();
+	const auto committed = controllerState.releasePrimary(current);
+	if(committed)
+		handleTilePrimary(committed->interactionTile, committed->objectId, true);
+	ensureControllerTarget();
+	presentControllerTarget();
+}
+
+bool AdventureMapInterface::captureThisKey(EShortcut key)
+{
+	if(!isControllerNativeMode())
+		return false;
+	return key == EShortcut::GLOBAL_ACCEPT || key == EShortcut::GLOBAL_CANCEL
+		|| key == EShortcut::MOUSE_LEFT || key == EShortcut::MOUSE_RIGHT
+		|| key == EShortcut::ADVENTURE_VIEW_SELECTED;
 }
 
 void AdventureMapInterface::onSelectionChanged(const CArmedInstance *sel)
@@ -516,7 +842,7 @@ void AdventureMapInterface::hotkeyEndingTurn()
 	}
 }
 
-const CGObjectInstance* AdventureMapInterface::getActiveObject(const int3 &mapPos)
+const CGObjectInstance* AdventureMapInterface::getActiveObject(const int3 &mapPos) const
 {
 	std::vector < const CGObjectInstance * > bobjs = GAME->interface()->cb->getBlockingObjs(mapPos);  //blocking objects at tile
 
@@ -528,40 +854,76 @@ const CGObjectInstance* AdventureMapInterface::getActiveObject(const int3 &mapPo
 
 void AdventureMapInterface::onTileLeftClicked(const int3 &targetPosition)
 {
-	if(!shortcuts->optionMapViewActive())
-		return;
+	handleTilePrimary(targetPosition, std::nullopt, true);
+}
 
-	const CGObjectInstance *topBlocking = GAME->interface()->cb->isVisible(targetPosition) ? getActiveObject(targetPosition) : nullptr;
+bool AdventureMapInterface::handleTilePrimary(
+	const int3 & targetPosition, std::optional<ObjectInstanceID> fixedObject, bool execute)
+{
+	if(!shortcuts->optionMapViewActive())
+		return false;
+
+	const bool targetVisible = GAME->interface()->cb->isVisible(targetPosition);
+	const CGObjectInstance * topBlocking = nullptr;
+	if(fixedObject)
+	{
+		topBlocking = getControllerObject(*fixedObject, targetPosition);
+		if(!targetVisible || !topBlocking)
+			return false;
+	}
+	else if(targetVisible)
+		topBlocking = getActiveObject(targetPosition);
 
 	if(spellBeingCasted)
 	{
 		assert(shortcuts->optionSpellcasting());
 
 		if(isValidAdventureSpellTarget(targetPosition))
-			performSpellcasting(targetPosition);
-		return;
+		{
+			if(execute)
+				performSpellcasting(targetPosition);
+			return true;
+		}
+		return false;
 	}
 
 	if(getState() == EAdventureState::DISEMBARKING)
 	{
 		if(isValidDisembarkTarget(targetPosition))
-			performDisembark(targetPosition);
-		return;
+		{
+			if(execute)
+				performDisembark(targetPosition);
+			return true;
+		}
+		return false;
 	}
 
-	if(!GAME->interface()->cb->isVisible(targetPosition))
-		return;
+	if(!targetVisible)
+		return false;
 
 	//check if we can select this object
 	bool canSelect = topBlocking && topBlocking->ID == Obj::HERO && topBlocking->tempOwner == GAME->interface()->playerID;
 	canSelect |= topBlocking && topBlocking->ID == Obj::TOWN && GAME->interface()->cb->getPlayerRelations(GAME->interface()->playerID, topBlocking->tempOwner) != PlayerRelations::ENEMIES;
 
-	if(GAME->interface()->localState->getCurrentArmy()->ID != Obj::HERO) //hero is not selected (presumably town)
+	const auto * currentArmy = GAME->interface()->localState->getCurrentArmy();
+	if(!currentArmy)
+		return false;
+
+	if(currentArmy->ID != Obj::HERO) //hero is not selected (presumably town)
 	{
-		if(GAME->interface()->localState->getCurrentArmy() == topBlocking) //selected town clicked
-			GAME->interface()->openTownWindow(static_cast<const CGTownInstance*>(topBlocking));
+		if(currentArmy == topBlocking) //selected town clicked
+		{
+			if(execute)
+				GAME->interface()->openTownWindow(static_cast<const CGTownInstance*>(topBlocking));
+			return true;
+		}
 		else if(canSelect)
-			GAME->interface()->localState->setSelection(static_cast<const CArmedInstance*>(topBlocking));
+		{
+			if(execute)
+				GAME->interface()->localState->setSelection(static_cast<const CArmedInstance*>(topBlocking));
+			return true;
+		}
+		return false;
 	}
 	else if(const CGHeroInstance * currentHero = GAME->interface()->localState->getCurrentHero()) //hero is selected
 	{
@@ -570,24 +932,35 @@ void AdventureMapInterface::onTileLeftClicked(const int3 &targetPosition)
 			destinationLayer = EPathfindingLayer::AVIATE;
 
 		const CGPathNode *pn = GAME->interface()->getPathsInfo(currentHero)->getPathInfo(targetPosition, destinationLayer);
+		if(!pn)
+			return false;
 		const auto shipyard = dynamic_cast<const IShipyard *>(topBlocking);
 
 		if(currentHero == topBlocking) //clicked selected hero
 		{
-			GAME->interface()->openHeroWindow(currentHero);
-			return;
+			if(execute)
+				GAME->interface()->openHeroWindow(currentHero);
+			return true;
 		}
 		else if(canSelect && pn->turns == 255 ) //selectable object at inaccessible tile
 		{
-			GAME->interface()->localState->setSelection(static_cast<const CArmedInstance*>(topBlocking));
-			return;
+			if(execute)
+				GAME->interface()->localState->setSelection(static_cast<const CArmedInstance*>(topBlocking));
+			return true;
 		}
 		else if(shipyard != nullptr && pn->turns == 255 && GAME->interface()->cb->getPlayerRelations(GAME->interface()->playerID, topBlocking->tempOwner) != PlayerRelations::ENEMIES)
 		{
-			GAME->interface()->showShipyardDialogOrProblemPopup(shipyard);
+			if(execute)
+				GAME->interface()->showShipyardDialogOrProblemPopup(shipyard);
+			return true;
 		}
 		else //still here? we need to move hero if we clicked end of already selected path or calculate a new path otherwise
 		{
+			if(fixedObject && pn->turns == 255)
+				return false;
+			if(!execute)
+				return true;
+
 			int3 destinationTile = targetPosition;
 
 			if(topBlocking && topBlocking->isVisitable() && !topBlocking->visitableAt(destinationTile) && settings["gameTweaks"]["simpleObjectSelection"].Bool())
@@ -607,7 +980,7 @@ void AdventureMapInterface::onTileLeftClicked(const int3 &targetPosition)
 				assert(!GAME->map().hasOngoingAnimations());
 				if(!GAME->map().hasOngoingAnimations() && GAME->interface()->localState->getPath(currentHero).nextNode().turns == 0)
 					GAME->interface()->moveHero(currentHero, GAME->interface()->localState->getPath(currentHero));
-				return;
+				return true;
 			}
 			else
 			{
@@ -622,15 +995,23 @@ void AdventureMapInterface::onTileLeftClicked(const int3 &targetPosition)
 					onHeroChanged(currentHero);
 				}
 			}
+			return true;
 		}
 	} //end of hero is selected "case"
 	else
 	{
 		throw std::runtime_error("Nothing is selected...");
 	}
+	return false;
 }
 
 void AdventureMapInterface::onTileHovered(const int3 &targetPosition)
+{
+	onTileHovered(targetPosition, std::nullopt);
+}
+
+void AdventureMapInterface::onTileHovered(
+	const int3 & targetPosition, std::optional<ObjectInstanceID> fixedObject)
 {
 	if(!shortcuts->optionMapViewActive())
 		return;
@@ -642,7 +1023,9 @@ void AdventureMapInterface::onTileHovered(const int3 &targetPosition)
 		return;
 
 	bool isTargetPositionVisible = GAME->interface()->cb->isVisible(targetPosition);
-	const CGObjectInstance *objAtTile = isTargetPositionVisible ? getActiveObject(targetPosition) : nullptr;
+	const CGObjectInstance * objAtTile = nullptr;
+	if(isTargetPositionVisible)
+		objAtTile = fixedObject ? getControllerObject(*fixedObject, targetPosition) : getActiveObject(targetPosition);
 
 	if(spellBeingCasted)
 	{
