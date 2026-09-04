@@ -26,6 +26,7 @@
 #include "../eventsSDL/InputHandler.h"
 #include "../eventsSDL/InputSourceGameController.h"
 #include "../gui/CursorHandler.h"
+#include "../gui/ControllerRadial.h"
 #include "../gui/ShortcutHandler.h"
 #include "../gui/WindowHandler.h"
 #include "../lobby/BattleOnlyModeTab.h"
@@ -41,6 +42,7 @@
 #include "../widgets/TextControls.h"
 #include "../windows/GUIClasses.h"
 #include "../windows/CWindowObject.h"
+#include "../windows/CSpellWindow.h"
 #include "../windows/InfoWindows.h"
 
 #include "../../lib/GameLibrary.h"
@@ -419,6 +421,8 @@ void ControllerE2EExecutor::registerBuiltinProbes()
 			&& !CPlayerInterface::battleInt && adventureInt && adventureInt->isActive();
 		snapshot["adventure_options_open"].Bool() = ENGINE
 			&& ENGINE->windows().topWindow<AdventureOptions>() != nullptr;
+		snapshot["spellbook_open"].Bool() = ENGINE
+			&& ENGINE->windows().topWindow<CSpellWindow>() != nullptr;
 		return snapshot;
 	});
 
@@ -442,6 +446,14 @@ void ControllerE2EExecutor::registerBuiltinProbes()
 		snapshot["camera_held"].Bool() = false;
 		snapshot["camera_center_x"].Integer() = -1;
 		snapshot["camera_center_y"].Integer() = -1;
+		if(ENGINE)
+		{
+			const auto contextRadial = ENGINE->windows().topWindow<ControllerRadial>();
+			if(contextRadial)
+				snapshot["context_radial"] = contextRadial->controllerE2ESnapshot();
+			else
+				snapshot["context_radial"]["open"].Bool() = false;
+		}
 
 		const auto * player = GAME ? GAME->interface() : nullptr;
 		if(!player || !player->localState || !adventureInt)

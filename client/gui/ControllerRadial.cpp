@@ -90,6 +90,20 @@ std::string controllerE2EItemName(const ControllerRadialItemId & id)
 
 	switch(id.shortcut)
 	{
+	case EShortcut::ADVENTURE_MOVE_HERO:
+		return "move";
+	case EShortcut::ADVENTURE_CAST_SPELL:
+		return "spellbook";
+	case EShortcut::ADVENTURE_VISIT_OBJECT:
+		return "revisit";
+	case EShortcut::ADVENTURE_TOGGLE_MAP_LEVEL:
+		return "map_level";
+	case EShortcut::ADVENTURE_END_TURN:
+		return "end_turn";
+	case EShortcut::ADVENTURE_TOGGLE_SLEEP:
+		return "sleep_wake";
+	case EShortcut::ADVENTURE_QUEST_LOG:
+		return "quest";
 	case EShortcut::BATTLE_WAIT:
 		return "wait";
 	case EShortcut::BATTLE_DEFEND:
@@ -284,7 +298,9 @@ JsonNode ControllerRadial::controllerE2ESnapshot() const
 	snapshot["confirm_pressed"].Bool() = confirmPressed;
 	snapshot["axis_x"].Float() = axisX;
 	snapshot["axis_y"].Float() = axisY;
-	snapshot["kind"].String() = openingShortcut == EShortcut::BATTLE_SPELL_RADIAL ? "spells" : "actions";
+	snapshot["kind"].String() = openingShortcut == EShortcut::BATTLE_SPELL_RADIAL
+		? "spells"
+		: openingShortcut == EShortcut::ADVENTURE_CONTROLLER_CONTEXT ? "adventure" : "actions";
 	snapshot["current_page"].Integer() = static_cast<si64>(state.currentPage());
 	snapshot["page_count"].Integer() = static_cast<si64>(state.pageCount());
 	snapshot["page_transition_active"].Bool() = pageTransitionFrom.has_value();
