@@ -1151,13 +1151,16 @@ bool AdventureMapInterface::handleTilePrimary(
 	if(!targetVisible)
 		return false;
 
-	//check if we can select this object
-	bool canSelect = topBlocking && topBlocking->ID == Obj::HERO && topBlocking->tempOwner == GAME->interface()->playerID;
-	canSelect |= topBlocking && topBlocking->ID == Obj::TOWN && GAME->interface()->cb->getPlayerRelations(GAME->interface()->playerID, topBlocking->tempOwner) != PlayerRelations::ENEMIES;
-
 	const auto * currentArmy = GAME->interface()->localState->getCurrentArmy();
 	if(!currentArmy)
 		return false;
+	const auto * currentHero = GAME->interface()->localState->getCurrentHero();
+	if(fixedObject && currentHero && currentHero->inBoat() && currentHero->getBoat() == topBlocking)
+		topBlocking = currentHero;
+
+	//check if we can select this object
+	bool canSelect = topBlocking && topBlocking->ID == Obj::HERO && topBlocking->tempOwner == GAME->interface()->playerID;
+	canSelect |= topBlocking && topBlocking->ID == Obj::TOWN && GAME->interface()->cb->getPlayerRelations(GAME->interface()->playerID, topBlocking->tempOwner) != PlayerRelations::ENEMIES;
 
 	if(currentArmy->ID != Obj::HERO) //hero is not selected (presumably town)
 	{
@@ -1175,7 +1178,7 @@ bool AdventureMapInterface::handleTilePrimary(
 		}
 		return false;
 	}
-	else if(const CGHeroInstance * currentHero = GAME->interface()->localState->getCurrentHero()) //hero is selected
+	else if(currentHero) //hero is selected
 	{
 		EPathfindingLayer destinationLayer = EPathfindingLayer::AUTO;
 		if (currentHero->inBoat() && currentHero->getBoat()->layer == EPathfindingLayer::AVIATE)
