@@ -22,7 +22,8 @@
 			"mainHero": "sorsha",
 			"heroes": {
 				"hero_0": {"type": "sorsha"},
-				"hero_2": {"type": "catherine"}
+				"hero_2": {"type": "catherine"},
+				"hero_3": {"type": "orrin"}
 			}
 		}
 	},

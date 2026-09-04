@@ -58,6 +58,7 @@
 #include "../../lib/json/JsonNode.h"
 #include "../../lib/mapping/CMapInfo.h"
 #include "../../lib/mapObjects/CGObjectInstance.h"
+#include "../../lib/mapObjects/CGHeroInstance.h"
 #include "../../lib/mapObjects/army/CArmedInstance.h"
 #include "../../lib/networkPacks/PacksForLobby.h"
 #include "../../lib/networkPacks/PacksForClientBattle.h"
@@ -429,6 +430,10 @@ void ControllerE2EExecutor::registerBuiltinProbes()
 			&& ENGINE->windows().topWindow<CHeroWindow>() != nullptr;
 		snapshot["world_view"].Bool() = adventureInt
 			&& adventureInt->getState() == EAdventureState::WORLD_VIEW;
+		snapshot["casting"].Bool() = adventureInt
+			&& adventureInt->getState() == EAdventureState::CASTING_SPELL;
+		snapshot["disembarking"].Bool() = adventureInt
+			&& adventureInt->getState() == EAdventureState::DISEMBARKING;
 		return snapshot;
 	});
 
@@ -453,6 +458,9 @@ void ControllerE2EExecutor::registerBuiltinProbes()
 		snapshot["camera_center_x"].Integer() = -1;
 		snapshot["camera_center_y"].Integer() = -1;
 		snapshot["primary_attempts"].Integer() = 0;
+		snapshot["actor_in_boat"].Bool() = false;
+		snapshot["actor_visitable_x"].Integer() = -1;
+		snapshot["actor_visitable_y"].Integer() = -1;
 		if(ENGINE)
 		{
 			const auto contextRadial = ENGINE->windows().topWindow<ControllerRadial>();
@@ -477,6 +485,12 @@ void ControllerE2EExecutor::registerBuiltinProbes()
 		{
 			snapshot["actor_kind"].String() = actor->ID == Obj::TOWN ? "town" : "hero";
 			snapshot["actor_id"].Integer() = actor->id.getNum();
+			if(const auto * hero = dynamic_cast<const CGHeroInstance *>(actor))
+			{
+				snapshot["actor_in_boat"].Bool() = hero->inBoat();
+				snapshot["actor_visitable_x"].Integer() = hero->visitablePos().x;
+				snapshot["actor_visitable_y"].Integer() = hero->visitablePos().y;
+			}
 		}
 
 		for(const auto & candidate : adventureInt->widget->getMapView()->getVisibleObjectCandidates())

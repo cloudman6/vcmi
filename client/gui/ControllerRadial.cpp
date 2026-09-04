@@ -104,6 +104,8 @@ std::string controllerE2EItemName(const ControllerRadialItemId & id)
 		return "sleep_wake";
 	case EShortcut::ADVENTURE_QUEST_LOG:
 		return "quest";
+	case EShortcut::ADVENTURE_DISEMBARK:
+		return "disembark";
 	case EShortcut::BATTLE_WAIT:
 		return "wait";
 	case EShortcut::BATTLE_DEFEND:

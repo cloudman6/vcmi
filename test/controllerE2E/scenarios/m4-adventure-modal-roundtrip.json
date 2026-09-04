@@ -12,10 +12,12 @@
 		{"op": "assert", "probe": "controller_object_focus", "field": "kind", "equals": "hero"},
 		{"op": "tap", "device": "pad0", "control": "south"},
 		{"op": "wait_until", "probe": "scene", "field": "hero_window_open", "equals": true, "timeout_ms": 3000, "stable_for_frames": 3},
+		{"op": "capture_frame", "name": "adventure-hero-window"},
 		{"op": "tap", "device": "pad0", "control": "east"},
 		{"op": "wait_until", "probe": "scene", "field": "adventure_ready", "equals": true, "timeout_ms": 3000, "stable_for_frames": 3},
 		{"op": "assert", "probe": "controller_object_focus", "field": "actor_id", "equals": 0},
 		{"op": "assert", "probe": "controller_object_focus", "field": "kind", "equals": "hero"},
+		{"op": "capture_frame", "name": "adventure-after-hero-window"},
 		{"op": "request_shutdown"}
 	]
 }

@@ -15,7 +15,14 @@
 			"army": [{"amount": 10, "type": "core:pikeman"}],
 			"artifacts": {"spellbook": "core:spellBook"},
 			"owner": "red",
-			"spellBook": ["core:stoneSkin"],
+			"primarySkills": {
+				"attack": 2,
+				"defence": 2,
+				"knowledge": 5,
+				"spellpower": 5
+			},
+			"secondarySkills": {"core:wisdom": "expert"},
+			"spellBook": ["core:stoneSkin", "core:dimensionDoor"],
 			"type": "sorsha"
 		}
 	},
@@ -53,6 +60,24 @@
 			"army": [{"amount": 10, "type": "core:pikeman"}],
 			"owner": "red",
 			"type": "catherine"
+		}
+	},
+	"hero_3": {
+		"l": 0,
+		"template": {
+			"animation": "AH00_",
+			"editorAnimation": "AH00_E",
+			"mask": ["VV", "AV"],
+			"visitableFrom": ["+++", "+-+", "+++"]
+		},
+		"x": 27,
+		"y": 27,
+		"type": "hero",
+		"subtype": "knight",
+		"options": {
+			"army": [{"amount": 10, "type": "core:pikeman"}],
+			"owner": "red",
+			"type": "orrin"
 		}
 	},
 	"town_0": {

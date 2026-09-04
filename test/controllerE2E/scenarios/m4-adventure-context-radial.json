@@ -32,6 +32,16 @@
 		{"op": "release", "device": "pad0", "control": "south"},
 		{"op": "wait_until", "probe": "controller_object_focus", "field": "context_radial.open", "equals": false, "timeout_ms": 3000},
 		{"op": "wait_until", "probe": "scene", "field": "spellbook_open", "equals": true, "timeout_ms": 3000, "stable_for_frames": 3},
+		{"op": "capture_frame", "name": "adventure-spellbook-before-casting"},
+		{"op": "click_mouse", "button": "left", "x": 137, "y": 59},
+		{"op": "wait_until", "probe": "scene", "field": "spellbook_open", "equals": false, "timeout_ms": 3000, "stable_for_frames": 3},
+		{"op": "capture_frame", "name": "adventure-spell-selection-result"},
+		{"op": "wait_until", "probe": "scene", "field": "casting", "equals": true, "timeout_ms": 3000, "stable_for_frames": 3},
+		{"op": "tap", "device": "pad0", "control": "ps"},
+		{"op": "wait_until", "probe": "runtime", "field": "input_mode", "equals": "controller", "timeout_ms": 3000},
+		{"op": "tap", "device": "pad0", "control": "east"},
+		{"op": "wait_until", "probe": "scene", "field": "casting", "equals": false, "timeout_ms": 3000, "stable_for_frames": 3},
+		{"op": "assert", "probe": "controller_object_focus", "field": "actor_id", "equals": 0},
 		{"op": "request_shutdown"}
 	]
 }

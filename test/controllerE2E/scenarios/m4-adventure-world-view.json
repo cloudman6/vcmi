@@ -10,6 +10,7 @@
 		{"op": "wait_until", "probe": "scene", "field": "adventure_ready", "equals": true, "timeout_ms": 60000, "stable_for_frames": 3},
 		{"op": "tap", "device": "pad0", "control": "dpad_up"},
 		{"op": "wait_until", "probe": "scene", "field": "world_view", "equals": true, "timeout_ms": 3000, "stable_for_frames": 3},
+		{"op": "capture_frame", "name": "adventure-world-view"},
 		{"op": "set_axis", "device": "pad0", "control": "r2", "value": 1.0},
 		{"op": "wait_frames", "frames": 4},
 		{"op": "assert", "probe": "controller_object_focus", "field": "context_radial.open", "equals": false},
@@ -24,6 +25,7 @@
 		{"op": "wait_until", "probe": "scene", "field": "world_view", "equals": true, "timeout_ms": 3000, "stable_for_frames": 3},
 		{"op": "tap", "device": "pad0", "control": "east"},
 		{"op": "wait_until", "probe": "scene", "field": "adventure_ready", "equals": true, "timeout_ms": 3000, "stable_for_frames": 3},
+		{"op": "capture_frame", "name": "adventure-after-world-view"},
 		{"op": "request_shutdown"}
 	]
 }
