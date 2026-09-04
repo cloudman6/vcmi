@@ -578,7 +578,7 @@ void AdventureMapInterface::keyPressed(EShortcut key)
 {
 	if(isControllerNativeMode())
 	{
-		if(key == EShortcut::GLOBAL_ACCEPT)
+		if(key == EShortcut::GLOBAL_ACCEPT || key == EShortcut::ADVENTURE_VIEW_SELECTED)
 		{
 			if(getState() == EAdventureState::WORLD_VIEW)
 				hotkeyExitWorldView();
@@ -605,8 +605,7 @@ void AdventureMapInterface::keyPressed(EShortcut key)
 			}
 			return;
 		}
-		if(key == EShortcut::MOUSE_LEFT || key == EShortcut::MOUSE_RIGHT
-			|| key == EShortcut::ADVENTURE_VIEW_SELECTED)
+		if(key == EShortcut::MOUSE_LEFT || key == EShortcut::MOUSE_RIGHT)
 			return;
 	}
 	if (key == EShortcut::GLOBAL_CANCEL && spellBeingCasted)
@@ -619,7 +618,8 @@ void AdventureMapInterface::keyPressed(EShortcut key)
 
 void AdventureMapInterface::keyReleased(EShortcut key)
 {
-	if(!isControllerNativeMode() || key != EShortcut::GLOBAL_ACCEPT)
+	if(!isControllerNativeMode()
+		|| (key != EShortcut::GLOBAL_ACCEPT && key != EShortcut::ADVENTURE_VIEW_SELECTED))
 		return;
 	if(getState() == EAdventureState::WORLD_VIEW)
 		return;
@@ -627,7 +627,9 @@ void AdventureMapInterface::keyReleased(EShortcut key)
 	const auto current = revalidateControllerTarget();
 	const auto committed = controllerState.releasePrimary(current);
 	if(committed)
+	{
 		handleTilePrimary(committed->interactionTile, committed->objectId, true);
+	}
 	ensureControllerTarget();
 	presentControllerTarget();
 }
