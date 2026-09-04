@@ -965,6 +965,7 @@ EAdventureState AdventureMapInterface::getState() const
 
 void AdventureMapInterface::setState(EAdventureState state)
 {
+	controllerInputReset();
 	shortcuts->setState(state);
 	adjustActiveness();
 	widget->updateActiveState();
