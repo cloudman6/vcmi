@@ -5,6 +5,13 @@
 	"settingsOverride": {"input": {"enableMouse": true}, "server": {"seed": 20260904}},
 	"timeout_ms": 90000,
 	"fixture": {"setup": "battle-map-start", "map": "adventure-visible-enemy-e2e", "autofightPlayers": []},
+	"manual": {
+		"prelude": [],
+		"steps": [
+			{"op": "wait_until", "probe": "scene", "field": "adventure_ready", "equals": true, "timeout_ms": 60000, "stable_for_frames": 3},
+			{"op": "manual_hold"}
+		]
+	},
 	"prelude": [
 		{"op": "attach", "device": "pad0", "profile": "dualsense"},
 		{"op": "attach", "device": "pad1", "profile": "xbox-series"}
