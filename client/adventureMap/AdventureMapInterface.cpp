@@ -73,6 +73,14 @@ int3 controllerTileDirection(double x, double y)
 	if(angle < 112.5) return int3(0, 1, 0);
 	return int3(-1, 1, 0);
 }
+
+const CGObjectInstance * controllerActorMapObject(const CArmedInstance * actor)
+{
+	const auto * hero = dynamic_cast<const CGHeroInstance *>(actor);
+	if(hero && hero->inBoat() && hero->getBoat())
+		return hero->getBoat();
+	return actor;
+}
 }
 
 AdventureMapInterface::AdventureMapInterface():
@@ -331,7 +339,8 @@ void AdventureMapInterface::ensureControllerTarget()
 		return;
 	}
 
-	const auto * selected = GAME->interface()->localState->getCurrentArmy();
+	const auto * actor = GAME->interface()->localState->getCurrentArmy();
+	const auto * selected = controllerActorMapObject(actor);
 	if(!selected)
 	{
 		controllerState.clearTarget();
@@ -435,7 +444,8 @@ bool AdventureMapInterface::executeAdventureShortcut(EShortcut shortcut)
 void AdventureMapInterface::focusControllerActor()
 {
 	const auto * actor = GAME->interface()->localState->getCurrentArmy();
-	if(!actor)
+	const auto * targetObject = controllerActorMapObject(actor);
+	if(!targetObject)
 	{
 		controllerState.clearTarget();
 		return;
@@ -443,13 +453,13 @@ void AdventureMapInterface::focusControllerActor()
 
 	for(const auto & candidate : widget->getMapView()->getVisibleObjectCandidates())
 	{
-		if(candidate.id != actor->id)
+		if(candidate.id != targetObject->id)
 			continue;
 		controllerState.setTarget({candidate.visualTile, candidate.id, candidate.interactionTile});
 		presentControllerTarget();
 		return;
 	}
-	controllerState.setTarget({actor->visitablePos(), actor->id, actor->visitablePos()});
+	controllerState.setTarget({targetObject->visitablePos(), targetObject->id, targetObject->visitablePos()});
 	presentControllerTarget();
 }
 
