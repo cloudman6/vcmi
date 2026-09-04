@@ -419,6 +419,7 @@
 	"vcmi.battleWindow.controller.actionRadial.close": "Close",
 	"vcmi.battleWindow.controller.attack": "Attack",
 	"vcmi.battleWindow.controller.attackDirection": "Attack direction",
+	"vcmi.battleWindow.controller.cast": "Cast",
 	"vcmi.battleWindow.controller.cursorMode": "Cursor Mode",
 	"vcmi.battleWindow.controller.holdInspect": "Quick inspect",
 	"vcmi.battleWindow.controller.inspect": "Inspect",

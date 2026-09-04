@@ -43,6 +43,8 @@ public:
 protected:
 	/// Set blocked status for all buttons associated with provided shortcut
 	void setShortcutBlocked(EShortcut shortcut, bool isBlocked);
+	/// Returns the state used by shortcut dispatch and all associated buttons.
+	bool isShortcutBlocked(EShortcut shortcut) const;
 
 	/// Registers provided callback to be called whenever specified shortcut is triggered
 	void addShortcut(EShortcut shortcut, std::function<void()> callback);

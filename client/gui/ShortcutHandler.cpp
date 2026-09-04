@@ -248,6 +248,7 @@ EShortcut ShortcutHandler::findShortcut(const std::string & identifier ) const
 		{"battleAutocombat",         EShortcut::BATTLE_AUTOCOMBAT         },
 		{"battleAutocombatEnd",      EShortcut::BATTLE_END_WITH_AUTOCOMBAT},
 		{"battleCastSpell",          EShortcut::BATTLE_CAST_SPELL         },
+		{"battleControllerCastSpell", EShortcut::BATTLE_CONTROLLER_CAST_SPELL},
 		{"battleWait",               EShortcut::BATTLE_WAIT               },
 		{"battleDefend",             EShortcut::BATTLE_DEFEND             },
 		{"battleConsoleUp",          EShortcut::BATTLE_CONSOLE_UP         },

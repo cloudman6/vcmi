@@ -20,6 +20,7 @@
 #include "../gui/CursorHandler.h"
 #include "../gui/Shortcut.h"
 #include "../gui/WindowHandler.h"
+#include "../eventsSDL/InputHandler.h"
 #include "../widgets/Buttons.h"
 #include "../widgets/CComponent.h"
 #include "../widgets/GraphicalPrimitiveCanvas.h"
@@ -190,14 +191,17 @@ bool CRClickPopup::isPopupWindow() const
 	return true;
 }
 
-void CRClickPopup::createAndPush(const std::string & txt, const CInfoWindow::TCompsInfo & comps)
+void CRClickPopup::createAndPush(
+	const std::string & txt,
+	const CInfoWindow::TCompsInfo & comps,
+	std::optional<Point> centerPosition)
 {
 	PlayerColor player = GAME->interface() ? GAME->interface()->playerID : PlayerColor(1); //if no player, then use blue
 	if(settings["session"]["spectate"].Bool()) //TODO: there must be better way to implement this
 		player = PlayerColor(1);
 
 	auto temp = std::make_shared<CInfoWindow>(txt, player, comps);
-	temp->center(ENGINE->getCursorPosition()); //center on mouse
+	temp->center(centerPosition.value_or(ENGINE->getCursorPosition()));
 #ifdef VCMI_MOBILE
 	temp->moveBy({0, -temp->pos.h / 2});
 #endif
@@ -206,12 +210,15 @@ void CRClickPopup::createAndPush(const std::string & txt, const CInfoWindow::TCo
 	ENGINE->windows().createAndPushWindow<CRClickPopupInt>(temp);
 }
 
-void CRClickPopup::createAndPush(const std::string & txt, const std::shared_ptr<CComponent> & component)
+void CRClickPopup::createAndPush(
+	const std::string & txt,
+	const std::shared_ptr<CComponent> & component,
+	std::optional<Point> centerPosition)
 {
 	CInfoWindow::TCompsInfo intComps;
 	intComps.push_back(component);
 
-	createAndPush(txt, intComps);
+	createAndPush(txt, intComps, centerPosition);
 }
 
 void CRClickPopup::createAndPush(const CGObjectInstance * obj, const Point & p, ETextAlignment alignment)
@@ -246,7 +253,7 @@ void CRClickPopup::createAndPush(const CGObjectInstance * obj, const Point & p, 
 CRClickPopupInt::CRClickPopupInt(const std::shared_ptr<CIntObject> & our) :
 	dragDistance(Point(0, 0))
 {
-	addUsedEvents(DRAG_POPUP);
+	addUsedEvents(DRAG_POPUP | KEYBOARD);
 
 	ENGINE->cursor().hide();
 	inner = our;
@@ -256,6 +263,17 @@ CRClickPopupInt::CRClickPopupInt(const std::shared_ptr<CIntObject> & our) :
 CRClickPopupInt::~CRClickPopupInt()
 {
 	ENGINE->cursor().show();
+}
+
+bool CRClickPopupInt::captureThisKey(EShortcut key)
+{
+	return ENGINE->input().getCurrentInputMode() == InputMode::CONTROLLER && key == EShortcut::GLOBAL_CANCEL;
+}
+
+void CRClickPopupInt::keyReleased(EShortcut key)
+{
+	if(key == EShortcut::GLOBAL_CANCEL)
+		close();
 }
 
 void CRClickPopupInt::mouseDraggedPopup(const Point & cursorPosition, const Point & lastUpdateDistance)

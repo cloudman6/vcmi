@@ -62,7 +62,6 @@ constexpr ColorRGBA SECTOR_DISABLED(102, 102, 98, 210);
 constexpr ColorRGBA SECTOR_DISABLED_SELECTED(158, 146, 108, 235);
 constexpr ColorRGBA DETAIL_FILL(30, 21, 14, 180);
 constexpr ColorRGBA DETAIL_LINE(218, 178, 82, 145);
-constexpr ColorRGBA GENERIC_LABEL_COLOR(58, 40, 20, 255);
 constexpr ColorRGBA DISABLED_TEXT(192, 188, 174, 255);
 const std::string IDLE_STICK_GLYPH = "controllerActionBar/leftstick-normal.png";
 
@@ -260,17 +259,7 @@ void BattleControllerRadial::drawKeyPrompt(Canvas & to, Point position, EShortcu
 		stateValue = ControllerPrompt::State::PRESSED;
 	const auto spritePath = ControllerPrompt::faceButtonSprite(family, binding, stateValue);
 	if(spritePath)
-	{
 		to.draw(promptSprite(*spritePath), position);
-		if(ControllerPrompt::usesRuntimeFaceLabel(family))
-			to.drawText(
-				position + Point(GLYPH_SIZE / 2, GLYPH_SIZE / 2),
-				FONT_SMALL,
-				GENERIC_LABEL_COLOR,
-				ETextAlignment::CENTER,
-				ControllerPrompt::buttonLabel(family, binding)
-			);
-	}
 	else
 	{
 		to.drawText(

@@ -40,16 +40,6 @@ inline std::string stateSuffix(State state)
 	return "normal";
 }
 
-inline std::string genericFaceSprite(State state)
-{
-	return "controllerActionBar/generic-face-" + stateSuffix(state) + ".png";
-}
-
-inline bool usesRuntimeFaceLabel(Family family)
-{
-	return family == Family::GENERIC || family == Family::NINTENDO || family == Family::XBOX;
-}
-
 inline bool isFaceButtonBinding(const std::string & binding)
 {
 	return binding == "a" || binding == "b" || binding == "x" || binding == "y";
@@ -103,11 +93,31 @@ inline std::optional<std::string> faceButtonSprite(Family family, const std::str
 {
 	if(!isFaceButtonBinding(binding))
 		return std::nullopt;
-	if(usesRuntimeFaceLabel(family))
-		return genericFaceSprite(state);
-	if(family != Family::PLAYSTATION || (binding != "a" && binding != "b"))
-		return std::nullopt;
-	return "controllerActionBar/playstation-" + binding + "-" + stateSuffix(state) + ".png";
+	if(family == Family::PLAYSTATION)
+		return "controllerActionBar/playstation-" + binding + "-" + stateSuffix(state) + ".png";
+	if(family == Family::XBOX || family == Family::GENERIC)
+		return "controllerActionBar/xbox-" + binding + "-" + stateSuffix(state) + ".png";
+	if(family == Family::NINTENDO)
+	{
+		const std::string remappedBinding = binding == "a" ? "b"
+			: binding == "b" ? "a"
+			: binding == "x" ? "y" : "x";
+		return "controllerActionBar/xbox-" + remappedBinding + "-" + stateSuffix(state) + ".png";
+	}
+	return std::nullopt;
+}
+
+inline std::optional<std::string> directionalPadSprite(const std::string & binding)
+{
+	if(binding == "dpup")
+		return "controllerActionBar/dpad-up-normal.png";
+	if(binding == "dpright")
+		return "controllerActionBar/dpad-right-normal.png";
+	if(binding == "dpdown")
+		return "controllerActionBar/dpad-down-normal.png";
+	if(binding == "dpleft")
+		return "controllerActionBar/dpad-left-normal.png";
+	return std::nullopt;
 }
 
 inline std::optional<std::string>

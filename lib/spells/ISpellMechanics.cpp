@@ -325,6 +325,19 @@ bool BaseMechanics::adaptProblem(ESpellCastProblem source, Problem & target) con
 
 	switch(source)
 	{
+	case ESpellCastProblem::NOT_ENOUGH_MANA:
+		{
+			const auto * hero = caster->getHeroCaster();
+			if(!hero)
+				return adaptGenericProblem(target);
+
+			MetaString text;
+			text.appendTextID("core.genrltxt.206");
+			text.replaceNumber(battle()->battleGetSpellCost(owner, hero));
+			text.replaceNumber(hero->mana);
+			target.add(std::move(text), spells::Problem::NORMAL);
+		}
+		break;
 	case ESpellCastProblem::SPELL_LEVEL_LIMIT_EXCEEDED:
 		{
 			MetaString text;

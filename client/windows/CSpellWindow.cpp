@@ -19,13 +19,20 @@
 #include "../CPlayerInterface.h"
 #include "../PlayerLocalState.h"
 
+#include "../battle/BattleFieldController.h"
 #include "../battle/BattleInterface.h"
+#include "../eventsSDL/ControllerPromptFamily.h"
 #include "../GameEngine.h"
 #include "../GameInstance.h"
 #include "../gui/Shortcut.h"
+#include "../gui/ShortcutHandler.h"
 #include "../gui/WindowHandler.h"
 #include "../media/IVideoPlayer.h"
 #include "../render/CAnimation.h"
+#include "../render/Canvas.h"
+#include "../render/Colors.h"
+#include "../render/IFont.h"
+#include "../render/IImage.h"
 #include "../render/IRenderHandler.h"
 #include "../widgets/GraphicalPrimitiveCanvas.h"
 #include "../widgets/CComponent.h"
@@ -49,6 +56,32 @@
 #include "../../lib/texts/TextOperations.h"
 #include "../../lib/mapObjects/CGHeroInstance.h"
 #include "../../lib/spells/CSpellHandler.h"
+
+namespace
+{
+constexpr uint32_t CONTROLLER_SPELL_FOCUS_SETTLE_MS = 16;
+constexpr double CONTROLLER_SPELL_FOCUS_MIN_ALIGNMENT = 0.5;
+constexpr int SPELL_SLOT_WIDTH = 83;
+constexpr int SPELL_SLOT_HEIGHT = 97;
+constexpr int SPELL_SLOT_CONTENT_OFFSET_X = 9;
+constexpr int SPELL_FOCUS_CORNER_LENGTH = 13;
+constexpr int SPELL_FOCUS_CORNER_THICKNESS = 2;
+constexpr int CONTROLLER_PROMPT_GLYPH_SIZE = 24;
+constexpr int CONTROLLER_PROMPT_TEXT_SPACING = 4;
+constexpr int CONTROLLER_PROMPT_TEXT_OUTLINE = 1;
+constexpr int CONTROLLER_PROMPT_TARGET_INSET = 6;
+constexpr ColorRGBA SPELL_FOCUS_COLOR(210, 170, 70, 255);
+constexpr ColorRGBA SPELL_FOCUS_BACKGROUND_COLOR(24, 16, 8, 96);
+
+void drawControllerPromptText(Canvas & to, Point position, const std::string & text)
+{
+	to.drawText(position + Point(-CONTROLLER_PROMPT_TEXT_OUTLINE, 0), FONT_SMALL, Colors::BLACK, ETextAlignment::CENTER, text);
+	to.drawText(position + Point(CONTROLLER_PROMPT_TEXT_OUTLINE, 0), FONT_SMALL, Colors::BLACK, ETextAlignment::CENTER, text);
+	to.drawText(position + Point(0, -CONTROLLER_PROMPT_TEXT_OUTLINE), FONT_SMALL, Colors::BLACK, ETextAlignment::CENTER, text);
+	to.drawText(position + Point(0, CONTROLLER_PROMPT_TEXT_OUTLINE), FONT_SMALL, Colors::BLACK, ETextAlignment::CENTER, text);
+	to.drawText(position, FONT_SMALL, Colors::WHITE, ETextAlignment::CENTER, text);
+}
+}
 
 // Ordering of spell school tabs in SpelTab.def
 static const std::array schoolTabOrder =
@@ -266,7 +299,9 @@ CSpellWindow::CSpellWindow(const CGHeroInstance * _myHero, CPlayerInterface * _m
 
 	for(int v=0; v<spellsPerPage; ++v)
 	{
-		spellAreas[v] = std::make_shared<SpellArea>( Rect(xpos, ypos, 65, 78), this);
+		spellAreas[v] = std::make_shared<SpellArea>(
+			Rect(xpos - SPELL_SLOT_CONTENT_OFFSET_X, ypos, SPELL_SLOT_WIDTH, SPELL_SLOT_HEIGHT),
+			this);
 
 		if(v == (spellsPerPage / 2) - 1) //to right page
 		{
@@ -297,7 +332,7 @@ CSpellWindow::CSpellWindow(const CGHeroInstance * _myHero, CPlayerInterface * _m
 		cp = 0;
 	setCurrentPage(cp);
 	computeSpellsPerArea();
-	addUsedEvents(KEYBOARD);
+	addUsedEvents(KEYBOARD | TIME | INPUT_MODE_CHANGE);
 }
 
 CSpellWindow::~CSpellWindow()
@@ -498,6 +533,113 @@ void CSpellWindow::show(Canvas & to)
 	if(video)
 		video->show(to);
 	statusBar->show(to);
+	drawControllerPrompts(to);
+}
+
+const std::shared_ptr<IImage> & CSpellWindow::controllerPromptSprite(const std::string & path)
+{
+	auto cached = controllerPromptSprites.find(path);
+	if(cached == controllerPromptSprites.end())
+	{
+		auto sprite = ENGINE->renderHandler().loadImage(ImagePath::builtin(path), EImageBlitMode::COLORKEY);
+		cached = controllerPromptSprites.emplace(path, std::move(sprite)).first;
+	}
+	return cached->second;
+}
+
+void CSpellWindow::drawControllerPrompts(Canvas & to)
+{
+	if(!usesNativeSpellbookNavigation() || !ENGINE->windows().isTopWindow(this))
+		return;
+
+	const auto family = ENGINE->input().getActiveControllerPromptFamily();
+	auto bindingFor = [](EShortcut shortcut)
+	{
+		const auto bindings = ENGINE->shortcuts().getJoystickButtonBindings(shortcut);
+		return bindings.size() == 1 ? bindings.front() : std::string();
+	};
+	auto drawBinding = [this, &to, family](Point center, const std::string & binding, const std::optional<std::string> & spritePath)
+	{
+		if(spritePath)
+		{
+			const auto & sprite = controllerPromptSprite(*spritePath);
+			to.draw(sprite, center - sprite->dimensions() / 2);
+		}
+		else
+			drawControllerPromptText(to, center, binding.empty() ? "--" : ControllerPrompt::buttonLabel(family, binding));
+	};
+	auto drawFacePrompt = [&to, family, &bindingFor, &drawBinding](Point topLeft, EShortcut shortcut, const std::string & text)
+	{
+		const std::string binding = bindingFor(shortcut);
+		drawBinding(topLeft + Point(CONTROLLER_PROMPT_GLYPH_SIZE / 2, CONTROLLER_PROMPT_GLYPH_SIZE / 2), binding,
+			ControllerPrompt::faceButtonSprite(family, binding, ControllerPrompt::State::NORMAL));
+		if(!text.empty())
+		{
+			const auto & font = ENGINE->renderHandler().loadFont(FONT_SMALL);
+			const int width = static_cast<int>(font->getStringWidth(text)) + CONTROLLER_PROMPT_TEXT_OUTLINE * 2;
+			drawControllerPromptText(
+				to,
+				topLeft + Point(CONTROLLER_PROMPT_GLYPH_SIZE + CONTROLLER_PROMPT_TEXT_SPACING + width / 2, CONTROLLER_PROMPT_GLYPH_SIZE / 2),
+				text);
+		}
+	};
+	auto drawDpadPrompt = [&bindingFor, &drawBinding](Point center, EShortcut shortcut)
+	{
+		const std::string binding = bindingFor(shortcut);
+		drawBinding(center, binding, ControllerPrompt::directionalPadSprite(binding));
+	};
+	auto drawShoulderPrompt = [this, &to, family, &bindingFor](Point center, EShortcut shortcut, bool previous)
+	{
+		const auto previousBindings = ENGINE->shortcuts().getJoystickButtonBindings(EShortcut::BATTLE_DEFEND);
+		const auto nextBindings = ENGINE->shortcuts().getJoystickButtonBindings(EShortcut::BATTLE_WAIT);
+		const auto pairSprite = ControllerPrompt::shoulderPairSprite(family, previousBindings, nextBindings);
+		if(pairSprite)
+		{
+			const auto & sprite = controllerPromptSprite(*pairSprite);
+			const int glyphWidth = sprite->dimensions().x / 2;
+			to.draw(
+				sprite,
+				center - Point(glyphWidth / 2, sprite->dimensions().y / 2),
+				Rect(previous ? 0 : glyphWidth, 0, glyphWidth, sprite->dimensions().y));
+		}
+		else
+		{
+			const std::string binding = bindingFor(shortcut);
+			drawControllerPromptText(to, center, binding.empty() ? "--" : ControllerPrompt::buttonLabel(family, binding));
+		}
+	};
+
+	if(currentPage > 0)
+		drawShoulderPrompt(leftCorner->pos.center(), EShortcut::BATTLE_DEFEND, true);
+	if(currentPage + 1 < pagesWithinCurrentTab())
+		drawShoulderPrompt(rightCorner->pos.center(), EShortcut::BATTLE_WAIT, false);
+
+	drawDpadPrompt(Point(schoolTab->pos.center().x, schoolTab->pos.top() - CONTROLLER_PROMPT_GLYPH_SIZE / 2 - CONTROLLER_PROMPT_TARGET_INSET), EShortcut::MOVE_UP);
+	drawDpadPrompt(Point(schoolTab->pos.center().x, schoolTab->pos.bottom() + CONTROLLER_PROMPT_GLYPH_SIZE / 2), EShortcut::MOVE_DOWN);
+
+	const int bookmarkPromptY = pos.y + 405 + offB + 56 + CONTROLLER_PROMPT_GLYPH_SIZE / 2 - CONTROLLER_PROMPT_TARGET_INSET;
+	const int battleBookmarkCenterX = pos.x + 221 + (isBigSpellbook ? 43 : 0) + (isBigSpellbook ? 60 : 36) / 2;
+	const int adventureBookmarkCenterX = pos.x + 355 + (isBigSpellbook ? 110 : 0) + (isBigSpellbook ? 60 : 36) / 2;
+	const int exitBookmarkCenterX = pos.x + 479 + (isBigSpellbook ? 175 : 0) + (isBigSpellbook ? 60 : 36) / 2;
+	if(!battleSpellsOnly)
+		drawDpadPrompt(Point(battleBookmarkCenterX, bookmarkPromptY), EShortcut::MOVE_LEFT);
+	if(battleSpellsOnly)
+		drawDpadPrompt(Point(adventureBookmarkCenterX, bookmarkPromptY), EShortcut::MOVE_RIGHT);
+	drawFacePrompt(Point(exitBookmarkCenterX - CONTROLLER_PROMPT_GLYPH_SIZE / 2, bookmarkPromptY - CONTROLLER_PROMPT_GLYPH_SIZE / 2),
+		EShortcut::BATTLE_CONTROLLER_CAST_SPELL, "");
+
+	if(controllerFocusIndex)
+	{
+		const int actionPromptY = pos.bottom() - 36;
+		drawFacePrompt(
+			Point(pos.center().x - 128, actionPromptY - CONTROLLER_PROMPT_GLYPH_SIZE / 2),
+			EShortcut::GLOBAL_ACCEPT,
+			spellAreas[*controllerFocusIndex]->controllerAcceptActionText());
+		drawFacePrompt(
+			Point(pos.center().x + 34, actionPromptY - CONTROLLER_PROMPT_GLYPH_SIZE / 2),
+			EShortcut::GLOBAL_CANCEL,
+			LIBRARY->generaltexth->translate("vcmi.battleWindow.controller.holdInspect"));
+	}
 }
 
 void CSpellWindow::computeSpellsPerArea()
@@ -570,6 +712,7 @@ void CSpellWindow::computeSpellsPerArea()
 				spellAreas[c+2]->setSpell(nullptr);
 		}
 	}
+	revalidateControllerFocus();
 	redraw();
 }
 
@@ -647,6 +790,38 @@ void CSpellWindow::onVideoPlaybackFinished()
 
 void CSpellWindow::keyPressed(EShortcut key)
 {
+	if(usesNativeSpellbookNavigation())
+	{
+		switch(key)
+		{
+			case EShortcut::GLOBAL_ACCEPT:
+				if(controllerFocusIndex)
+					spellAreas[*controllerFocusIndex]->clickPressed(spellAreas[*controllerFocusIndex]->pos.center());
+				return;
+			case EShortcut::GLOBAL_CANCEL:
+				if(controllerFocusIndex)
+					spellAreas[*controllerFocusIndex]->showPopupWindow(spellAreas[*controllerFocusIndex]->pos.center());
+				return;
+			case EShortcut::BATTLE_CONTROLLER_CAST_SPELL:
+				fexitb();
+				return;
+			case EShortcut::BATTLE_DEFEND:
+				fLcornerb();
+				return;
+			case EShortcut::BATTLE_WAIT:
+				fRcornerb();
+				return;
+			case EShortcut::MOVE_LEFT:
+				fbattleSpellsb();
+				return;
+			case EShortcut::MOVE_RIGHT:
+				fadvSpellsb();
+				return;
+			default:
+				break;
+		}
+	}
+
 	switch(key)
 	{
 		case EShortcut::GLOBAL_RETURN:
@@ -686,6 +861,179 @@ void CSpellWindow::keyPressed(EShortcut key)
 	}
 }
 
+bool CSpellWindow::captureThisKey(EShortcut key)
+{
+	if(!usesNativeSpellbookNavigation())
+		return false;
+
+	return key == EShortcut::GLOBAL_ACCEPT || key == EShortcut::GLOBAL_CANCEL
+		|| key == EShortcut::BATTLE_CONTROLLER_CAST_SPELL
+		|| key == EShortcut::BATTLE_DEFEND || key == EShortcut::BATTLE_WAIT
+		|| key == EShortcut::MOVE_LEFT || key == EShortcut::MOVE_RIGHT
+		|| key == EShortcut::MOVE_UP || key == EShortcut::MOVE_DOWN;
+}
+
+bool CSpellWindow::usesNativeSpellbookNavigation() const
+{
+	return myInt && myInt->battleInt && myInt->battleInt->fieldController
+		&& myInt->battleInt->fieldController->isControllerNativeMode();
+}
+
+void CSpellWindow::setControllerFocus(std::optional<size_t> index)
+{
+	if(index && (*index >= static_cast<size_t>(spellsPerPage) || !spellAreas[*index]->hasSpell()))
+		index.reset();
+	if(controllerFocusIndex == index)
+		return;
+	if(controllerFocusIndex)
+		spellAreas[*controllerFocusIndex]->setControllerFocused(false);
+	controllerFocusIndex = index;
+	if(controllerFocusIndex)
+		spellAreas[*controllerFocusIndex]->setControllerFocused(true);
+}
+
+void CSpellWindow::revalidateControllerFocus()
+{
+	if(!usesNativeSpellbookNavigation())
+	{
+		setControllerFocus(std::nullopt);
+		return;
+	}
+	if(controllerFocusIndex && spellAreas[*controllerFocusIndex]->hasSpell())
+		return;
+
+	std::optional<size_t> next;
+	if(controllerFocusIndex)
+	{
+		const Point previousCenter = spellAreas[*controllerFocusIndex]->pos.center();
+		double bestDistance = std::numeric_limits<double>::max();
+		for(size_t index = 0; index < static_cast<size_t>(spellsPerPage); ++index)
+		{
+			if(!spellAreas[index]->hasSpell())
+				continue;
+			const Point delta = spellAreas[index]->pos.center() - previousCenter;
+			const double distance = static_cast<double>(delta.x) * delta.x + static_cast<double>(delta.y) * delta.y;
+			if(distance < bestDistance)
+			{
+				bestDistance = distance;
+				next = index;
+			}
+		}
+	}
+	else
+	{
+		for(size_t index = 0; index < static_cast<size_t>(spellsPerPage); ++index)
+			if(spellAreas[index]->hasSpell())
+			{
+				next = index;
+				break;
+			}
+	}
+	setControllerFocus(next);
+}
+
+void CSpellWindow::moveControllerFocus(double directionX, double directionY)
+{
+	revalidateControllerFocus();
+	if(!controllerFocusIndex)
+		return;
+
+	const double directionLength = std::hypot(directionX, directionY);
+	if(vstd::isAlmostZero(directionLength))
+		return;
+	const Point origin = spellAreas[*controllerFocusIndex]->pos.center();
+	std::optional<size_t> best;
+	double bestAlignment = CONTROLLER_SPELL_FOCUS_MIN_ALIGNMENT;
+	double bestDistance = std::numeric_limits<double>::max();
+	for(size_t index = 0; index < static_cast<size_t>(spellsPerPage); ++index)
+	{
+		if(index == *controllerFocusIndex || !spellAreas[index]->hasSpell())
+			continue;
+		const Point delta = spellAreas[index]->pos.center() - origin;
+		const double distance = std::hypot(static_cast<double>(delta.x), static_cast<double>(delta.y));
+		if(vstd::isAlmostZero(distance))
+			continue;
+		const double alignment = (delta.x * directionX + delta.y * directionY) / (distance * directionLength);
+		if(alignment > bestAlignment + 0.0001 || (std::abs(alignment - bestAlignment) <= 0.0001 && distance < bestDistance))
+		{
+			bestAlignment = alignment;
+			bestDistance = distance;
+			best = index;
+		}
+	}
+	if(best)
+		setControllerFocus(best);
+}
+
+void CSpellWindow::resetControllerAxis()
+{
+	controllerAxisX = controllerAxisY = 0.0;
+	controllerAxisSettleElapsed = 0;
+	controllerAxisPending = false;
+	controllerAxisLatched = false;
+}
+
+void CSpellWindow::tick(uint32_t msPassed)
+{
+	if(!controllerAxisPending)
+		return;
+	controllerAxisSettleElapsed += msPassed;
+	if(controllerAxisSettleElapsed < CONTROLLER_SPELL_FOCUS_SETTLE_MS)
+		return;
+	controllerAxisPending = false;
+	moveControllerFocus(controllerAxisX, controllerAxisY);
+}
+
+void CSpellWindow::inputModeChanged(InputMode)
+{
+	resetControllerAxis();
+	if(usesNativeSpellbookNavigation())
+		revalidateControllerFocus();
+	else
+		setControllerFocus(std::nullopt);
+}
+
+bool CSpellWindow::usesNativeControllerAxis() const
+{
+	return usesNativeSpellbookNavigation();
+}
+
+bool CSpellWindow::controllerAxisMoved(int, const std::vector<EShortcut> & actions, double value)
+{
+	bool leftStickChanged = false;
+	if(vstd::contains(actions, EShortcut::MOUSE_CURSOR_X))
+	{
+		controllerAxisX = value;
+		leftStickChanged = true;
+	}
+	if(vstd::contains(actions, EShortcut::MOUSE_CURSOR_Y))
+	{
+		controllerAxisY = value;
+		leftStickChanged = true;
+	}
+
+	if(leftStickChanged)
+	{
+		const bool active = !vstd::isAlmostZero(controllerAxisX) || !vstd::isAlmostZero(controllerAxisY);
+		if(!active)
+			resetControllerAxis();
+		else if(!controllerAxisLatched)
+		{
+			controllerAxisLatched = true;
+			controllerAxisPending = true;
+			controllerAxisSettleElapsed = 0;
+		}
+	}
+	return true;
+}
+
+void CSpellWindow::controllerInputReset()
+{
+	resetControllerAxis();
+	if(usesNativeSpellbookNavigation())
+		revalidateControllerFocus();
+}
+
 int CSpellWindow::pagesWithinCurrentTab()
 {
 	return battleSpellsOnly ? sitesPerTabBattle[selectedTab] : sitesPerTabAdv[selectedTab];
@@ -702,18 +1050,102 @@ CSpellWindow::SpellArea::SpellArea(Rect pos, CSpellWindow * owner)
 
 	OBJECT_CONSTRUCTION;
 
-	image = std::make_shared<CAnimImage>(AnimationPath::builtin("Spells"), 0, 0);
+	image = std::make_shared<CAnimImage>(AnimationPath::builtin("Spells"), 0, 0, SPELL_SLOT_CONTENT_OFFSET_X, 0);
 	image->visible = false;
 
-	name = std::make_shared<CLabel>(39, 70, FONT_TINY, ETextAlignment::CENTER);
-	level = std::make_shared<CLabel>(39, 82, FONT_TINY, ETextAlignment::CENTER);
-	cost = std::make_shared<CLabel>(39, 94, FONT_TINY, ETextAlignment::CENTER);
+	name = std::make_shared<CLabel>(48, 70, FONT_TINY, ETextAlignment::CENTER);
+	level = std::make_shared<CLabel>(48, 82, FONT_TINY, ETextAlignment::CENTER);
+	cost = std::make_shared<CLabel>(48, 94, FONT_TINY, ETextAlignment::CENTER);
 
 	for(auto l : {name, level, cost})
 		l->setAutoRedraw(false);
 }
 
 CSpellWindow::SpellArea::~SpellArea() = default;
+
+bool CSpellWindow::SpellArea::hasSpell() const
+{
+	return mySpell != nullptr;
+}
+
+void CSpellWindow::SpellArea::setControllerFocused(bool focused)
+{
+	if(controllerFocused == focused)
+		return;
+	controllerFocused = focused;
+	setRedrawParent(true);
+	redraw();
+	updateStatus(focused);
+}
+
+std::string CSpellWindow::SpellArea::controllerAcceptActionText() const
+{
+	if(!mySpell)
+		return "";
+	if(owner->onSpellSelect)
+		return LIBRARY->generaltexth->translate("vcmi.battleWindow.controller.select");
+	if(mySpell->isCombat())
+		return LIBRARY->generaltexth->translate("vcmi.battleWindow.controller.cast");
+	return LIBRARY->generaltexth->translate("vcmi.battleWindow.controller.inspect");
+}
+
+void CSpellWindow::SpellArea::showAll(Canvas & to)
+{
+	const bool focused = controllerFocused || (!owner->usesNativeSpellbookNavigation() && isHovered());
+	if(focused && mySpell)
+		to.drawColorBlended(pos, SPELL_FOCUS_BACKGROUND_COLOR);
+	CIntObject::showAll(to);
+	if(!focused || !mySpell)
+		return;
+
+	const int left = pos.left();
+	const int right = pos.right();
+	const int top = pos.top();
+	const int bottom = pos.bottom();
+	for(int offset = 0; offset < SPELL_FOCUS_CORNER_THICKNESS; ++offset)
+	{
+		to.drawLine(
+			Point(left + offset, top + offset),
+			Point(left + SPELL_FOCUS_CORNER_LENGTH, top + offset),
+			SPELL_FOCUS_COLOR,
+			SPELL_FOCUS_COLOR);
+		to.drawLine(
+			Point(left + offset, top + offset),
+			Point(left + offset, top + SPELL_FOCUS_CORNER_LENGTH),
+			SPELL_FOCUS_COLOR,
+			SPELL_FOCUS_COLOR);
+		to.drawLine(
+			Point(right - offset, top + offset),
+			Point(right - SPELL_FOCUS_CORNER_LENGTH, top + offset),
+			SPELL_FOCUS_COLOR,
+			SPELL_FOCUS_COLOR);
+		to.drawLine(
+			Point(right - offset, top + offset),
+			Point(right - offset, top + SPELL_FOCUS_CORNER_LENGTH),
+			SPELL_FOCUS_COLOR,
+			SPELL_FOCUS_COLOR);
+		to.drawLine(
+			Point(left + offset, bottom - offset),
+			Point(left + SPELL_FOCUS_CORNER_LENGTH, bottom - offset),
+			SPELL_FOCUS_COLOR,
+			SPELL_FOCUS_COLOR);
+		to.drawLine(
+			Point(left + offset, bottom - offset),
+			Point(left + offset, bottom - SPELL_FOCUS_CORNER_LENGTH),
+			SPELL_FOCUS_COLOR,
+			SPELL_FOCUS_COLOR);
+		to.drawLine(
+			Point(right - offset, bottom - offset),
+			Point(right - SPELL_FOCUS_CORNER_LENGTH, bottom - offset),
+			SPELL_FOCUS_COLOR,
+			SPELL_FOCUS_COLOR);
+		to.drawLine(
+			Point(right - offset, bottom - offset),
+			Point(right - offset, bottom - SPELL_FOCUS_CORNER_LENGTH),
+			SPELL_FOCUS_COLOR,
+			SPELL_FOCUS_COLOR);
+	}
+}
 
 void CSpellWindow::SpellArea::clickPressed(const Point & cursorPosition)
 {
@@ -728,14 +1160,17 @@ void CSpellWindow::SpellArea::clickPressed(const Point & cursorPosition)
 			return;
 		}
 
-		auto spellCost = owner->myInt->cb->getSpellCost(mySpell, owner->myHero);
-		if(spellCost > owner->myHero->mana) //insufficient mana
+		if(!mySpell->isCombat())
 		{
-			MetaString message = MetaString::createFromTextID("core.genrltxt.206"); // That spell costs %d spell points. Your hero only has %d spell points...
-			message.replaceNumber(spellCost);
-			message.replaceNumber(owner->myHero->mana);
-			GAME->interface()->showInfoDialog(message.toString(&GAME->translator()));
-			return;
+			const auto spellCost = owner->myInt->cb->getSpellCost(mySpell, owner->myHero);
+			if(spellCost > owner->myHero->mana) //insufficient mana
+			{
+				MetaString message = MetaString::createFromTextID("core.genrltxt.206"); // That spell costs %d spell points. Your hero only has %d spell points...
+				message.replaceNumber(spellCost);
+				message.replaceNumber(owner->myHero->mana);
+				CInfoWindow::showInfoDialog(message.toString(&GAME->translator()), {}, owner->myInt->playerID);
+				return;
+			}
 		}
 
 		//anything that is not combat spell is adventure spell
@@ -754,7 +1189,7 @@ void CSpellWindow::SpellArea::clickPressed(const Point & cursorPosition)
 		if((combatSpell != inCombat) || inCastle || (!combatSpell && !GAME->interface()->makingTurn))
 		{
 			std::vector<std::shared_ptr<CComponent>> hlp(1, std::make_shared<CComponent>(ComponentType::SPELL, mySpell->id));
-			GAME->interface()->showInfoDialog(mySpell->getDescriptionTranslated(schoolLevel), hlp);
+			CInfoWindow::showInfoDialog(mySpell->getDescriptionTranslated(schoolLevel), hlp, owner->myInt->playerID);
 		}
 		else if(combatSpell)
 		{
@@ -769,9 +1204,9 @@ void CSpellWindow::SpellArea::clickPressed(const Point & cursorPosition)
 				std::vector<std::string> texts;
 				problem.getAll(texts);
 				if(!texts.empty())
-					GAME->interface()->showInfoDialog(texts.front());
+					CInfoWindow::showInfoDialog(texts.front(), {}, owner->myInt->playerID);
 				else
-					GAME->interface()->showInfoDialog(LIBRARY->generaltexth->translate("vcmi.adventureMap.spellUnknownProblem"));
+					CInfoWindow::showInfoDialog(LIBRARY->generaltexth->translate("vcmi.adventureMap.spellUnknownProblem"), {}, owner->myInt->playerID);
 			}
 		}
 		else //adventure spell
@@ -802,9 +1237,9 @@ void CSpellWindow::SpellArea::clickPressed(const Point & cursorPosition)
 				std::vector<std::string> texts;
 				problem.getAll(texts);
 				if(!texts.empty())
-					GAME->interface()->showInfoDialog(texts.front());
+					CInfoWindow::showInfoDialog(texts.front(), {}, owner->myInt->playerID);
 				else
-					GAME->interface()->showInfoDialog(LIBRARY->generaltexth->translate("vcmi.adventureMap.spellUnknownProblem"));
+					CInfoWindow::showInfoDialog(LIBRARY->generaltexth->translate("vcmi.adventureMap.spellUnknownProblem"), {}, owner->myInt->playerID);
 			}
 		}
 	}
@@ -825,28 +1260,41 @@ void CSpellWindow::SpellArea::showPopupWindow(const Point & cursorPosition)
 			dmgInfo = dmgText.toString(&GAME->translator());
 		}
 
-		CRClickPopup::createAndPush(mySpell->getDescriptionTranslated(schoolLevel) + dmgInfo, std::make_shared<CComponent>(ComponentType::SPELL, mySpell->id));
+		CRClickPopup::createAndPush(
+			mySpell->getDescriptionTranslated(schoolLevel) + dmgInfo,
+			std::make_shared<CComponent>(ComponentType::SPELL, mySpell->id),
+			cursorPosition);
 	}
 }
 
 void CSpellWindow::SpellArea::hover(bool on)
 {
-	if(mySpell)
+	setRedrawParent(true);
+	redraw();
+	if(!owner->usesNativeSpellbookNavigation())
+		updateStatus(on);
+}
+
+void CSpellWindow::SpellArea::updateStatus(bool on)
+{
+	if(!mySpell)
+		return;
+	if(on)
 	{
-		if(on)
-		{
-			MetaString message = MetaString::createFromRawString("%s (%s)");
-			message.replaceTextID(mySpell->getNameTextID());
-			message.replaceTextID("core.genrltxt", 171 + mySpell->getLevel());
-			owner->statusBar->write(message.toString(&GAME->translator()));
-		}
-		else
-			owner->statusBar->clear();
+		MetaString message = MetaString::createFromRawString("%s (%s)");
+		message.replaceTextID(mySpell->getNameTextID());
+		message.replaceTextID("core.genrltxt", 171 + mySpell->getLevel());
+		owner->statusBar->write(message.toString(&GAME->translator()));
 	}
+	else
+		owner->statusBar->clear();
 }
 
 void CSpellWindow::SpellArea::setSpell(const CSpell * spell)
 {
+	const bool presentedAsFocused = controllerFocused || (!owner->usesNativeSpellbookNavigation() && isHovered());
+	if(presentedAsFocused && !spell)
+		updateStatus(false);
 	schoolBorder.reset();
 	image->visible = false;
 	name->setText("");
@@ -869,10 +1317,20 @@ void CSpellWindow::SpellArea::setSpell(const CSpell * spell)
 			if (owner->selectedTab == SpellSchool::ANY)
 			{
 				if (whichSchool.hasValue())
-					schoolBorder = std::make_shared<CAnimImage>(LIBRARY->spellSchoolHandler->getById(whichSchool)->getSpellBordersPath(), schoolLevel);
+					schoolBorder = std::make_shared<CAnimImage>(
+						LIBRARY->spellSchoolHandler->getById(whichSchool)->getSpellBordersPath(),
+						schoolLevel,
+						0,
+						SPELL_SLOT_CONTENT_OFFSET_X,
+						0);
 			}
 			else
-				schoolBorder = std::make_shared<CAnimImage>(LIBRARY->spellSchoolHandler->getById(owner->selectedTab)->getSpellBordersPath(), schoolLevel);
+				schoolBorder = std::make_shared<CAnimImage>(
+					LIBRARY->spellSchoolHandler->getById(owner->selectedTab)->getSpellBordersPath(),
+					schoolLevel,
+					0,
+					SPELL_SLOT_CONTENT_OFFSET_X,
+					0);
 		}
 
 		ColorRGBA firstLineColor, secondLineColor;
@@ -910,4 +1368,6 @@ void CSpellWindow::SpellArea::setSpell(const CSpell * spell)
 		costText.replaceNumber(spellCost);
 		cost->setText(costText.toString(&GAME->translator()));
 	}
+	if(presentedAsFocused)
+		updateStatus(true);
 }

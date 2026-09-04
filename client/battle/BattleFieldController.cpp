@@ -62,7 +62,6 @@ constexpr int CONTROLLER_SHOULDER_GLYPH_HEIGHT = 20;
 constexpr int CONTROLLER_GLYPH_TEXT_SPACING = 4;
 constexpr int CONTROLLER_TEXT_OUTLINE_WIDTH = 1;
 constexpr double CONTROLLER_UNIT_NAVIGATION_CONE_ALIGNMENT = 0.5;
-constexpr ColorRGBA CONTROLLER_GENERIC_LABEL_COLOR(58, 40, 20, 255);
 
 Rect controllerPromptBounds(const Point & battlefieldOrigin)
 {
@@ -992,15 +991,7 @@ bool BattleFieldController::drawControllerPrompts(Canvas & to)
 			CONTROLLER_FACE_GLYPH_SIZE, CONTROLLER_FACE_GLYPH_SIZE);
 		const auto spritePath = battleFaceButtonSprite(family, bindings.front(), pressed);
 		if(spritePath)
-		{
 			drawSprite(*spritePath, glyph);
-			if(ControllerPrompt::usesRuntimeFaceLabel(family))
-			{
-				to.drawText(glyph + Point(CONTROLLER_FACE_GLYPH_SIZE / 2, CONTROLLER_FACE_GLYPH_SIZE / 2),
-					FONT_SMALL, CONTROLLER_GENERIC_LABEL_COLOR, ETextAlignment::CENTER,
-					ControllerPrompt::buttonLabel(family, bindings.front()));
-			}
-		}
 		else
 		{
 			to.drawText(glyph + Point(CONTROLLER_FACE_GLYPH_SIZE / 2, CONTROLLER_FACE_GLYPH_SIZE / 2),

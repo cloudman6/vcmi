@@ -74,6 +74,7 @@
 		"battleToggleMovementShadow": "F8",
 		"battleToggleStackInfo":     "F5",
 		"battleToggleCursorMode":    [],
+		"battleControllerCastSpell": [],
 		"battleSpellShortcut0":     "1",
 		"battleSpellShortcut1":     "2",
 		"battleSpellShortcut2":     "3",
@@ -322,6 +323,7 @@
 
 		"adventureCastSpell" : "righttrigger",
 		"battleCastSpell" : "righttrigger",
+		"battleControllerCastSpell" : "x",
 		
 		"adventureEndTurn" : "back",
 		"battleAutocombatEnd" : "back",

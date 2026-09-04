@@ -40,14 +40,21 @@ class CSpellWindow : public CWindowObject, public IVideoHolder
 		std::shared_ptr<CLabel> name;
 		std::shared_ptr<CLabel> level;
 		std::shared_ptr<CLabel> cost;
+		bool controllerFocused = false;
+
+		void updateStatus(bool on);
 	public:
 		SpellArea(Rect pos, CSpellWindow * owner);
 		~SpellArea();
 		void setSpell(const CSpell * spell);
+		bool hasSpell() const;
+		void setControllerFocused(bool focused);
+		std::string controllerAcceptActionText() const;
 
 		void clickPressed(const Point & cursorPosition) override;
 		void showPopupWindow(const Point & cursorPosition) override;
 		void hover(bool on) override;
+		void showAll(Canvas & to) override;
 	};
 
 	class InteractiveArea : public CIntObject
@@ -113,6 +120,13 @@ class CSpellWindow : public CWindowObject, public IVideoHolder
 	SpellSchool selectedTab;
 	int currentPage; //changes when corners are clicked
 	std::vector<const CSpell *> mySpells; //all spels in this spellbook
+	std::optional<size_t> controllerFocusIndex;
+	std::map<std::string, std::shared_ptr<IImage>> controllerPromptSprites;
+	double controllerAxisX = 0.0;
+	double controllerAxisY = 0.0;
+	uint32_t controllerAxisSettleElapsed = 0;
+	bool controllerAxisPending = false;
+	bool controllerAxisLatched = false;
 
 	const CGHeroInstance * myHero; //hero whose spells are presented
 	CPlayerInterface * myInt;
@@ -126,6 +140,13 @@ class CSpellWindow : public CWindowObject, public IVideoHolder
 	void setCurrentPage(int value);
 	void turnPageLeft();
 	void turnPageRight();
+	bool usesNativeSpellbookNavigation() const;
+	void setControllerFocus(std::optional<size_t> index);
+	void revalidateControllerFocus();
+	void moveControllerFocus(double directionX, double directionY);
+	void resetControllerAxis();
+	const std::shared_ptr<IImage> & controllerPromptSprite(const std::string & path);
+	void drawControllerPrompts(Canvas & to);
 
 	void onVideoPlaybackFinished() override;
 
@@ -149,6 +170,12 @@ public:
 	int pagesWithinCurrentTab();
 
 	void keyPressed(EShortcut key) override;
+	bool captureThisKey(EShortcut key) override;
+	void tick(uint32_t msPassed) override;
+	void inputModeChanged(InputMode mode) override;
+	bool usesNativeControllerAxis() const override;
+	bool controllerAxisMoved(int instanceId, const std::vector<EShortcut> & actions, double value) override;
+	void controllerInputReset() override;
 
 	void show(Canvas & to) override;
 };

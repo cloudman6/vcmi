@@ -70,8 +70,14 @@ public:
 	bool isPopupWindow() const override;
 
 	static std::shared_ptr<WindowBase> createCustomInfoWindow(Point position, const CGObjectInstance * specific);
-	static void createAndPush(const std::string & txt, const CInfoWindow::TCompsInfo & comps = CInfoWindow::TCompsInfo());
-	static void createAndPush(const std::string & txt, const std::shared_ptr<CComponent> & component);
+	static void createAndPush(
+		const std::string & txt,
+		const CInfoWindow::TCompsInfo & comps = CInfoWindow::TCompsInfo(),
+		std::optional<Point> centerPosition = std::nullopt);
+	static void createAndPush(
+		const std::string & txt,
+		const std::shared_ptr<CComponent> & component,
+		std::optional<Point> centerPosition = std::nullopt);
 	static void createAndPush(const CGObjectInstance * obj, const Point & p, ETextAlignment alignment = ETextAlignment::BOTTOMRIGHT);
 };
 
@@ -86,6 +92,8 @@ public:
 	CRClickPopupInt(const std::shared_ptr<CIntObject> & our);
 	~CRClickPopupInt();
 
+	bool captureThisKey(EShortcut key) override;
+	void keyReleased(EShortcut key) override;
 	void mouseDraggedPopup(const Point & cursorPosition, const Point & lastUpdateDistance) override;
 };
 

@@ -817,6 +817,12 @@ void InterfaceObjectConfigurable::setShortcutBlocked(EShortcut shortcut, bool is
 	}
 }
 
+bool InterfaceObjectConfigurable::isShortcutBlocked(EShortcut shortcut) const
+{
+	const auto target = shortcuts.find(shortcut);
+	return target == shortcuts.end() || target->second.blocked;
+}
+
 void InterfaceObjectConfigurable::addShortcut(EShortcut shortcut, std::function<void()> callback)
 {
 	assert(shortcuts.count(shortcut) == 0);

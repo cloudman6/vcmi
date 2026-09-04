@@ -24,18 +24,23 @@
 #include "../CPlayerInterface.h"
 #include "../GameEngine.h"
 #include "../GameInstance.h"
+#include "../eventsSDL/ControllerPromptFamily.h"
 #include "../eventsSDL/InputHandler.h"
 #include "../adventureMap/CInGameConsole.h"
 #include "../adventureMap/TurnTimerWidget.h"
 #include "../gui/CursorHandler.h"
 #include "../gui/Shortcut.h"
+#include "../gui/ShortcutHandler.h"
 #include "../gui/WindowHandler.h"
 #include "../render/CAnimation.h"
 #include "../render/Canvas.h"
+#include "../render/EFont.h"
+#include "../render/IImage.h"
 #include "../render/IRenderHandler.h"
 #include "../widgets/Buttons.h"
 #include "../widgets/Images.h"
 #include "../windows/CCreatureWindow.h"
+#include "../windows/InfoWindows.h"
 #include "../windows/CMarketWindow.h"
 #include "../windows/CMessage.h"
 #include "../windows/CSpellWindow.h"
@@ -60,6 +65,8 @@
 
 namespace
 {
+constexpr int CONTROLLER_FACE_PROMPT_SIZE = 24;
+
 class BattleControllerStackWindow final : public CStackWindow
 {
 	bool holdToInspect;
@@ -133,6 +140,8 @@ BattleWindow::BattleWindow(BattleInterface & Owner)
 	addShortcut(EShortcut::BATTLE_AUTOCOMBAT, std::bind(&BattleWindow::bAutofightf, this));
 	addShortcut(EShortcut::BATTLE_END_WITH_AUTOCOMBAT, std::bind(&BattleWindow::endWithAutocombat, this));
 	addShortcut(EShortcut::BATTLE_CAST_SPELL, std::bind(&BattleWindow::bSpellf, this));
+	// Controller X also emits MOUSE_LEFT; keep Native Spellbook intent separate from the button hotkey.
+	addShortcut(EShortcut::BATTLE_CONTROLLER_CAST_SPELL, std::bind(&BattleWindow::bSpellf, this));
 	addShortcut(EShortcut::BATTLE_WAIT, std::bind(&BattleWindow::bWaitf, this));
 	addShortcut(EShortcut::BATTLE_DEFEND, std::bind(&BattleWindow::bDefencef, this));
 	addShortcut(EShortcut::BATTLE_CONSOLE_UP, std::bind(&BattleWindow::bConsoleUpf, this));
@@ -175,7 +184,7 @@ BattleWindow::BattleWindow(BattleInterface & Owner)
 	else
 		tacticPhaseEnded();
 
-	addUsedEvents(LCLICK | KEYBOARD);
+	addUsedEvents(LCLICK | KEYBOARD | INPUT_MODE_CHANGE);
 }
 
 void BattleWindow::createQueue()
@@ -574,6 +583,8 @@ bool BattleWindow::captureThisKey(EShortcut key)
 		return true;
 	if(!owner.fieldController->isControllerNativeMode())
 		return false;
+	if(key == EShortcut::BATTLE_CONTROLLER_CAST_SPELL)
+		return true;
 	if(key == EShortcut::GLOBAL_ACCEPT || key == EShortcut::GLOBAL_CANCEL
 		|| key == EShortcut::MOUSE_LEFT || key == EShortcut::MOUSE_RIGHT
 		|| key == EShortcut::BATTLE_DEFEND || key == EShortcut::BATTLE_WAIT)
@@ -590,9 +601,12 @@ void BattleWindow::keyPressed(EShortcut key)
 	}
 	if(ENGINE->input().getCurrentInputMode() == InputMode::CONTROLLER)
 	{
+		if(owner.fieldController->isControllerCursorMode() && key == EShortcut::BATTLE_CONTROLLER_CAST_SPELL)
+			return;
 		if(key == EShortcut::BATTLE_TOGGLE_CURSOR_MODE)
 		{
 			owner.fieldController->toggleControllerCursorMode();
+			redraw();
 			return;
 		}
 		if(owner.fieldController->isControllerCursorMode() && key == EShortcut::MOUSE_RIGHT)
@@ -604,6 +618,11 @@ void BattleWindow::keyPressed(EShortcut key)
 			return;
 		if(owner.fieldController->isControllerNativeMode())
 		{
+			if(key == EShortcut::BATTLE_CONTROLLER_CAST_SPELL)
+			{
+				InterfaceObjectConfigurable::keyPressed(key);
+				return;
+			}
 			if(key == EShortcut::GLOBAL_ACCEPT)
 			{
 				owner.fieldController->controllerPrimaryPressed();
@@ -1019,12 +1038,12 @@ void BattleWindow::bSpellf()
 				message.replaceRawString(owner.enemyHero().name.toString(&GAME->translator()));
 			message.replaceName(artID);
 
-			GAME->interface()->showInfoDialog(message.toString(&GAME->translator()));
+			CInfoWindow::showInfoDialog(message.toString(&GAME->translator()), {}, owner.curInt->playerID);
 		}
 		else if(blockingBonus->source == BonusSource::OBJECT_TYPE)
 		{
 			if(blockingBonus->sid.as<MapObjectID>() == Obj::GARRISON || blockingBonus->sid.as<MapObjectID>() == Obj::GARRISON2)
-				GAME->interface()->showInfoDialog(LIBRARY->generaltexth->allTexts[684]);
+				CInfoWindow::showInfoDialog(LIBRARY->generaltexth->allTexts[684], {}, owner.curInt->playerID);
 		}
 	}
 	else
@@ -1099,6 +1118,7 @@ void BattleWindow::blockUI(bool on)
 	setShortcutBlocked(EShortcut::BATTLE_RETREAT, on || !owner.getBattle()->battleCanFlee());
 	setShortcutBlocked(EShortcut::BATTLE_SURRENDER, on || owner.getBattle()->battleGetSurrenderCost() < 0);
 	setShortcutBlocked(EShortcut::BATTLE_CAST_SPELL, on || tacticsMode || !canCastSpells);
+	setShortcutBlocked(EShortcut::BATTLE_CONTROLLER_CAST_SPELL, on || tacticsMode || !canCastSpells);
 	setShortcutBlocked(EShortcut::BATTLE_WAIT, on || tacticsMode || !canWait);
 	setShortcutBlocked(EShortcut::BATTLE_DEFEND, on || tacticsMode);
 	setShortcutBlocked(EShortcut::BATTLE_AUTOCOMBAT, (settings["battle"]["endWithAutocombat"].Bool() && onlyOnePlayerHuman) ? on || tacticsMode || owner.actionsController->heroSpellcastingModeActive() : owner.actionsController->heroSpellcastingModeActive());
@@ -1164,6 +1184,7 @@ void BattleWindow::showAll(Canvas & to)
 	if(owner.curInt->cb->getMapHeader()->battleOnly)
 		to.fillTexture(ENGINE->renderHandler().loadImage(ImagePath::builtin("DiBoxBck"), EImageBlitMode::OPAQUE));
 	CIntObject::showAll(to);
+	drawControllerShortcutPrompts(to);
 
 	if (ENGINE->screenDimensions().x != 800 || ENGINE->screenDimensions().y !=600)
 		to.drawBorder(Rect(pos.x-1, pos.y - (queue && queue->embedded ? 1 : 0), pos.w+2, pos.h+1 + (queue && queue->embedded ? 1 : 0)), Colors::BRIGHT_YELLOW);
@@ -1172,7 +1193,38 @@ void BattleWindow::showAll(Canvas & to)
 void BattleWindow::show(Canvas & to)
 {
 	CIntObject::show(to);
+	drawControllerShortcutPrompts(to);
 	GAME->interface()->cingconsole->show(to);
+}
+
+void BattleWindow::inputModeChanged(InputMode inputMode)
+{
+	redraw();
+}
+
+void BattleWindow::drawControllerShortcutPrompts(Canvas & to)
+{
+	if(!isActive() || !owner.fieldController || !owner.fieldController->isControllerNativeMode())
+		return;
+
+	const auto family = ENGINE->input().getActiveControllerPromptFamily();
+	if(family == ControllerPrompt::Family::UNKNOWN)
+		return;
+
+	const auto bindings = ENGINE->shortcuts().getJoystickButtonBindings(EShortcut::BATTLE_CONTROLLER_CAST_SPELL);
+	const auto spellbookButton = widget<CButton>("cast");
+	if(!spellbookButton || bindings.size() != 1)
+		return;
+
+	const bool disabled = isShortcutBlocked(EShortcut::BATTLE_CONTROLLER_CAST_SPELL);
+	const auto state = disabled ? ControllerPrompt::State::DISABLED : ControllerPrompt::State::NORMAL;
+	const auto spriteName = ControllerPrompt::faceButtonSprite(family, bindings.front(), state);
+	if(!spriteName)
+		return;
+
+	const auto sprite = ENGINE->renderHandler().loadImage(ImagePath::builtin(*spriteName), EImageBlitMode::COLORKEY);
+	const Point center = spellbookButton->pos.topLeft() + Point(spellbookButton->pos.w - 10, spellbookButton->pos.h - 9);
+	to.draw(sprite, center - Point(CONTROLLER_FACE_PROMPT_SIZE / 2, CONTROLLER_FACE_PROMPT_SIZE / 2));
 }
 
 void BattleWindow::onScreenResize()

@@ -64,6 +64,8 @@ class BattleWindow : public InterfaceObjectConfigurable
 	void bTacticPhaseEnd();
 	void bOpenActiveUnit();
 	void bOpenHoveredUnit();
+	void drawControllerShortcutPrompts(Canvas & to);
+	void inputModeChanged(InputMode inputMode) override;
 
 	/// functions for handling actions after they were confirmed by popup window
 	void reallyFlee();
