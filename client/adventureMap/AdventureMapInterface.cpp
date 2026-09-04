@@ -920,6 +920,12 @@ void AdventureMapInterface::onMapTilesChanged(std::optional<FowTilesType> positi
 		widget->getMinimap()->updateTiles(*positions);
 	else
 		widget->getMinimap()->update();
+
+	if(isControllerNativeMode() && !revalidateControllerTarget())
+	{
+		ensureControllerTarget();
+		presentControllerTarget();
+	}
 }
 
 void AdventureMapInterface::onHotseatWaitStarted(PlayerColor playerID)
