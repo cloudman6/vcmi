@@ -190,18 +190,22 @@ void AdventureMapInterface::deactivate()
 bool AdventureMapInterface::isControllerNativeMode() const
 {
 	return ENGINE->input().getCurrentInputMode() == InputMode::CONTROLLER
-		&& shortcuts->optionMapViewActive();
+		&& shortcuts->optionMapViewActive() && !controllerModeState.cursorMode();
 }
 
 bool AdventureMapInterface::usesNativeControllerAxis() const
 {
-	return isControllerNativeMode();
+	return ENGINE->input().getCurrentInputMode() == InputMode::CONTROLLER
+		&& shortcuts->optionMapViewActive() && !controllerModeState.cursorMode();
 }
 
 void AdventureMapInterface::inputModeChanged(InputMode inputMode)
 {
 	controllerInputReset();
-	ENGINE->cursor().setControllerNativeHidden(inputMode == InputMode::CONTROLLER);
+	ENGINE->cursor().setControllerNativeHidden(
+		inputMode == InputMode::CONTROLLER
+		&& shortcuts->optionMapViewActive()
+		&& !controllerModeState.cursorMode());
 	if(isControllerNativeMode())
 	{
 		ensureControllerTarget();
@@ -217,6 +221,7 @@ void AdventureMapInterface::controllerInputReset()
 	controllerNavigationOwner = ControllerNavigationOwner::NONE;
 	controllerInstance = -1;
 	controllerState.resetInput();
+	controllerModeState.resetInput();
 }
 
 void AdventureMapInterface::updateControllerNavigationOwner(ControllerNavigationOwner changedOwner)
@@ -247,13 +252,23 @@ bool AdventureMapInterface::controllerAxisMoved(int instanceId, const std::vecto
 		switch(action)
 		{
 		case EShortcut::MOUSE_CURSOR_X:
-			controllerTileNavigation.update(true, value);
-			updateControllerNavigationOwner(ControllerNavigationOwner::TILE);
+			if(controllerModeState.cameraHeld())
+				controllerModeState.updateCameraAxis(true, value);
+			else
+			{
+				controllerTileNavigation.update(true, value);
+				updateControllerNavigationOwner(ControllerNavigationOwner::TILE);
+			}
 			handled = true;
 			break;
 		case EShortcut::MOUSE_CURSOR_Y:
-			controllerTileNavigation.update(false, value);
-			updateControllerNavigationOwner(ControllerNavigationOwner::TILE);
+			if(controllerModeState.cameraHeld())
+				controllerModeState.updateCameraAxis(false, value);
+			else
+			{
+				controllerTileNavigation.update(false, value);
+				updateControllerNavigationOwner(ControllerNavigationOwner::TILE);
+			}
 			handled = true;
 			break;
 		case EShortcut::MOUSE_SWIPE_X:
@@ -404,6 +419,75 @@ bool AdventureMapInterface::browseControllerObject()
 	return false;
 }
 
+bool AdventureMapInterface::executeAdventureShortcut(EShortcut shortcut)
+{
+	for(const auto & state : shortcuts->getShortcuts())
+	{
+		if(state.shortcut != shortcut || !state.isEnabled)
+			continue;
+		state.callback();
+		return true;
+	}
+	return false;
+}
+
+void AdventureMapInterface::focusControllerActor()
+{
+	const auto * actor = GAME->interface()->localState->getCurrentArmy();
+	if(!actor)
+	{
+		controllerState.clearTarget();
+		return;
+	}
+
+	for(const auto & candidate : widget->getMapView()->getVisibleObjectCandidates())
+	{
+		if(candidate.id != actor->id)
+			continue;
+		controllerState.setTarget({candidate.visualTile, candidate.id, candidate.interactionTile});
+		presentControllerTarget();
+		return;
+	}
+	controllerState.setTarget({actor->visitablePos(), actor->id, actor->visitablePos()});
+	presentControllerTarget();
+}
+
+void AdventureMapInterface::panControllerCamera(uint32_t msPassed)
+{
+	if(!controllerModeState.cameraHeld() || !shortcuts->optionMapScrollingActive())
+		return;
+	const auto [x, y] = controllerModeState.cameraDirection();
+	const double pixelsPerSecond = settings["adventure"]["scrollSpeedPixels"].Float();
+	const Point delta(
+		static_cast<int>(std::lround(x * pixelsPerSecond * msPassed / 1000.0)),
+		static_cast<int>(std::lround(y * pixelsPerSecond * msPassed / 1000.0)));
+	if(delta != Point())
+		widget->getMapView()->onMapScrolled(delta);
+}
+
+void AdventureMapInterface::centerControllerCamera()
+{
+	ensureControllerTarget();
+	if(controllerState.target())
+		centerOnTile(controllerState.target()->visualTile);
+}
+
+void AdventureMapInterface::toggleControllerCursorMode()
+{
+	if(ENGINE->input().getCurrentInputMode() != InputMode::CONTROLLER)
+		return;
+	ENGINE->input().clearControllerAxisMotion();
+	controllerInputReset();
+	controllerModeState.toggleCursorMode();
+	ENGINE->cursor().setControllerNativeHidden(!controllerModeState.cursorMode());
+	if(!controllerModeState.cursorMode())
+	{
+		ensureControllerTarget();
+		presentControllerTarget();
+	}
+	redraw();
+}
+
 void AdventureMapInterface::drawControllerTarget(Canvas & to)
 {
 	if(!isControllerNativeMode() || !isActive() || !controllerState.target())
@@ -461,6 +545,7 @@ void AdventureMapInterface::tick(uint32_t msPassed)
 	handleMapScrollingUpdate(msPassed);
 	if(isControllerNativeMode())
 	{
+		panControllerCamera(msPassed);
 		if(controllerNavigationOwner == ControllerNavigationOwner::TILE
 			&& controllerTileNavigation.ready(msPassed))
 			moveControllerTile();
@@ -576,8 +661,42 @@ int3 AdventureMapInterface::getMapViewCenter() const
 
 void AdventureMapInterface::keyPressed(EShortcut key)
 {
+	if(ENGINE->input().getCurrentInputMode() == InputMode::CONTROLLER
+		&& key == EShortcut::ADVENTURE_TOGGLE_CURSOR_MODE)
+	{
+		toggleControllerCursorMode();
+		return;
+	}
 	if(isControllerNativeMode())
 	{
+		if(key == EShortcut::ADVENTURE_CONTROLLER_CAMERA)
+		{
+			const auto direction = controllerTileNavigation.direction();
+			controllerTileNavigation.reset();
+			if(controllerNavigationOwner == ControllerNavigationOwner::TILE)
+				controllerNavigationOwner = controllerObjectNavigation.isActive()
+					? ControllerNavigationOwner::OBJECT : ControllerNavigationOwner::NONE;
+			controllerModeState.setCameraHeld(true);
+			controllerModeState.updateCameraAxis(true, direction.first);
+			controllerModeState.updateCameraAxis(false, direction.second);
+			return;
+		}
+		if(key == EShortcut::ADVENTURE_CONTROLLER_RECENTER)
+		{
+			centerControllerCamera();
+			return;
+		}
+		if(key == EShortcut::ADVENTURE_NEXT_HERO || key == EShortcut::ADVENTURE_NEXT_TOWN)
+		{
+			if(executeAdventureShortcut(key))
+				focusControllerActor();
+			return;
+		}
+		if(key == EShortcut::ADVENTURE_GAME_OPTIONS)
+		{
+			executeAdventureShortcut(key);
+			return;
+		}
 		if(key == EShortcut::GLOBAL_ACCEPT || key == EShortcut::ADVENTURE_VIEW_SELECTED)
 		{
 			if(getState() == EAdventureState::WORLD_VIEW)
@@ -618,6 +737,12 @@ void AdventureMapInterface::keyPressed(EShortcut key)
 
 void AdventureMapInterface::keyReleased(EShortcut key)
 {
+	if(ENGINE->input().getCurrentInputMode() == InputMode::CONTROLLER
+		&& key == EShortcut::ADVENTURE_CONTROLLER_CAMERA)
+	{
+		controllerModeState.setCameraHeld(false);
+		return;
+	}
 	if(!isControllerNativeMode()
 		|| (key != EShortcut::GLOBAL_ACCEPT && key != EShortcut::ADVENTURE_VIEW_SELECTED))
 		return;
@@ -636,11 +761,20 @@ void AdventureMapInterface::keyReleased(EShortcut key)
 
 bool AdventureMapInterface::captureThisKey(EShortcut key)
 {
+	if(ENGINE->input().getCurrentInputMode() != InputMode::CONTROLLER)
+		return false;
+	if(key == EShortcut::ADVENTURE_TOGGLE_CURSOR_MODE)
+		return true;
 	if(!isControllerNativeMode())
 		return false;
 	return key == EShortcut::GLOBAL_ACCEPT || key == EShortcut::GLOBAL_CANCEL
 		|| key == EShortcut::MOUSE_LEFT || key == EShortcut::MOUSE_RIGHT
-		|| key == EShortcut::ADVENTURE_VIEW_SELECTED;
+		|| key == EShortcut::ADVENTURE_VIEW_SELECTED
+		|| key == EShortcut::ADVENTURE_CONTROLLER_CAMERA
+		|| key == EShortcut::ADVENTURE_CONTROLLER_RECENTER
+		|| key == EShortcut::ADVENTURE_NEXT_HERO
+		|| key == EShortcut::ADVENTURE_NEXT_TOWN
+		|| key == EShortcut::ADVENTURE_GAME_OPTIONS;
 }
 
 void AdventureMapInterface::onSelectionChanged(const CArmedInstance *sel)

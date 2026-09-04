@@ -59,3 +59,24 @@ public:
 		const std::optional<AdventureMapControllerTarget> & revalidatedTarget);
 	void resetInput();
 };
+
+/// Adventure-scoped controller modes. Cursor choice survives transient input
+/// resets; held camera state never does.
+class AdventureMapControllerModeState
+{
+	bool cursor = false;
+	bool camera = false;
+	double cameraX = 0.0;
+	double cameraY = 0.0;
+
+public:
+	void toggleCursorMode();
+	bool cursorMode() const;
+
+	void setCameraHeld(bool held);
+	bool cameraHeld() const;
+	void updateCameraAxis(bool horizontal, double value);
+	std::pair<double, double> cameraDirection() const;
+
+	void resetInput();
+};

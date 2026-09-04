@@ -73,6 +73,7 @@ private:
 	std::shared_ptr<AdventureMapShortcuts> shortcuts;
 	std::shared_ptr<TurnTimerWidget> watches;
 	AdventureMapControllerState controllerState;
+	AdventureMapControllerModeState controllerModeState;
 	ControllerNavigationState controllerTileNavigation;
 	ControllerNavigationState controllerObjectNavigation;
 	int controllerInstance = -1;
@@ -106,6 +107,11 @@ private:
 	std::vector<AdventureMapControllerObjectCandidate> getControllerObjectCandidates();
 	bool moveControllerTile();
 	bool browseControllerObject();
+	bool executeAdventureShortcut(EShortcut shortcut);
+	void focusControllerActor();
+	void panControllerCamera(uint32_t msPassed);
+	void centerControllerCamera();
+	void toggleControllerCursorMode();
 	void updateControllerNavigationOwner(ControllerNavigationOwner changedOwner);
 	void drawControllerTarget(Canvas & to);
 	bool isControllerNativeMode() const;

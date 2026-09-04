@@ -93,6 +93,40 @@ TEST(AdventureMapControllerStateTest, InvalidatedObjectCannotCommitAtItsFormerTi
 	EXPECT_FALSE(state.releasePrimary(replacementTile));
 }
 
+TEST(AdventureMapControllerModeStateTest, CursorAndCameraModesAreMutuallyExclusive)
+{
+	AdventureMapControllerModeState state;
+	state.setCameraHeld(true);
+	state.updateCameraAxis(true, 0.75);
+	state.updateCameraAxis(false, -0.5);
+	ASSERT_TRUE(state.cameraHeld());
+	EXPECT_EQ(state.cameraDirection(), std::pair(0.75, -0.5));
+
+	state.toggleCursorMode();
+	EXPECT_TRUE(state.cursorMode());
+	EXPECT_FALSE(state.cameraHeld());
+	EXPECT_EQ(state.cameraDirection(), std::pair(0.0, 0.0));
+
+	state.setCameraHeld(true);
+	EXPECT_FALSE(state.cameraHeld());
+}
+
+TEST(AdventureMapControllerModeStateTest, ResetReleasesCameraWithoutChangingCursorChoice)
+{
+	AdventureMapControllerModeState state;
+	state.toggleCursorMode();
+	state.resetInput();
+	EXPECT_TRUE(state.cursorMode());
+
+	state.toggleCursorMode();
+	state.setCameraHeld(true);
+	state.updateCameraAxis(true, 1.0);
+	state.resetInput();
+	EXPECT_FALSE(state.cursorMode());
+	EXPECT_FALSE(state.cameraHeld());
+	EXPECT_EQ(state.cameraDirection(), std::pair(0.0, 0.0));
+}
+
 TEST(ControllerNavigationStateTest, SettlesRepeatsAndStopsOnlyAfterBothComponentsAreNeutral)
 {
 	ControllerNavigationState state;

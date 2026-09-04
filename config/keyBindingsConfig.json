@@ -4,6 +4,8 @@
 {
 	"keyboard" : {
 		"adventureCastSpell":       "C",
+		"adventureControllerCamera": [],
+		"adventureControllerRecenter": [],
 		"adventureDigGrail":        "D",
 		"adventureEndTurn":         "E",
 		"adventureExitWorldView":   [ "Escape", "Return", "Keypad Enter"],
@@ -40,6 +42,7 @@
 		"adventureToggleGrid":      "F6",
 		"adventureToggleVisitable": [],
 		"adventureToggleBlocked":   [],
+		"adventureToggleCursorMode": [],
 		"adventureToggleMapLevel":  "U",
 		"adventureToggleSleep":     [],
 		"adventureTrackHero":       "F5",
@@ -319,7 +322,8 @@
 		"adventureNextTown" : "rightshoulder",
 		"battleWait" : "rightshoulder",
 
-		"adventureVisitObject" : "lefttrigger",
+		"adventureVisitObject" : [],
+		"adventureControllerCamera" : "lefttrigger",
 		"battleTacticsNext" : "lefttrigger",
 		"battleUseCreatureSpell" : [],
 
@@ -328,7 +332,8 @@
 		"battleActionRadial" : "righttrigger",
 		"battleSpellRadial" : "lefttrigger",
 		
-		"adventureEndTurn" : "back",
+		"adventureEndTurn" : [],
+		"adventureToggleCursorMode" : [ "back", "touchpad" ],
 		"battleAutocombatEnd" : "back",
 		
 		"globalOptions" : "start",
@@ -352,7 +357,8 @@
 		"moveRight" : "dpright",
 		"adventureThievesGuild" : "dpright",
 		
-		"adventureToggleMapLevel" : "leftstick",
+		"adventureToggleMapLevel" : [],
+		"adventureControllerRecenter" : "leftstick",
 		"battleToggleHeroesStats" : "leftstick",
 		
 		"adventureToggleGrid" : "rightstick",

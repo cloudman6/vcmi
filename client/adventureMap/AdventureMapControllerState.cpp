@@ -123,3 +123,45 @@ void AdventureMapControllerState::resetInput()
 {
 	pendingPrimary.reset();
 }
+
+void AdventureMapControllerModeState::toggleCursorMode()
+{
+	cursor = !cursor;
+	camera = false;
+	cameraX = cameraY = 0.0;
+}
+
+bool AdventureMapControllerModeState::cursorMode() const
+{
+	return cursor;
+}
+
+void AdventureMapControllerModeState::setCameraHeld(bool held)
+{
+	camera = held && !cursor;
+	if(!camera)
+		cameraX = cameraY = 0.0;
+}
+
+bool AdventureMapControllerModeState::cameraHeld() const
+{
+	return camera;
+}
+
+void AdventureMapControllerModeState::updateCameraAxis(bool horizontal, double value)
+{
+	if(!camera)
+		return;
+	(horizontal ? cameraX : cameraY) = value;
+}
+
+std::pair<double, double> AdventureMapControllerModeState::cameraDirection() const
+{
+	return {cameraX, cameraY};
+}
+
+void AdventureMapControllerModeState::resetInput()
+{
+	camera = false;
+	cameraX = cameraY = 0.0;
+}
