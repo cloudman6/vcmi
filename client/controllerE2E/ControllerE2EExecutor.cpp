@@ -17,7 +17,10 @@
 #include "../GameInstance.h"
 #include "../Client.h"
 #include "../CPlayerInterface.h"
+#include "../PlayerLocalState.h"
 #include "../CServerHandler.h"
+#include "../adventureMap/AdventureMapInterface.h"
+#include "../adventureMap/AdventureMapWidget.h"
 #include "../battle/BattleInterface.h"
 #include "../eventsSDL/InputHandler.h"
 #include "../eventsSDL/InputSourceGameController.h"
@@ -27,6 +30,7 @@
 #include "../lobby/BattleOnlyModeTab.h"
 #include "../lobby/CLobbyScreen.h"
 #include "../mainmenu/CMainMenu.h"
+#include "../mapView/MapView.h"
 #include "../render/Canvas.h"
 #include "../render/IScreenHandler.h"
 #include "../render/IRenderHandler.h"
@@ -43,12 +47,16 @@
 #include "../../lib/CConfigHandler.h"
 #include "../../lib/StartInfo.h"
 #include "../../lib/VCMIDirs.h"
+#include "../../lib/callback/CCallback.h"
 #include "../../lib/constants/EntityIdentifiers.h"
 #include "../../lib/constants/StringConstants.h"
 #include "../../lib/json/JsonNode.h"
 #include "../../lib/mapping/CMapInfo.h"
+#include "../../lib/mapObjects/CGObjectInstance.h"
+#include "../../lib/mapObjects/army/CArmedInstance.h"
 #include "../../lib/networkPacks/PacksForLobby.h"
 #include "../../lib/networkPacks/PacksForClientBattle.h"
+#include "../../lib/pathfinder/CGPathNode.h"
 #include "../../lib/spells/CSpellHandler.h"
 #include "../../lib/spells/SpellSchoolHandler.h"
 #include "../../lib/texts/CGeneralTextHandler.h"
@@ -397,6 +405,85 @@ void ControllerE2EExecutor::registerBuiltinProbes()
 			snapshot["top_window_info_text"].String() = infoWindow && infoWindow->text && infoWindow->text->label
 				? infoWindow->text->label->getText()
 				: "";
+		}
+		return snapshot;
+	});
+
+	registry.registerProbe("scene", []()
+	{
+		JsonNode snapshot;
+		const auto * player = GAME ? GAME->interface() : nullptr;
+		snapshot["battle_open"].Bool() = player && CPlayerInterface::battleInt;
+		snapshot["adventure_ready"].Bool() = player && player->makingTurn
+			&& !CPlayerInterface::battleInt && adventureInt && adventureInt->isActive();
+		return snapshot;
+	});
+
+	registry.registerProbe("controller_object_focus", []()
+	{
+		JsonNode snapshot;
+		snapshot["kind"].String() = "";
+		snapshot["id"].Integer() = -1;
+		snapshot["actor_kind"].String() = "";
+		snapshot["actor_id"].Integer() = -1;
+		snapshot["target_x"].Integer() = -1;
+		snapshot["target_y"].Integer() = -1;
+		snapshot["interaction_x"].Integer() = -1;
+		snapshot["interaction_y"].Integer() = -1;
+		snapshot["path_matches_interaction_target"].Bool() = false;
+		snapshot["path_end_x"].Integer() = -1;
+		snapshot["path_end_y"].Integer() = -1;
+		snapshot["visible_enemy_hero_count"].Integer() = 0;
+
+		const auto * player = GAME ? GAME->interface() : nullptr;
+		if(!player || !player->localState || !adventureInt)
+			return snapshot;
+
+		if(const auto * actor = player->localState->getCurrentArmy())
+		{
+			snapshot["actor_kind"].String() = actor->ID == Obj::TOWN ? "town" : "hero";
+			snapshot["actor_id"].Integer() = actor->id.getNum();
+		}
+
+		for(const auto & candidate : adventureInt->widget->getMapView()->getVisibleObjectCandidates())
+		{
+			const auto * object = player->cb->getObj(candidate.id, false);
+			if(object && object->ID == Obj::HERO && object->tempOwner != player->playerID)
+				++snapshot["visible_enemy_hero_count"].Integer();
+		}
+
+		const auto target = adventureInt->revalidateControllerTarget();
+		if(!target)
+			return snapshot;
+		snapshot["target_x"].Integer() = target->visualTile.x;
+		snapshot["target_y"].Integer() = target->visualTile.y;
+		snapshot["interaction_x"].Integer() = target->interactionTile.x;
+		snapshot["interaction_y"].Integer() = target->interactionTile.y;
+		if(!target->objectId)
+		{
+			snapshot["kind"].String() = "tile";
+			return snapshot;
+		}
+
+		snapshot["id"].Integer() = target->objectId->getNum();
+		const auto * focused = player->cb->getObj(*target->objectId, false);
+		if(focused)
+		{
+			if(focused->ID == Obj::TOWN)
+				snapshot["kind"].String() = "town";
+			else if(focused->ID == Obj::HERO)
+				snapshot["kind"].String() = focused->tempOwner == player->playerID ? "hero" : "enemy_hero";
+			else
+				snapshot["kind"].String() = "object";
+		}
+
+		const auto * hero = player->localState->getCurrentHero();
+		if(hero && player->localState->hasPath(hero))
+		{
+			const auto pathEnd = player->localState->getPath(hero).endPos();
+			snapshot["path_end_x"].Integer() = pathEnd.x;
+			snapshot["path_end_y"].Integer() = pathEnd.y;
+			snapshot["path_matches_interaction_target"].Bool() = pathEnd == target->interactionTile;
 		}
 		return snapshot;
 	});

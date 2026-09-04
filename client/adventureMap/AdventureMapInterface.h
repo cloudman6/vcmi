@@ -43,6 +43,13 @@ class TurnTimerWidget;
 struct ControllerRadialItem;
 enum class EAdventureState;
 
+#ifdef VCMI_CONTROLLER_E2E
+namespace ControllerE2E
+{
+class ControllerE2EExecutor;
+}
+#endif
+
 struct MapDrawingInfo;
 
 /// That's a huge class which handles general adventure map actions and
@@ -50,6 +57,9 @@ struct MapDrawingInfo;
 /// can get to the towns and heroes.
 class AdventureMapInterface : public CIntObject
 {
+#ifdef VCMI_CONTROLLER_E2E
+	friend class ControllerE2E::ControllerE2EExecutor;
+#endif
 private:
 	/// currently acting player
 	PlayerColor currentPlayerID;
