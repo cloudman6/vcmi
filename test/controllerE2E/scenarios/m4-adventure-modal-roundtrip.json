@@ -1,0 +1,21 @@
+{
+	"schema": "vcmi.controller-e2e/v1",
+	"id": "m4.adventure.modal-roundtrip",
+	"profile": "dualsense",
+	"settingsOverride": {"input": {"enableMouse": true}, "server": {"seed": 20260904}},
+	"timeout_ms": 90000,
+	"fixture": {"setup": "battle-map-start", "map": "adventure-visible-enemy-e2e", "autofightPlayers": []},
+	"prelude": [{"op": "attach", "device": "pad0", "profile": "dualsense"}],
+	"steps": [
+		{"op": "wait_until", "probe": "scene", "field": "adventure_ready", "equals": true, "timeout_ms": 60000, "stable_for_frames": 3},
+		{"op": "assert", "probe": "controller_object_focus", "field": "actor_id", "equals": 0},
+		{"op": "assert", "probe": "controller_object_focus", "field": "kind", "equals": "hero"},
+		{"op": "tap", "device": "pad0", "control": "south"},
+		{"op": "wait_until", "probe": "scene", "field": "hero_window_open", "equals": true, "timeout_ms": 3000, "stable_for_frames": 3},
+		{"op": "tap", "device": "pad0", "control": "east"},
+		{"op": "wait_until", "probe": "scene", "field": "adventure_ready", "equals": true, "timeout_ms": 3000, "stable_for_frames": 3},
+		{"op": "assert", "probe": "controller_object_focus", "field": "actor_id", "equals": 0},
+		{"op": "assert", "probe": "controller_object_focus", "field": "kind", "equals": "hero"},
+		{"op": "request_shutdown"}
+	]
+}

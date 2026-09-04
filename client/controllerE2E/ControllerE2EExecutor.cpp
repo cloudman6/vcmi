@@ -20,6 +20,7 @@
 #include "../PlayerLocalState.h"
 #include "../CServerHandler.h"
 #include "../adventureMap/AdventureMapInterface.h"
+#include "../adventureMap/AdventureState.h"
 #include "../adventureMap/AdventureMapWidget.h"
 #include "../adventureMap/AdventureOptions.h"
 #include "../battle/BattleInterface.h"
@@ -43,6 +44,7 @@
 #include "../windows/GUIClasses.h"
 #include "../windows/CWindowObject.h"
 #include "../windows/CSpellWindow.h"
+#include "../windows/CHeroWindow.h"
 #include "../windows/InfoWindows.h"
 
 #include "../../lib/GameLibrary.h"
@@ -423,6 +425,10 @@ void ControllerE2EExecutor::registerBuiltinProbes()
 			&& ENGINE->windows().topWindow<AdventureOptions>() != nullptr;
 		snapshot["spellbook_open"].Bool() = ENGINE
 			&& ENGINE->windows().topWindow<CSpellWindow>() != nullptr;
+		snapshot["hero_window_open"].Bool() = ENGINE
+			&& ENGINE->windows().topWindow<CHeroWindow>() != nullptr;
+		snapshot["world_view"].Bool() = adventureInt
+			&& adventureInt->getState() == EAdventureState::WORLD_VIEW;
 		return snapshot;
 	});
 
@@ -446,6 +452,7 @@ void ControllerE2EExecutor::registerBuiltinProbes()
 		snapshot["camera_held"].Bool() = false;
 		snapshot["camera_center_x"].Integer() = -1;
 		snapshot["camera_center_y"].Integer() = -1;
+		snapshot["primary_attempts"].Integer() = 0;
 		if(ENGINE)
 		{
 			const auto contextRadial = ENGINE->windows().topWindow<ControllerRadial>();
@@ -464,6 +471,7 @@ void ControllerE2EExecutor::registerBuiltinProbes()
 		const auto cameraCenter = adventureInt->getMapViewCenter();
 		snapshot["camera_center_x"].Integer() = cameraCenter.x;
 		snapshot["camera_center_y"].Integer() = cameraCenter.y;
+		snapshot["primary_attempts"].Integer() = adventureInt->controllerE2EPrimaryAttempts;
 
 		if(const auto * actor = player->localState->getCurrentArmy())
 		{

@@ -88,6 +88,9 @@ private:
 	ControllerNavigationState controllerTileNavigation;
 	ControllerNavigationState controllerObjectNavigation;
 	int controllerInstance = -1;
+#ifdef VCMI_CONTROLLER_E2E
+	int controllerE2EPrimaryAttempts = 0;
+#endif
 
 	enum class ControllerNavigationOwner
 	{

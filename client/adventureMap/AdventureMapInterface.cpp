@@ -1110,6 +1110,10 @@ void AdventureMapInterface::onTileLeftClicked(const int3 &targetPosition)
 bool AdventureMapInterface::handleTilePrimary(
 	const int3 & targetPosition, std::optional<ObjectInstanceID> fixedObject, bool execute)
 {
+#ifdef VCMI_CONTROLLER_E2E
+	if(execute)
+		++controllerE2EPrimaryAttempts;
+#endif
 	if(!shortcuts->optionMapViewActive())
 		return false;
 
