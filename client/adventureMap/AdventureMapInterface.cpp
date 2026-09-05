@@ -1180,6 +1180,16 @@ bool AdventureMapInterface::handleTilePrimary(
 	//check if we can select this object
 	bool canSelect = topBlocking && topBlocking->ID == Obj::HERO && topBlocking->tempOwner == GAME->interface()->playerID;
 	canSelect |= topBlocking && topBlocking->ID == Obj::TOWN && GAME->interface()->cb->getPlayerRelations(GAME->interface()->playerID, topBlocking->tempOwner) != PlayerRelations::ENEMIES;
+	if(fixedObject && canSelect)
+	{
+		if(!execute)
+			return true;
+		if(topBlocking->ID == Obj::HERO)
+			GAME->interface()->openHeroWindow(static_cast<const CGHeroInstance *>(topBlocking));
+		else
+			GAME->interface()->openTownWindow(static_cast<const CGTownInstance *>(topBlocking));
+		return true;
+	}
 
 	if(currentArmy->ID != Obj::HERO) //hero is not selected (presumably town)
 	{
