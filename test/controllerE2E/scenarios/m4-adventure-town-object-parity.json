@@ -1,0 +1,22 @@
+{
+	"schema": "vcmi.controller-e2e/v1",
+	"id": "m4.adventure.town-object-parity",
+	"profile": "dualsense",
+	"settingsOverride": {"input": {"enableMouse": true}, "server": {"seed": 20260904}},
+	"timeout_ms": 90000,
+	"fixture": {"setup": "battle-map-start", "map": "adventure-visible-enemy-e2e", "autofightPlayers": []},
+	"prelude": [{"op": "attach", "device": "pad0", "profile": "dualsense"}],
+	"steps": [
+		{"op": "wait_until", "probe": "scene", "field": "adventure_ready", "equals": true, "timeout_ms": 60000, "stable_for_frames": 3},
+		{"op": "wait_until", "probe": "controller_object_focus", "field": "actor_id", "equals": 0, "timeout_ms": 3000, "stable_for_frames": 3},
+		{"op": "set_axis", "device": "pad0", "control": "right_stick_x", "value": -1.0},
+		{"op": "wait_until", "probe": "controller_object_focus", "field": "kind", "equals": "town", "timeout_ms": 3000, "stable_for_frames": 3},
+		{"op": "neutralize", "device": "pad0"},
+		{"op": "assert", "probe": "controller_object_focus", "field": "actor_kind", "equals": "hero"},
+		{"op": "assert", "probe": "runtime", "field": "cursor_id", "equals": "mapTown"},
+		{"op": "tap", "device": "pad0", "control": "south"},
+		{"op": "wait_until", "probe": "scene", "field": "town_window_open", "equals": true, "timeout_ms": 3000, "stable_for_frames": 3},
+		{"op": "capture_frame", "name": "adventure-town-object-open"},
+		{"op": "request_shutdown"}
+	]
+}
