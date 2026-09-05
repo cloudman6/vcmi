@@ -81,6 +81,16 @@ const CGObjectInstance * controllerActorMapObject(const CArmedInstance * actor)
 		return hero->getBoat();
 	return actor;
 }
+
+const CGObjectInstance * controllerInteractionObject(
+	const CGObjectInstance * mapObject,
+	bool hasFixedObject,
+	const CGHeroInstance * currentHero)
+{
+	if(hasFixedObject && currentHero && currentHero->inBoat() && currentHero->getBoat() == mapObject)
+		return currentHero;
+	return mapObject;
+}
 }
 
 AdventureMapInterface::AdventureMapInterface():
@@ -1166,8 +1176,7 @@ bool AdventureMapInterface::handleTilePrimary(
 	if(!currentArmy)
 		return false;
 	const auto * currentHero = GAME->interface()->localState->getCurrentHero();
-	if(fixedObject && currentHero && currentHero->inBoat() && currentHero->getBoat() == topBlocking)
-		topBlocking = currentHero;
+	topBlocking = controllerInteractionObject(topBlocking, fixedObject.has_value(), currentHero);
 
 	//check if we can select this object
 	bool canSelect = topBlocking && topBlocking->ID == Obj::HERO && topBlocking->tempOwner == GAME->interface()->playerID;
@@ -1291,8 +1300,7 @@ void AdventureMapInterface::onTileHovered(
 	if(isTargetPositionVisible)
 		objAtTile = fixedObject ? getControllerObject(*fixedObject, targetPosition) : getActiveObject(targetPosition);
 	const auto * currentHero = GAME->interface()->localState->getCurrentHero();
-	if(fixedObject && currentHero && currentHero->inBoat() && currentHero->getBoat() == objAtTile)
-		objAtTile = currentHero;
+	objAtTile = controllerInteractionObject(objAtTile, fixedObject.has_value(), currentHero);
 
 	if(spellBeingCasted)
 	{
