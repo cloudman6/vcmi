@@ -12,7 +12,9 @@
 
 #include "ControllerRadial.h"
 
+#include "../CPlayerInterface.h"
 #include "../GameEngine.h"
+#include "../GameInstance.h"
 #include "../eventsSDL/ControllerPromptFamily.h"
 #include "../eventsSDL/InputHandler.h"
 #include "../gui/ShortcutHandler.h"
@@ -368,13 +370,16 @@ const std::shared_ptr<IImage> & ControllerRadial::promptSprite(const std::string
 	return cached->second;
 }
 
-const std::shared_ptr<IImage> & ControllerRadial::itemSprite(const std::string & animation, int32_t frame)
+const std::shared_ptr<IImage> & ControllerRadial::itemSprite(const std::string & animation, int32_t frame, bool playerColored)
 {
-	const auto key = std::make_pair(animation, frame);
+	const int32_t playerColor = playerColored ? GAME->interface()->playerID.getNum() : -1;
+	const auto key = std::make_tuple(animation, frame, playerColor);
 	auto cached = itemSpriteCache.find(key);
 	if(cached == itemSpriteCache.end())
 	{
 		auto sprite = ENGINE->renderHandler().loadImage(AnimationPath::builtin(animation), frame, 0, EImageBlitMode::COLORKEY);
+		if(playerColored)
+			sprite->playerColored(GAME->interface()->playerID);
 		cached = itemSpriteCache.emplace(key, std::move(sprite)).first;
 	}
 	return cached->second;
@@ -442,7 +447,7 @@ void ControllerRadial::drawWheel(Canvas & to, const std::vector<ControllerRadial
 	{
 		if(item.page != page || item.slot >= slotCount || (item.iconImage.empty() && item.iconAnimation.empty()))
 			continue;
-		const auto & icon = item.iconImage.empty() ? itemSprite(item.iconAnimation, item.iconFrame) : itemImage(item.iconImage);
+		const auto & icon = item.iconImage.empty() ? itemSprite(item.iconAnimation, item.iconFrame, item.iconPlayerColored) : itemImage(item.iconImage);
 		const bool isSelected = selected == item.id;
 		const Point iconCenter = polarPoint(wheelCenter, slotAngle(item.slot, slotCount), isSelected ? SELECTED_ITEM_RADIUS : ITEM_RADIUS);
 		icon->setAlpha(item.enabled ? 255 : 170);

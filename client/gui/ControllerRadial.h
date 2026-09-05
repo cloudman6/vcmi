@@ -30,6 +30,7 @@ struct ControllerRadialItem
 	std::string detailSummary = {};
 	std::string detailDescription = {};
 	std::string iconImage = {};
+	bool iconPlayerColored = false;
 };
 
 struct ControllerRadialPageShortcuts
@@ -58,7 +59,7 @@ private:
 	ControllerRadialState state;
 	std::map<std::string, std::shared_ptr<IImage>> promptSpriteCache;
 	std::map<std::string, std::shared_ptr<IImage>> itemImageCache;
-	std::map<std::pair<std::string, int32_t>, std::shared_ptr<IImage>> itemSpriteCache;
+	std::map<std::tuple<std::string, int32_t, int32_t>, std::shared_ptr<IImage>> itemSpriteCache;
 	double axisX = 0.0;
 	double axisY = 0.0;
 	bool confirmPressed = false;
@@ -71,7 +72,7 @@ private:
 	void releaseConfirm();
 	const std::shared_ptr<IImage> & promptSprite(const std::string & path);
 	const std::shared_ptr<IImage> & itemImage(const std::string & path);
-	const std::shared_ptr<IImage> & itemSprite(const std::string & animation, int32_t frame);
+	const std::shared_ptr<IImage> & itemSprite(const std::string & animation, int32_t frame, bool playerColored);
 	void drawKeyPrompt(Canvas & to, Point position, EShortcut shortcut, const std::string & actionText, bool pressed, bool disabled = false);
 	void changePage(int offset);
 	void drawWheel(Canvas & to, const std::vector<ControllerRadialItem> & items, size_t page, Point center, double scale, bool active);
