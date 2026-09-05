@@ -383,12 +383,20 @@ void AdventureMapInterface::presentControllerTarget()
 	{
 		ensureControllerTarget();
 		if(!controllerState.target())
+		{
+			controllerTargetCursorImage.reset();
 			return;
+		}
 		onTileHovered(controllerState.target()->interactionTile, controllerState.target()->objectId);
-		return;
 	}
-	controllerState.setTarget(*target);
-	onTileHovered(target->interactionTile, target->objectId);
+	else
+	{
+		controllerState.setTarget(*target);
+		onTileHovered(target->interactionTile, target->objectId);
+	}
+
+	controllerTargetCursorImage = ENGINE->cursor().getCurrentImage();
+	controllerTargetCursorPivot = ENGINE->cursor().getPivotOffset();
 }
 
 bool AdventureMapInterface::moveControllerTile()
@@ -591,7 +599,8 @@ void AdventureMapInterface::drawControllerTarget(Canvas & to)
 
 	CanvasClipRectGuard guard(to, terrainAreaPixels());
 	const Rect target = widget->getMapView()->getTargetTileArea(controllerState.target()->visualTile);
-	to.draw(ENGINE->cursor().getCurrentImage(), target.center() - ENGINE->cursor().getPivotOffset());
+	if(controllerTargetCursorImage)
+		to.draw(controllerTargetCursorImage, target.center() - controllerTargetCursorPivot);
 }
 
 void AdventureMapInterface::showAll(Canvas & to)
