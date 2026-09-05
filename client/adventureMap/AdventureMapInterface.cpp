@@ -541,7 +541,7 @@ std::vector<ControllerRadialItem> AdventureMapInterface::controllerContextItems(
 		const auto state = std::ranges::find(states, projection.shortcut, &AdventureMapShortcutState::shortcut);
 		if(state == states.end() || !state->isEnabled)
 			continue;
-		result.push_back({
+		ControllerRadialItem item{
 			projection.shortcut,
 			LIBRARY->generaltexth->translate(projection.labelKey),
 			true,
@@ -549,7 +549,9 @@ std::vector<ControllerRadialItem> AdventureMapInterface::controllerContextItems(
 			0,
 			[this, shortcut = projection.shortcut](){ executeAdventureShortcut(shortcut); },
 			projection.iconAnimation
-		});
+		};
+		item.iconPlayerColored = projection.iconAnimation[0] != '\0';
+		result.push_back(std::move(item));
 	}
 	return result;
 }
@@ -1288,10 +1290,13 @@ void AdventureMapInterface::onTileHovered(
 	const CGObjectInstance * objAtTile = nullptr;
 	if(isTargetPositionVisible)
 		objAtTile = fixedObject ? getControllerObject(*fixedObject, targetPosition) : getActiveObject(targetPosition);
+	const auto * currentHero = GAME->interface()->localState->getCurrentHero();
+	if(fixedObject && currentHero && currentHero->inBoat() && currentHero->getBoat() == objAtTile)
+		objAtTile = currentHero;
 
 	if(spellBeingCasted)
 	{
-		const auto * hero = GAME->interface()->localState->getCurrentHero();
+		const auto * hero = currentHero;
 		const auto * spellEffect = spellBeingCasted->getAdventureMechanics().getEffectAs<AdventureSpellRangedEffect>(hero);
 		spells::detail::ProblemImpl problem;
 
