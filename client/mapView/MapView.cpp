@@ -258,7 +258,7 @@ std::vector<MapViewObjectCandidate> MapView::getVisibleObjectCandidates() const
 			continue;
 
 		const int3 visual = objectFocusTile(*object);
-		result.push_back({objectId, Point(visual), visual, object->visitablePos()});
+		result.push_back({objectId, Point(visual), visual});
 	}
 	return result;
 }

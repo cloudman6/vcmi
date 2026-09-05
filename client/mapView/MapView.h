@@ -27,7 +27,6 @@ struct MapViewObjectCandidate
 	ObjectInstanceID id;
 	Point visualCenter;
 	int3 visualTile;
-	int3 interactionTile;
 };
 
 /// Internal class that contains logic shared between all map views
