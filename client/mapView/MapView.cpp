@@ -33,6 +33,34 @@
 
 #include "MapOverlayLogVisualizer.h"
 
+namespace
+{
+int3 objectFocusTile(const CGObjectInstance & object)
+{
+	const auto footprint = object.getBlockedPos();
+	if(footprint.empty())
+		return object.visitablePos();
+
+	int64_t sumX = 0;
+	int64_t sumY = 0;
+	for(const auto & tile : footprint)
+	{
+		sumX += tile.x;
+		sumY += tile.y;
+	}
+
+	const int64_t count = footprint.size();
+	const auto distanceFromCenter = [sumX, sumY, count](const int3 & tile)
+	{
+		const int64_t deltaX = tile.x * count - sumX;
+		const int64_t deltaY = tile.y * count - sumY;
+		return deltaX * deltaX + deltaY * deltaY;
+	};
+
+	return *std::ranges::min_element(footprint, {}, distanceFromCenter);
+}
+}
+
 BasicMapView::~BasicMapView() = default;
 
 std::shared_ptr<MapViewModel> BasicMapView::createModel(const Point & dimensions) const
@@ -229,16 +257,8 @@ std::vector<MapViewObjectCandidate> MapView::getVisibleObjectCandidates() const
 		if(!object || tiles.empty())
 			continue;
 
-		Point center;
-		for(const auto & tile : tiles)
-			center += Point(tile);
-		center = center / static_cast<int>(tiles.size());
-
-		const auto visual = std::ranges::min_element(tiles, [&center](const int3 & left, const int3 & right)
-		{
-			return (Point(left) - center).lengthSquared() < (Point(right) - center).lengthSquared();
-		});
-		result.push_back({objectId, center, *visual, object->visitablePos()});
+		const int3 visual = objectFocusTile(*object);
+		result.push_back({objectId, Point(visual), visual, object->visitablePos()});
 	}
 	return result;
 }

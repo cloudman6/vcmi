@@ -61,6 +61,8 @@ std::shared_ptr<AdventureMapInterface> adventureInt;
 
 namespace
 {
+constexpr size_t ADVENTURE_CONTEXT_SLOT_COUNT = 8;
+
 int3 controllerTileDirection(double x, double y)
 {
 	const double angle = std::atan2(y, x) * 180.0 / M_PI;
@@ -317,7 +319,7 @@ const CGObjectInstance * AdventureMapInterface::getControllerObject(
 	ObjectInstanceID id, const int3 & interactionTile) const
 {
 	const auto * object = GAME->interface()->cb->getObj(id, false);
-	if(!object || !object->isVisitable() || object->visitablePos() != interactionTile)
+	if(!object || !object->isVisitable() || !object->blockingAt(interactionTile))
 		return nullptr;
 	return object;
 }
@@ -339,10 +341,10 @@ std::optional<AdventureMapControllerTarget> AdventureMapInterface::revalidateCon
 	{
 		if(candidate.id != *target.objectId)
 			continue;
-		if(!handleTilePrimary(candidate.interactionTile, candidate.id, false))
+		if(!handleTilePrimary(candidate.visualTile, candidate.id, false))
 			return std::nullopt;
 		return AdventureMapControllerTarget{
-			candidate.visualTile, candidate.id, candidate.interactionTile};
+			candidate.visualTile, candidate.id, candidate.visualTile};
 	}
 	return std::nullopt;
 }
@@ -367,7 +369,7 @@ void AdventureMapInterface::ensureControllerTarget()
 	{
 		if(candidate.id == selected->id)
 		{
-			controllerState.setTarget({candidate.visualTile, candidate.id, candidate.interactionTile});
+			controllerState.setTarget({candidate.visualTile, candidate.id, candidate.visualTile});
 			return;
 		}
 	}
@@ -379,9 +381,9 @@ std::vector<AdventureMapControllerObjectCandidate> AdventureMapInterface::getCon
 	std::vector<AdventureMapControllerObjectCandidate> result;
 	for(const auto & candidate : widget->getMapView()->getVisibleObjectCandidates())
 	{
-		if(!handleTilePrimary(candidate.interactionTile, candidate.id, false))
+		if(!handleTilePrimary(candidate.visualTile, candidate.id, false))
 			continue;
-		result.push_back({candidate.id, candidate.visualCenter, candidate.interactionTile});
+		result.push_back({candidate.id, candidate.visualCenter, candidate.visualTile});
 	}
 	return result;
 }
@@ -445,7 +447,7 @@ bool AdventureMapInterface::browseControllerObject()
 	{
 		if(candidate.id != selected->id)
 			continue;
-		controllerState.setTarget({candidate.visualTile, candidate.id, candidate.interactionTile});
+		controllerState.setTarget({candidate.visualTile, candidate.id, candidate.visualTile});
 		presentControllerTarget();
 		redraw();
 		return true;
@@ -479,7 +481,7 @@ void AdventureMapInterface::focusControllerActor()
 	{
 		if(candidate.id != targetObject->id)
 			continue;
-		controllerState.setTarget({candidate.visualTile, candidate.id, candidate.interactionTile});
+		controllerState.setTarget({candidate.visualTile, candidate.id, candidate.visualTile});
 		presentControllerTarget();
 		return;
 	}
@@ -536,13 +538,12 @@ std::vector<ControllerRadialItem> AdventureMapInterface::controllerContextItems(
 	static constexpr std::array projections = {
 		Projection{EShortcut::ADVENTURE_MOVE_HERO, "core.help.297.hover", 0, "IAM006"},
 		Projection{EShortcut::ADVENTURE_CAST_SPELL, "core.help.298.hover", 7, "IAM007"},
-		Projection{EShortcut::ADVENTURE_VISIT_OBJECT, "vcmi.adventureMap.revisitObject.hover", 6, ""},
 		Projection{EShortcut::ADVENTURE_TOGGLE_MAP_LEVEL, "core.help.294.hover", 5, "IAM010"},
 		Projection{EShortcut::ADVENTURE_END_TURN, "core.help.302.hover", 4, "IAM001"},
 		Projection{EShortcut::ADVENTURE_TOGGLE_SLEEP, "core.help.296.hover", 3, "IAM005"},
-		Projection{EShortcut::ADVENTURE_QUEST_LOG, "core.help.295.hover", 2, "IAM004"},
-		Projection{EShortcut::ADVENTURE_DISEMBARK, "vcmi.adventureMap.disembark.hover", 1, ""}
+		Projection{EShortcut::ADVENTURE_QUEST_LOG, "core.help.295.hover", 2, "IAM004"}
 	};
+	static_assert(projections.size() <= ADVENTURE_CONTEXT_SLOT_COUNT);
 
 	const auto states = shortcuts->getShortcuts();
 	std::vector<ControllerRadialItem> result;
@@ -580,7 +581,7 @@ void AdventureMapInterface::openControllerContext()
 		[this](){ return controllerContextItems(); },
 		[this](){ return controllerContextBounds(); },
 		EShortcut::ADVENTURE_CONTROLLER_CONTEXT,
-		8,
+		ADVENTURE_CONTEXT_SLOT_COUNT,
 		std::nullopt,
 		std::vector{
 			EShortcut::ADVENTURE_CONTROLLER_CAMERA,
@@ -591,12 +592,10 @@ void AdventureMapInterface::openControllerContext()
 			EShortcut::ADVENTURE_GAME_OPTIONS,
 			EShortcut::GLOBAL_OPTIONS,
 			EShortcut::ADVENTURE_CAST_SPELL,
-			EShortcut::ADVENTURE_VISIT_OBJECT,
 			EShortcut::ADVENTURE_TOGGLE_MAP_LEVEL,
 			EShortcut::ADVENTURE_END_TURN,
 			EShortcut::ADVENTURE_TOGGLE_SLEEP,
 			EShortcut::ADVENTURE_QUEST_LOG,
-			EShortcut::ADVENTURE_DISEMBARK,
 			EShortcut::ADVENTURE_TOGGLE_GRID
 		},
 		LIBRARY->generaltexth->translate("vcmi.battleWindow.controller.select"),
