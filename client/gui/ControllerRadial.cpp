@@ -333,6 +333,7 @@ JsonNode ControllerRadial::controllerE2ESnapshot() const
 		items[name]["reason"].String() = item.unavailableReason;
 		items[name]["detail_summary"].String() = item.detailSummary;
 		items[name]["detail_description"].String() = item.detailDescription;
+		items[name]["icon_player_colored"].Bool() = item.iconPlayerColored;
 		auto & sequence = snapshot["sequence"][std::to_string(index)];
 		sequence["id"].String() = name;
 		sequence["page"].Integer() = static_cast<si64>(item.page);
