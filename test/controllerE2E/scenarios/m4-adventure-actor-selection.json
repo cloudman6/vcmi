@@ -20,7 +20,7 @@
 		{"op": "wait_until", "probe": "controller_object_focus", "field": "actor_id", "equals": 5, "timeout_ms": 3000, "stable_for_frames": 3},
 		{"op": "tap", "device": "pad0", "control": "r1"},
 		{"op": "wait_until", "probe": "controller_object_focus", "field": "actor_id", "equals": 4, "timeout_ms": 3000, "stable_for_frames": 3},
-		{"op": "assert", "probe": "controller_object_focus", "field": "kind", "equals": "town"},
+		{"op": "wait_until", "probe": "controller_object_focus", "field": "kind", "equals": "town", "timeout_ms": 3000, "stable_for_frames": 3},
 		{"op": "tap", "device": "pad0", "control": "south"},
 		{"op": "wait_until", "probe": "scene", "field": "town_window_open", "equals": true, "timeout_ms": 3000, "stable_for_frames": 3},
 		{"op": "tap", "device": "pad0", "control": "east"},
