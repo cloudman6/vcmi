@@ -25,7 +25,7 @@
 		{"op": "set_axis", "device": "pad0", "control": "r2", "value": 1.0},
 		{"op": "wait_until", "probe": "controller_object_focus", "field": "context_radial.open", "equals": true, "timeout_ms": 3000},
 		{"op": "assert", "probe": "controller_object_focus", "field": "context_radial.item_count", "equals": 3},
-		{"op": "assert", "probe": "controller_object_focus", "field": "context_radial.sequence_csv", "equals": "move,end_turn,sleep_wake"},
+		{"op": "assert", "probe": "controller_object_focus", "field": "context_radial.sequence_csv", "equals": "spellbook,end_turn,sleep_wake"},
 		{"op": "neutralize", "device": "pad0"},
 		{"op": "tap", "device": "pad0", "control": "east"},
 		{"op": "wait_until", "probe": "controller_object_focus", "field": "context_radial.open", "equals": false, "timeout_ms": 3000},
