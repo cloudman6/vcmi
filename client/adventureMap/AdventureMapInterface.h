@@ -85,6 +85,8 @@ private:
 	std::shared_ptr<TurnTimerWidget> watches;
 	AdventureMapControllerState controllerState;
 	AdventureMapControllerModeState controllerModeState;
+	std::shared_ptr<IImage> controllerTargetCursorImage;
+	Point controllerTargetCursorPivot;
 	ControllerNavigationState controllerTileNavigation;
 	ControllerNavigationState controllerObjectNavigation;
 	int controllerInstance = -1;

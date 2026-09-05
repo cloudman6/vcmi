@@ -100,5 +100,26 @@
 			"spells": {},
 			"tightFormation": "tight"
 		}
+	},
+	"town_1": {
+		"l": 0,
+		"template": {
+			"animation": "AVCRAMP0",
+			"editorAnimation": "AVCRAMP0",
+			"mask": ["A"],
+			"visitableFrom": ["+++", "+-+", "+++"]
+		},
+		"x": 7,
+		"y": 18,
+		"type": "town",
+		"subtype": "rampart",
+		"options": {
+			"army": [],
+			"buildings": {},
+			"hasFort": false,
+			"owner": "red",
+			"spells": {},
+			"tightFormation": "tight"
+		}
 	}
 }

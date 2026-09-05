@@ -17,7 +17,7 @@
 	],
 	"steps": [
 		{"op": "wait_until", "probe": "scene", "field": "adventure_ready", "equals": true, "timeout_ms": 60000, "stable_for_frames": 3},
-		{"op": "assert", "probe": "controller_object_focus", "field": "kind", "equals": "hero"},
+		{"op": "wait_until", "probe": "controller_object_focus", "field": "actor_kind", "equals": "hero", "timeout_ms": 3000, "stable_for_frames": 3},
 		{"op": "assert", "probe": "controller_object_focus", "field": "visible_enemy_hero_count", "equals": 1},
 		{"op": "set_axis", "device": "pad0", "control": "right_stick_x", "value": 1.0},
 		{"op": "set_axis", "device": "pad0", "control": "right_stick_y", "value": -1.0},
@@ -28,6 +28,14 @@
 		{"op": "checkpoint", "name": "after-primary-release"},
 		{"op": "wait_until", "probe": "controller_object_focus", "field": "path_matches_interaction_target", "equals": true, "timeout_ms": 3000, "stable_for_frames": 3},
 		{"op": "capture_frame", "name": "adventure-visible-enemy-focus"},
+		{"op": "set_axis", "device": "pad0", "control": "r2", "value": 1.0},
+		{"op": "wait_until", "probe": "controller_object_focus", "field": "context_radial.open", "equals": true, "timeout_ms": 3000},
+		{"op": "assert", "probe": "runtime", "field": "cursor_id", "equals": "mapPointer"},
+		{"op": "assert", "probe": "controller_object_focus", "field": "target_cursor_uses_global_image", "equals": false},
+		{"op": "capture_frame", "name": "adventure-visible-enemy-focus-cursor-isolation"},
+		{"op": "neutralize", "device": "pad0"},
+		{"op": "tap", "device": "pad0", "control": "east"},
+		{"op": "wait_until", "probe": "controller_object_focus", "field": "context_radial.open", "equals": false, "timeout_ms": 3000},
 		{"op": "request_shutdown"}
 	]
 }

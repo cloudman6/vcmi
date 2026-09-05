@@ -466,6 +466,7 @@ void ControllerE2EExecutor::registerBuiltinProbes()
 		snapshot["hero_count"].Integer() = 0;
 		snapshot["town_count"].Integer() = 0;
 		snapshot["target_actor_aligned"].Bool() = false;
+		snapshot["target_cursor_uses_global_image"].Bool() = false;
 		snapshot["actor_in_boat"].Bool() = false;
 		snapshot["actor_visitable_x"].Integer() = -1;
 		snapshot["actor_visitable_y"].Integer() = -1;
@@ -488,6 +489,8 @@ void ControllerE2EExecutor::registerBuiltinProbes()
 		snapshot["camera_center_x"].Integer() = cameraCenter.x;
 		snapshot["camera_center_y"].Integer() = cameraCenter.y;
 		snapshot["primary_attempts"].Integer() = adventureInt->controllerE2EPrimaryAttempts;
+		snapshot["target_cursor_uses_global_image"].Bool()
+			= adventureInt->controllerTargetCursorImage == ENGINE->cursor().getCurrentImage();
 		snapshot["hero_count"].Integer() = player->localState->getWanderingHeroes().size();
 		snapshot["town_count"].Integer() = player->localState->getOwnedTowns().size();
 
