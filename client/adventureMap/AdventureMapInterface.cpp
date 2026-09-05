@@ -61,8 +61,6 @@ std::shared_ptr<AdventureMapInterface> adventureInt;
 
 namespace
 {
-constexpr size_t ADVENTURE_CONTEXT_SLOT_COUNT = 8;
-
 int3 controllerTileDirection(double x, double y)
 {
 	const double angle = std::atan2(y, x) * 180.0 / M_PI;
@@ -185,7 +183,6 @@ void AdventureMapInterface::activate()
 	ENGINE->fakeMouseMove(); //to restore the cursor
 	if(isControllerNativeMode())
 	{
-		ENGINE->cursor().setControllerNativeHidden(true);
 		ensureControllerTarget();
 		presentControllerTarget();
 	}
@@ -201,7 +198,6 @@ void AdventureMapInterface::deactivate()
 {
 	controllerInputReset();
 	CIntObject::deactivate();
-	ENGINE->cursor().setControllerNativeHidden(false);
 	ENGINE->cursor().set(Cursor::Map::POINTER);
 
 	if(GAME->interface())
@@ -223,10 +219,6 @@ bool AdventureMapInterface::usesNativeControllerAxis() const
 void AdventureMapInterface::inputModeChanged(InputMode inputMode)
 {
 	controllerInputReset();
-	ENGINE->cursor().setControllerNativeHidden(
-		inputMode == InputMode::CONTROLLER
-		&& shortcuts->optionMapViewActive()
-		&& !controllerModeState.cursorMode());
 	if(isControllerNativeMode())
 	{
 		ensureControllerTarget();
@@ -319,9 +311,21 @@ const CGObjectInstance * AdventureMapInterface::getControllerObject(
 	ObjectInstanceID id, const int3 & interactionTile) const
 {
 	const auto * object = GAME->interface()->cb->getObj(id, false);
-	if(!object || !object->isVisitable() || !object->blockingAt(interactionTile))
+	if(!object || !object->blockingAt(interactionTile))
 		return nullptr;
 	return object;
+}
+
+AdventureMapInteractionTarget AdventureMapInterface::pointerInteractionTarget(const int3 & tile) const
+{
+	AdventureMapInteractionTarget result{tile, std::nullopt};
+	if(!GAME->interface()->cb->isVisible(tile))
+		return result;
+
+	const auto * object = getActiveObject(tile);
+	if(object && (object->ID == Obj::HERO || !object->isVisitable() || !object->visitableAt(tile)))
+		result.objectId = object->id;
+	return result;
 }
 
 std::optional<AdventureMapControllerTarget> AdventureMapInterface::revalidateControllerTarget()
@@ -329,22 +333,22 @@ std::optional<AdventureMapControllerTarget> AdventureMapInterface::revalidateCon
 	if(!controllerState.target())
 		return std::nullopt;
 	const auto target = *controllerState.target();
-	if(!target.objectId)
+	if(!target.interaction.objectId)
 	{
-		if(!GAME->interface()->cb->isInTheMap(target.interactionTile)
-			|| target.interactionTile.z != mapViewCenter.z)
+		if(!GAME->interface()->cb->isInTheMap(target.interaction.tile)
+			|| target.interaction.tile.z != mapViewCenter.z)
 			return std::nullopt;
 		return target;
 	}
 
 	for(const auto & candidate : widget->getMapView()->getVisibleObjectCandidates())
 	{
-		if(candidate.id != *target.objectId)
+		if(candidate.id != *target.interaction.objectId)
 			continue;
-		if(!handleTilePrimary(candidate.visualTile, candidate.id, false))
+		const AdventureMapInteractionTarget interaction{candidate.visualTile, candidate.id};
+		if(!handleTilePrimary(interaction, false))
 			return std::nullopt;
-		return AdventureMapControllerTarget{
-			candidate.visualTile, candidate.id, candidate.visualTile};
+		return AdventureMapControllerTarget{candidate.visualTile, interaction};
 	}
 	return std::nullopt;
 }
@@ -369,11 +373,11 @@ void AdventureMapInterface::ensureControllerTarget()
 	{
 		if(candidate.id == selected->id)
 		{
-			controllerState.setTarget({candidate.visualTile, candidate.id, candidate.visualTile});
+			controllerState.setTarget({candidate.visualTile, {candidate.visualTile, candidate.id}});
 			return;
 		}
 	}
-	controllerState.setTarget({selected->visitablePos(), selected->id, selected->visitablePos()});
+	controllerState.setTarget({selected->visitablePos(), {selected->visitablePos(), selected->id}});
 }
 
 std::vector<AdventureMapControllerObjectCandidate> AdventureMapInterface::getControllerObjectCandidates()
@@ -381,7 +385,7 @@ std::vector<AdventureMapControllerObjectCandidate> AdventureMapInterface::getCon
 	std::vector<AdventureMapControllerObjectCandidate> result;
 	for(const auto & candidate : widget->getMapView()->getVisibleObjectCandidates())
 	{
-		if(!handleTilePrimary(candidate.visualTile, candidate.id, false))
+		if(!handleTilePrimary({candidate.visualTile, candidate.id}, false))
 			continue;
 		result.push_back({candidate.id, candidate.visualCenter, candidate.visualTile});
 	}
@@ -399,12 +403,12 @@ void AdventureMapInterface::presentControllerTarget()
 			controllerTargetCursorImage.reset();
 			return;
 		}
-		onTileHovered(controllerState.target()->interactionTile, controllerState.target()->objectId);
+		onTileHovered(controllerState.target()->interaction);
 	}
 	else
 	{
 		controllerState.setTarget(*target);
-		onTileHovered(target->interactionTile, target->objectId);
+		onTileHovered(target->interaction);
 	}
 
 	controllerTargetCursorImage = ENGINE->cursor().getCurrentImage();
@@ -422,7 +426,7 @@ bool AdventureMapInterface::moveControllerTile()
 	if(!GAME->interface()->cb->isInTheMap(target))
 		return false;
 
-	controllerState.setTarget({target, std::nullopt, target});
+	controllerState.setTarget({target, {target, std::nullopt}});
 	if(!widget->getMapView()->isTargetTileVisible(target))
 		centerOnTile(target);
 	presentControllerTarget();
@@ -438,7 +442,7 @@ bool AdventureMapInterface::browseControllerObject()
 
 	const auto current = *controllerState.target();
 	const auto selected = AdventureMapControllerObjectSelector::select(
-		getControllerObjectCandidates(), Point(current.visualTile), current.objectId,
+		getControllerObjectCandidates(), Point(current.visualTile), current.interaction.objectId,
 		controllerObjectNavigation.x(), controllerObjectNavigation.y());
 	if(!selected)
 		return false;
@@ -447,7 +451,7 @@ bool AdventureMapInterface::browseControllerObject()
 	{
 		if(candidate.id != selected->id)
 			continue;
-		controllerState.setTarget({candidate.visualTile, candidate.id, candidate.visualTile});
+		controllerState.setTarget({candidate.visualTile, {candidate.visualTile, candidate.id}});
 		presentControllerTarget();
 		redraw();
 		return true;
@@ -481,11 +485,11 @@ void AdventureMapInterface::focusControllerActor()
 	{
 		if(candidate.id != targetObject->id)
 			continue;
-		controllerState.setTarget({candidate.visualTile, candidate.id, candidate.visualTile});
+		controllerState.setTarget({candidate.visualTile, {candidate.visualTile, candidate.id}});
 		presentControllerTarget();
 		return;
 	}
-	controllerState.setTarget({targetObject->visitablePos(), targetObject->id, targetObject->visitablePos()});
+	controllerState.setTarget({targetObject->visitablePos(), {targetObject->visitablePos(), targetObject->id}});
 	presentControllerTarget();
 }
 
@@ -517,7 +521,7 @@ void AdventureMapInterface::toggleControllerCursorMode()
 	ENGINE->input().clearControllerAxisMotion();
 	controllerInputReset();
 	controllerModeState.toggleCursorMode();
-	ENGINE->cursor().setControllerNativeHidden(!controllerModeState.cursorMode());
+	ENGINE->windows().controllerPointerPresentationChanged();
 	if(!controllerModeState.cursorMode())
 	{
 		ensureControllerTarget();
@@ -537,13 +541,13 @@ std::vector<ControllerRadialItem> AdventureMapInterface::controllerContextItems(
 	};
 	static constexpr std::array projections = {
 		Projection{EShortcut::ADVENTURE_MOVE_HERO, "core.help.297.hover", 0, "IAM006"},
-		Projection{EShortcut::ADVENTURE_CAST_SPELL, "core.help.298.hover", 7, "IAM007"},
-		Projection{EShortcut::ADVENTURE_TOGGLE_MAP_LEVEL, "core.help.294.hover", 5, "IAM010"},
-		Projection{EShortcut::ADVENTURE_END_TURN, "core.help.302.hover", 4, "IAM001"},
-		Projection{EShortcut::ADVENTURE_TOGGLE_SLEEP, "core.help.296.hover", 3, "IAM005"},
-		Projection{EShortcut::ADVENTURE_QUEST_LOG, "core.help.295.hover", 2, "IAM004"}
+		Projection{EShortcut::ADVENTURE_CAST_SPELL, "core.help.298.hover", 11, "IAM007"},
+		Projection{EShortcut::ADVENTURE_TOGGLE_MAP_LEVEL, "core.help.294.hover", 8, "IAM010"},
+		Projection{EShortcut::ADVENTURE_END_TURN, "core.help.302.hover", 6, "IAM001"},
+		Projection{EShortcut::ADVENTURE_TOGGLE_SLEEP, "core.help.296.hover", 5, "IAM005"},
+		Projection{EShortcut::ADVENTURE_QUEST_LOG, "core.help.295.hover", 3, "IAM004"}
 	};
-	static_assert(projections.size() <= ADVENTURE_CONTEXT_SLOT_COUNT);
+	static_assert(projections.size() <= ControllerRadialState::DEFAULT_SLOT_COUNT);
 
 	const auto states = shortcuts->getShortcuts();
 	std::vector<ControllerRadialItem> result;
@@ -581,14 +585,11 @@ void AdventureMapInterface::openControllerContext()
 		[this](){ return controllerContextItems(); },
 		[this](){ return controllerContextBounds(); },
 		EShortcut::ADVENTURE_CONTROLLER_CONTEXT,
-		ADVENTURE_CONTEXT_SLOT_COUNT,
-		std::nullopt,
+		ControllerRadialPageShortcuts{EShortcut::ADVENTURE_NEXT_HERO, EShortcut::ADVENTURE_NEXT_TOWN},
 		std::vector{
 			EShortcut::ADVENTURE_CONTROLLER_CAMERA,
 			EShortcut::ADVENTURE_CONTROLLER_RECENTER,
 			EShortcut::ADVENTURE_TOGGLE_CURSOR_MODE,
-			EShortcut::ADVENTURE_NEXT_HERO,
-			EShortcut::ADVENTURE_NEXT_TOWN,
 			EShortcut::ADVENTURE_GAME_OPTIONS,
 			EShortcut::GLOBAL_OPTIONS,
 			EShortcut::ADVENTURE_CAST_SPELL,
@@ -834,17 +835,15 @@ void AdventureMapInterface::keyPressed(EShortcut key)
 		}
 		if(key == EShortcut::GLOBAL_CANCEL)
 		{
-			if(spellBeingCasted)
-				hotkeyAbortCastingMode();
-			else if(getState() == EAdventureState::DISEMBARKING)
-				exitDisembarkMode();
-			else if(getState() == EAdventureState::WORLD_VIEW)
+			if(getState() == EAdventureState::WORLD_VIEW)
 				hotkeyExitWorldView();
 			else
 			{
-				controllerState.clearTarget();
 				ensureControllerTarget();
-				presentControllerTarget();
+				const auto controllerTarget = revalidateControllerTarget();
+				handleTileSecondary(controllerTarget
+					? std::optional<AdventureMapInteractionTarget>(controllerTarget->interaction)
+					: std::nullopt);
 			}
 			return;
 		}
@@ -877,7 +876,7 @@ void AdventureMapInterface::keyReleased(EShortcut key)
 	const auto committed = controllerState.releasePrimary(current);
 	if(committed)
 	{
-		handleTilePrimary(committed->interactionTile, committed->objectId, true);
+		handleTilePrimary(committed->interaction, true);
 	}
 	ensureControllerTarget();
 	presentControllerTarget();
@@ -1124,24 +1123,27 @@ const CGObjectInstance* AdventureMapInterface::getActiveObject(const int3 &mapPo
 
 void AdventureMapInterface::onTileLeftClicked(const int3 &targetPosition)
 {
-	handleTilePrimary(targetPosition, std::nullopt, true);
+	handleTilePrimary(pointerInteractionTarget(targetPosition), true);
 }
 
 bool AdventureMapInterface::handleTilePrimary(
-	const int3 & targetPosition, std::optional<ObjectInstanceID> fixedObject, bool execute)
+	const AdventureMapInteractionTarget & target, bool execute)
 {
 #ifdef VCMI_CONTROLLER_E2E
 	if(execute)
+	{
 		++controllerE2EPrimaryAttempts;
+	}
 #endif
 	if(!shortcuts->optionMapViewActive())
 		return false;
 
+	const int3 & targetPosition = target.tile;
 	const bool targetVisible = GAME->interface()->cb->isVisible(targetPosition);
 	const CGObjectInstance * topBlocking = nullptr;
-	if(fixedObject)
+	if(target.objectId)
 	{
-		topBlocking = getControllerObject(*fixedObject, targetPosition);
+		topBlocking = getControllerObject(*target.objectId, targetPosition);
 		if(!targetVisible || !topBlocking)
 			return false;
 	}
@@ -1179,12 +1181,12 @@ bool AdventureMapInterface::handleTilePrimary(
 	if(!currentArmy)
 		return false;
 	const auto * currentHero = GAME->interface()->localState->getCurrentHero();
-	topBlocking = controllerInteractionObject(topBlocking, fixedObject.has_value(), currentHero);
+	topBlocking = controllerInteractionObject(topBlocking, target.objectId.has_value(), currentHero);
 
 	//check if we can select this object
 	bool canSelect = topBlocking && topBlocking->ID == Obj::HERO && topBlocking->tempOwner == GAME->interface()->playerID;
 	canSelect |= topBlocking && topBlocking->ID == Obj::TOWN && GAME->interface()->cb->getPlayerRelations(GAME->interface()->playerID, topBlocking->tempOwner) != PlayerRelations::ENEMIES;
-	if(fixedObject && canSelect)
+	if(target.objectId && canSelect)
 	{
 		if(!execute)
 			return true;
@@ -1242,7 +1244,7 @@ bool AdventureMapInterface::handleTilePrimary(
 		}
 		else //still here? we need to move hero if we clicked end of already selected path or calculate a new path otherwise
 		{
-			if(fixedObject && pn->turns == 255)
+			if(target.objectId && pn->turns == 255)
 				return false;
 			if(!execute)
 				return true;
@@ -1293,11 +1295,11 @@ bool AdventureMapInterface::handleTilePrimary(
 
 void AdventureMapInterface::onTileHovered(const int3 &targetPosition)
 {
-	onTileHovered(targetPosition, std::nullopt);
+	onTileHovered(pointerInteractionTarget(targetPosition));
 }
 
 void AdventureMapInterface::onTileHovered(
-	const int3 & targetPosition, std::optional<ObjectInstanceID> fixedObject)
+	const AdventureMapInteractionTarget & target)
 {
 	if(!shortcuts->optionMapViewActive())
 		return;
@@ -1308,12 +1310,13 @@ void AdventureMapInterface::onTileHovered(
 	if(!GAME->interface()->localState->getCurrentArmy())
 		return;
 
+	const int3 & targetPosition = target.tile;
 	bool isTargetPositionVisible = GAME->interface()->cb->isVisible(targetPosition);
 	const CGObjectInstance * objAtTile = nullptr;
 	if(isTargetPositionVisible)
-		objAtTile = fixedObject ? getControllerObject(*fixedObject, targetPosition) : getActiveObject(targetPosition);
+		objAtTile = target.objectId ? getControllerObject(*target.objectId, targetPosition) : getActiveObject(targetPosition);
 	const auto * currentHero = GAME->interface()->localState->getCurrentHero();
-	objAtTile = controllerInteractionObject(objAtTile, fixedObject.has_value(), currentHero);
+	objAtTile = controllerInteractionObject(objAtTile, target.objectId.has_value(), currentHero);
 
 	if(spellBeingCasted)
 	{
@@ -1526,6 +1529,11 @@ void AdventureMapInterface::showMoveDetailsInStatusbar(const CGHeroInstance & he
 
 void AdventureMapInterface::onTileRightClicked(const int3 &mapPos)
 {
+	handleTileSecondary(pointerInteractionTarget(mapPos));
+}
+
+void AdventureMapInterface::handleTileSecondary(const std::optional<AdventureMapInteractionTarget> & target)
+{
 	if(!shortcuts->optionMapViewActive())
 		return;
 
@@ -1540,21 +1548,27 @@ void AdventureMapInterface::onTileRightClicked(const int3 &mapPos)
 		exitDisembarkMode();
 		return;
 	}
+	if(!target)
+		return;
 
-	if(!GAME->interface()->cb->isVisible(mapPos))
+	if(!GAME->interface()->cb->isVisible(target->tile))
 	{
 		CRClickPopup::createAndPush(LIBRARY->generaltexth->allTexts[61]); //Uncharted Territory
 		return;
 	}
 
-	const CGObjectInstance * obj = getActiveObject(mapPos);
+	const auto * currentHero = GAME->interface()->localState->getCurrentHero();
+	const CGObjectInstance * obj = target->objectId
+		? getControllerObject(*target->objectId, target->tile)
+		: getActiveObject(target->tile);
+	obj = controllerInteractionObject(obj, target->objectId.has_value(), currentHero);
 	if(!obj)
 	{
 		// Bare or undiscovered terrain
-		const TerrainTile * tile = GAME->interface()->cb->getTile(mapPos);
+		const TerrainTile * tile = GAME->interface()->cb->getTile(target->tile);
 		if(tile)
 		{
-			std::string hlp = GAME->map().getTerrainDescr(mapPos, true);
+			std::string hlp = GAME->map().getTerrainDescr(target->tile, true);
 			CRClickPopup::createAndPush(hlp);
 		}
 		return;

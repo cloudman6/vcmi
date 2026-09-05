@@ -51,7 +51,6 @@ private:
 	ItemProvider itemProvider;
 	BoundsProvider boundsProvider;
 	EShortcut openingShortcut;
-	size_t slotCount;
 	std::optional<ControllerRadialPageShortcuts> pageShortcuts;
 	std::vector<EShortcut> capturedShortcuts;
 	std::string selectLabel;
@@ -83,7 +82,6 @@ public:
 		ItemProvider itemProvider,
 		BoundsProvider boundsProvider,
 		EShortcut openingShortcut,
-		size_t slotCount,
 		std::optional<ControllerRadialPageShortcuts> pageShortcuts,
 		std::vector<EShortcut> capturedShortcuts,
 		std::string selectLabel,

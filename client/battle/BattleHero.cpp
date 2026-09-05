@@ -123,7 +123,10 @@ void BattleHero::heroLeftClicked()
 	if(owner.getBattle()->battleCanCastSpell(hero, spells::Mode::HERO) == ESpellCastProblem::OK) //check conditions
 	{
 		ENGINE->cursor().set(Cursor::Map::POINTER);
-		ENGINE->windows().createAndPushWindow<CSpellWindow>(hero, owner.getCurrentPlayerInterface());
+		ENGINE->windows().createAndPushWindow<CSpellWindow>(
+			hero,
+			owner.getCurrentPlayerInterface(),
+			CSpellWindow::ControllerNavigationContext::BATTLE);
 	}
 }
 

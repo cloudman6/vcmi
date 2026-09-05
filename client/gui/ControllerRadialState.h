@@ -37,7 +37,6 @@ public:
 	static constexpr size_t DEFAULT_SLOT_COUNT = 12;
 
 private:
-	size_t slotCount;
 	bool openState = false;
 	std::vector<ControllerRadialEntry> entries;
 	std::vector<size_t> pageIds;
@@ -49,7 +48,7 @@ private:
 	const ControllerRadialEntry * findCurrent(ControllerRadialItemId id, const std::vector<ControllerRadialEntry> & currentEntries) const;
 
 public:
-	explicit ControllerRadialState(size_t slotCount = DEFAULT_SLOT_COUNT);
+	ControllerRadialState() = default;
 
 	void open(const std::vector<ControllerRadialEntry> & initialEntries);
 	bool selectDirection(double x, double y);

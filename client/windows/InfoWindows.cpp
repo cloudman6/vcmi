@@ -191,6 +191,27 @@ bool CRClickPopup::isPopupWindow() const
 	return true;
 }
 
+namespace
+{
+bool capturesControllerSecondary(EShortcut key)
+{
+	return ENGINE->input().getCurrentInputMode() == InputMode::CONTROLLER
+		&& key == EShortcut::GLOBAL_CANCEL;
+}
+
+void releaseControllerSecondary(WindowBase & popup, EShortcut key)
+{
+	if(key == EShortcut::GLOBAL_CANCEL)
+		popup.close();
+}
+
+void resetControllerSecondary(WindowBase & popup)
+{
+	if(ENGINE->windows().isTopWindow(&popup))
+		popup.close();
+}
+}
+
 void CRClickPopup::createAndPush(
 	const std::string & txt,
 	const CInfoWindow::TCompsInfo & comps,
@@ -267,13 +288,17 @@ CRClickPopupInt::~CRClickPopupInt()
 
 bool CRClickPopupInt::captureThisKey(EShortcut key)
 {
-	return ENGINE->input().getCurrentInputMode() == InputMode::CONTROLLER && key == EShortcut::GLOBAL_CANCEL;
+	return capturesControllerSecondary(key);
 }
 
 void CRClickPopupInt::keyReleased(EShortcut key)
 {
-	if(key == EShortcut::GLOBAL_CANCEL)
-		close();
+	releaseControllerSecondary(*this, key);
+}
+
+void CRClickPopupInt::controllerInputReset()
+{
+	resetControllerSecondary(*this);
 }
 
 void CRClickPopupInt::mouseDraggedPopup(const Point & cursorPosition, const Point & lastUpdateDistance)
@@ -292,7 +317,22 @@ template<typename... Args>
 AdventureMapPopup::AdventureMapPopup(Args&&... args) :
 	CWindowObject(std::forward<Args>(args)...), dragDistance(Point(0, 0))
 {
-	addUsedEvents(DRAG_POPUP);
+	addUsedEvents(DRAG_POPUP | KEYBOARD);
+}
+
+bool AdventureMapPopup::captureThisKey(EShortcut key)
+{
+	return capturesControllerSecondary(key);
+}
+
+void AdventureMapPopup::keyReleased(EShortcut key)
+{
+	releaseControllerSecondary(*this, key);
+}
+
+void AdventureMapPopup::controllerInputReset()
+{
+	resetControllerSecondary(*this);
 }
 
 void AdventureMapPopup::mouseDraggedPopup(const Point & cursorPosition, const Point & lastUpdateDistance)

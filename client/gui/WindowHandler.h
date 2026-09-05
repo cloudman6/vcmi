@@ -35,6 +35,11 @@ class WindowHandler
 	/// update only top windows and draw background from buffer, sets a flag, method gets called at the end of the rendering
 	void simpleRedrawImpl();
 
+	/// Applies the pointer declaration of the actual top window. This is the sole final visibility writer.
+	void updateControllerPointerVisibility();
+
+	friend class InputHandler;
+
 public:
 	/// forces total redraw (using showAll), sets a flag, method gets called at the end of the rendering
 	void totalRedraw();
@@ -95,6 +100,9 @@ public:
 	bool dispatchControllerAxis(int instanceId, const std::vector<EShortcut> & actions, double value);
 	void resetControllerInput();
 	bool hasNativeControllerAxisContext() const;
+
+	/// Re-evaluates a dynamic declaration after a top surface changes Native/Explicit-Cursor presentation.
+	void controllerPointerPresentationChanged();
 };
 
 template <typename T, typename ... Args>

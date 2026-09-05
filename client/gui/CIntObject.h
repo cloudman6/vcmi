@@ -37,6 +37,8 @@ public:
 
 	/// Allows the active window context to consume semantic controller axes before cursor/scroll side effects.
 	virtual bool usesNativeControllerAxis() const { return false; }
+	/// Declares whether this surface hides the pointer while it is the top window in controller mode.
+	virtual bool requestsControllerPointerHidden() const { return usesNativeControllerAxis(); }
 	virtual bool controllerAxisMoved(int instanceId, const std::vector<EShortcut> & actions, double value)
 	{
 		return false;

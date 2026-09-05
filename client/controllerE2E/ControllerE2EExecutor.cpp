@@ -240,6 +240,11 @@ ControllerE2EExecutor::ControllerE2EExecutor(
 	, scenarioPath(std::move(scenarioPath))
 	, scenarioDigest(std::move(scenarioDigest))
 {
+	acceptsExternalControllerInput = std::ranges::any_of(this->scenario.steps, [](const ScenarioStep & step)
+	{
+		return step.kind == ScenarioStep::Kind::MANUAL_HOLD;
+	});
+
 	for(const auto * eventKind : {
 		"controller_button_down",
 		"controller_button_up",
@@ -456,6 +461,13 @@ void ControllerE2EExecutor::registerBuiltinProbes()
 		snapshot["path_matches_interaction_target"].Bool() = false;
 		snapshot["path_end_x"].Integer() = -1;
 		snapshot["path_end_y"].Integer() = -1;
+		snapshot["target_has_object"].Bool() = false;
+		snapshot["target_active_object_id"].Integer() = -1;
+		snapshot["target_active_object_visitable_at"].Bool() = false;
+		snapshot["target_path_action"].Integer() = -1;
+		snapshot["target_path_turns"].Integer() = -1;
+		snapshot["target_path_reachable"].Bool() = false;
+		snapshot["target_path_has_predecessor"].Bool() = false;
 		snapshot["visible_enemy_hero_count"].Integer() = 0;
 		snapshot["native_mode"].Bool() = false;
 		snapshot["cursor_mode"].Bool() = false;
@@ -479,7 +491,7 @@ void ControllerE2EExecutor::registerBuiltinProbes()
 				snapshot["context_radial"]["open"].Bool() = false;
 		}
 
-		const auto * player = GAME ? GAME->interface() : nullptr;
+		auto * player = GAME ? GAME->interface() : nullptr;
 		if(!player || !player->localState || !adventureInt)
 			return snapshot;
 		snapshot["native_mode"].Bool() = adventureInt->isControllerNativeMode();
@@ -520,20 +532,49 @@ void ControllerE2EExecutor::registerBuiltinProbes()
 		const auto target = adventureInt->revalidateControllerTarget();
 		if(!target)
 			return snapshot;
-		snapshot["target_actor_aligned"].Bool() = expectedActorTarget && target->objectId
-			&& *expectedActorTarget == *target->objectId;
+		snapshot["target_actor_aligned"].Bool() = expectedActorTarget && target->interaction.objectId
+			&& *expectedActorTarget == *target->interaction.objectId;
 		snapshot["target_x"].Integer() = target->visualTile.x;
 		snapshot["target_y"].Integer() = target->visualTile.y;
-		snapshot["interaction_x"].Integer() = target->interactionTile.x;
-		snapshot["interaction_y"].Integer() = target->interactionTile.y;
-		if(!target->objectId)
+		snapshot["interaction_x"].Integer() = target->interaction.tile.x;
+		snapshot["interaction_y"].Integer() = target->interaction.tile.y;
+		snapshot["target_has_object"].Bool() = target->interaction.objectId.has_value();
+		if(player->cb->isVisible(target->interaction.tile))
+		{
+			const auto * activeObject = adventureInt->getActiveObject(target->interaction.tile);
+			if(activeObject)
+			{
+				snapshot["target_active_object_id"].Integer() = activeObject->id.getNum();
+				snapshot["target_active_object_visitable_at"].Bool()
+					= activeObject->visitableAt(target->interaction.tile);
+			}
+		}
+		if(const auto * hero = player->localState->getCurrentHero())
+		{
+			const auto * pathNode = player->getPathsInfo(hero)->getPathInfo(target->interaction.tile);
+			if(pathNode)
+			{
+				snapshot["target_path_action"].Integer() = static_cast<si64>(pathNode->action);
+				snapshot["target_path_turns"].Integer() = pathNode->turns;
+				snapshot["target_path_reachable"].Bool() = pathNode->reachable();
+				snapshot["target_path_has_predecessor"].Bool() = pathNode->theNodeBefore != nullptr;
+			}
+			if(player->localState->hasPath(hero))
+			{
+				const auto pathEnd = player->localState->getPath(hero).endPos();
+				snapshot["path_end_x"].Integer() = pathEnd.x;
+				snapshot["path_end_y"].Integer() = pathEnd.y;
+				snapshot["path_matches_interaction_target"].Bool() = pathEnd == target->interaction.tile;
+			}
+		}
+		if(!target->interaction.objectId)
 		{
 			snapshot["kind"].String() = "tile";
 			return snapshot;
 		}
 
-		snapshot["id"].Integer() = target->objectId->getNum();
-		const auto * focused = player->cb->getObj(*target->objectId, false);
+		snapshot["id"].Integer() = target->interaction.objectId->getNum();
+		const auto * focused = player->cb->getObj(*target->interaction.objectId, false);
 		if(focused)
 		{
 			if(focused->ID == Obj::TOWN)
@@ -544,14 +585,6 @@ void ControllerE2EExecutor::registerBuiltinProbes()
 				snapshot["kind"].String() = "object";
 		}
 
-		const auto * hero = player->localState->getCurrentHero();
-		if(hero && player->localState->hasPath(hero))
-		{
-			const auto pathEnd = player->localState->getPath(hero).endPos();
-			snapshot["path_end_x"].Integer() = pathEnd.x;
-			snapshot["path_end_y"].Integer() = pathEnd.y;
-			snapshot["path_matches_interaction_target"].Bool() = pathEnd == target->interactionTile;
-		}
 		return snapshot;
 	});
 
@@ -660,6 +693,7 @@ ControllerE2EExecutor::applyPrePollStep(const ScenarioStep & step, std::string &
 			return StepApplyResult::FAILED;
 		if(!state.device->verifyAttachment(error))
 			return StepApplyResult::FAILED;
+		scenarioControllerInstances.insert(state.device->getInstanceId());
 		state.detachedByScenario = false;
 		JsonNode record;
 		record["device"].String() = step.device;
@@ -691,6 +725,7 @@ ControllerE2EExecutor::applyPrePollStep(const ScenarioStep & step, std::string &
 			return StepApplyResult::FAILED;
 		if(!state.device->verifyAttachment(error))
 			return StepApplyResult::FAILED;
+		scenarioControllerInstances.insert(state.device->getInstanceId());
 		if(!state.device->primeButtonsPressed(step.heldControls, error))
 			return StepApplyResult::FAILED;
 		state.detachedByScenario = false;
@@ -2024,6 +2059,11 @@ bool ControllerE2EExecutor::shouldAutoFightE2E(const std::string & colorName) co
 	return vstd::contains(autofightPlayerColors, colorName);
 }
 
+bool ControllerE2EExecutor::acceptsControllerInputInstance(int instanceId) const
+{
+	return acceptsExternalControllerInput || scenarioControllerInstances.contains(instanceId);
+}
+
 namespace Hooks
 {
 
@@ -2036,13 +2076,26 @@ void onBeforeInputHandler()
 void onBeforePoll()
 {
 	if(auto * executor = ControllerE2EExecutor::instance())
+	{
+		std::scoped_lock interfaceLock(ENGINE->interfaceMutex);
 		executor->onBeforePoll();
+	}
 }
 
 void onAfterPresent()
 {
 	if(auto * executor = ControllerE2EExecutor::instance())
+	{
+		std::scoped_lock interfaceLock(ENGINE->interfaceMutex);
 		executor->onAfterPresent();
+	}
+}
+
+bool acceptsControllerInputInstance(int instanceId)
+{
+	if(auto * executor = ControllerE2EExecutor::instance())
+		return executor->acceptsControllerInputInstance(instanceId);
+	return true;
 }
 
 void recordSdlEvent(const SDL_Event & event)

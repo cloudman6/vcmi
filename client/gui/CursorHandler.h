@@ -15,6 +15,7 @@
 class ICursor;
 class IImage;
 class CAnimation;
+class WindowHandler;
 
 namespace Cursor
 {
@@ -114,6 +115,8 @@ namespace Cursor
 /// handles mouse cursor
 class CursorHandler final
 {
+	friend class WindowHandler;
+
 	struct CursorParameters
 	{
 		std::string cursorID;
@@ -145,6 +148,7 @@ class CursorHandler final
 
 	void updateAnimatedCursor();
 	void applyCursorImage();
+	void setControllerNativeHidden(bool hidden);
 
 	std::unique_ptr<ICursor> cursor;
 
@@ -175,7 +179,6 @@ public:
 
 	void hide();
 	void show();
-	void setControllerNativeHidden(bool hidden);
 	void onScreenResize();
 
 #ifdef VCMI_CONTROLLER_E2E

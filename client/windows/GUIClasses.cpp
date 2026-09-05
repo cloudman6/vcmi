@@ -1920,9 +1920,14 @@ void CObjectListWindow::activate()
 
 void CObjectListWindow::deactivate()
 {
-	if(controllerActionPromptsConfigured)
-		ENGINE->cursor().setControllerNativeHidden(false);
 	CWindowObject::deactivate();
+}
+
+bool CObjectListWindow::requestsControllerPointerHidden() const
+{
+	return controllerActionPromptsConfigured
+		&& ok->isControllerPromptVisible()
+		&& exit->isControllerPromptVisible();
 }
 
 void CObjectListWindow::updateControllerCursorVisibility()
@@ -1930,11 +1935,7 @@ void CObjectListWindow::updateControllerCursorVisibility()
 	if(!controllerActionPromptsConfigured)
 		return;
 
-	const bool shouldHide = isActive()
-		&& ENGINE->input().getCurrentInputMode() == InputMode::CONTROLLER
-		&& ok->isControllerPromptVisible()
-		&& exit->isControllerPromptVisible();
-	ENGINE->cursor().setControllerNativeHidden(shouldHide);
+	ENGINE->windows().controllerPointerPresentationChanged();
 }
 
 #ifdef VCMI_CONTROLLER_E2E

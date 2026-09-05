@@ -12,14 +12,20 @@
 #include "../../lib/Point.h"
 #include "../../lib/int3.h"
 
+struct AdventureMapInteractionTarget
+{
+	int3 tile;
+	std::optional<ObjectInstanceID> objectId;
+
+	bool operator==(const AdventureMapInteractionTarget &) const = default;
+};
+
 struct AdventureMapControllerTarget
 {
 	/// Tile used to place the scene-focus presentation.
 	int3 visualTile;
-	/// Stable semantic identity for an object focus; empty for a tile focus.
-	std::optional<ObjectInstanceID> objectId;
-	/// Tile passed to the canonical Adventure interaction owner.
-	int3 interactionTile;
+	/// Origin-free target passed unchanged to canonical hover, primary and secondary owners.
+	AdventureMapInteractionTarget interaction;
 
 	bool operator==(const AdventureMapControllerTarget &) const = default;
 };

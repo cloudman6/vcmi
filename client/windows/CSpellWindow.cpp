@@ -172,11 +172,17 @@ public:
 	}
 };
 
-CSpellWindow::CSpellWindow(const CGHeroInstance * _myHero, CPlayerInterface * _myInt, bool openOnBattleSpells, const std::function<void(SpellID)> & onSpellSelect):
+CSpellWindow::CSpellWindow(
+	const CGHeroInstance * _myHero,
+	CPlayerInterface * _myInt,
+	ControllerNavigationContext navigationContext,
+	bool openOnBattleSpells,
+	const std::function<void(SpellID)> & onSpellSelect):
 	CWindowObject(PLAYER_COLORED | (settings["gameTweaks"]["enableLargeSpellbook"].Bool() ? BORDERED : 0)),
 	battleSpellsOnly(openOnBattleSpells),
 	selectedTab(SpellSchool::ANY),
 	currentPage(0),
+	controllerNavigationContext(navigationContext),
 	myHero(_myHero),
 	myInt(_myInt),
 	openOnBattleSpells(openOnBattleSpells),
@@ -875,7 +881,12 @@ bool CSpellWindow::captureThisKey(EShortcut key)
 
 bool CSpellWindow::usesNativeSpellbookNavigation() const
 {
-	return myInt && myInt->battleInt && myInt->battleInt->fieldController
+	if(ENGINE->input().getCurrentInputMode() != InputMode::CONTROLLER)
+		return false;
+	if(controllerNavigationContext == ControllerNavigationContext::ADVENTURE)
+		return true;
+	return controllerNavigationContext == ControllerNavigationContext::BATTLE
+		&& myInt && myInt->battleInt && myInt->battleInt->fieldController
 		&& myInt->battleInt->fieldController->isControllerNativeMode();
 }
 

@@ -56,22 +56,6 @@ TEST(ControllerRadialStateTest, SelectsTwelveCounterclockwiseSectorsWithoutASeco
 	}
 }
 
-TEST(ControllerRadialStateTest, SupportsAnEightSectorConsumerWithoutChangingIdentityRules)
-{
-	ControllerRadialState state(8);
-	std::vector<Entry> entries;
-	for(size_t slot = 0; slot < 8; ++slot)
-		entries.push_back({SHORTCUTS[slot], true, slot});
-	state.open(entries);
-
-	for(size_t slot = 0; slot < 8; ++slot)
-	{
-		const double angle = -PI / 2.0 - static_cast<double>(slot) * 2.0 * PI / 8.0;
-		ASSERT_TRUE(state.selectDirection(std::cos(angle), std::sin(angle)));
-		EXPECT_EQ(state.selectedItem(), ControllerRadialItemId(SHORTCUTS[slot]));
-	}
-}
-
 TEST(ControllerRadialStateTest, NeutralOrEmptySectorClearsSelectionAndPendingConfirm)
 {
 	ControllerRadialState state;

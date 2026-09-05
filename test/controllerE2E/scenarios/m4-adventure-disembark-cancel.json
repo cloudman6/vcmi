@@ -24,6 +24,7 @@
 		{"op": "assert", "probe": "controller_object_focus", "field": "actor_id", "equals": 3},
 		{"op": "set_axis", "device": "pad0", "control": "r2", "value": 1.0},
 		{"op": "wait_until", "probe": "controller_object_focus", "field": "context_radial.open", "equals": true, "timeout_ms": 3000},
+		{"op": "assert", "probe": "controller_object_focus", "field": "context_radial.slot_count", "equals": 12},
 		{"op": "assert", "probe": "controller_object_focus", "field": "context_radial.item_count", "equals": 3},
 		{"op": "assert", "probe": "controller_object_focus", "field": "context_radial.sequence_csv", "equals": "spellbook,end_turn,sleep_wake"},
 		{"op": "neutralize", "device": "pad0"},
@@ -34,6 +35,10 @@
 		{"op": "neutralize", "device": "pad0"},
 		{"op": "assert", "probe": "controller_object_focus", "field": "actor_id", "equals": 3},
 		{"op": "capture_frame", "name": "adventure-disembark-spatial-target"},
+		{"op": "tap", "device": "pad0", "control": "south"},
+		{"op": "wait_until", "probe": "controller_object_focus", "field": "path_matches_interaction_target", "equals": true, "timeout_ms": 3000, "stable_for_frames": 3},
+		{"op": "assert", "probe": "scene", "field": "disembarking", "equals": false},
+		{"op": "assert", "probe": "controller_object_focus", "field": "actor_id", "equals": 3},
 		{"op": "request_shutdown"}
 	]
 }

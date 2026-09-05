@@ -156,8 +156,7 @@ void InputHandler::setCurrentInputMode(InputMode modi)
 			resetControllerInput();
 		currentInputMode = modi;
 		ENGINE->events().dispatchInputModeChanged(modi);
-		if(modi == InputMode::CONTROLLER && ENGINE->windows().hasNativeControllerAxisContext())
-			ENGINE->cursor().setControllerNativeHidden(true);
+		ENGINE->windows().updateControllerPointerVisibility();
 	}
 }
 
@@ -199,7 +198,6 @@ void InputHandler::resetControllerInput()
 {
 	gameControllerHandler->resetControllerInput();
 	ENGINE->windows().resetControllerInput();
-	ENGINE->cursor().setControllerNativeHidden(false);
 }
 
 void InputHandler::copyToClipBoard(const std::string & text)
@@ -289,6 +287,11 @@ bool InputHandler::ignoreEventsUntilInput()
 void InputHandler::preprocessEvent(const SDL_Event & ev)
 {
 #ifdef VCMI_CONTROLLER_E2E
+	if((ev.type == SDL_CONTROLLERAXISMOTION
+			&& !ControllerE2E::Hooks::acceptsControllerInputInstance(ev.caxis.which))
+		|| ((ev.type == SDL_CONTROLLERBUTTONDOWN || ev.type == SDL_CONTROLLERBUTTONUP)
+			&& !ControllerE2E::Hooks::acceptsControllerInputInstance(ev.cbutton.which)))
+		return;
 	ControllerE2E::Hooks::recordSdlEvent(ev);
 #endif
 	if(ev.type == SDL_QUIT)

@@ -1071,7 +1071,6 @@ void BattleWindow::openControllerActionRadial()
 		[this](){ return this->controllerActionRadialItems(); },
 		[this](){ return this->controllerRadialBounds(); },
 		EShortcut::BATTLE_ACTION_RADIAL,
-		ControllerRadialState::DEFAULT_SLOT_COUNT,
 		ControllerRadialPageShortcuts{EShortcut::BATTLE_DEFEND, EShortcut::BATTLE_WAIT},
 		std::vector{EShortcut::BATTLE_SPELL_RADIAL, EShortcut::BATTLE_CONTROLLER_CAST_SPELL},
 		LIBRARY->generaltexth->translate("vcmi.battleWindow.controller.select"),
@@ -1240,7 +1239,6 @@ void BattleWindow::openControllerSpellRadial()
 		},
 		[this](){ return this->controllerRadialBounds(); },
 		EShortcut::BATTLE_SPELL_RADIAL,
-		ControllerRadialState::DEFAULT_SLOT_COUNT,
 		ControllerRadialPageShortcuts{EShortcut::BATTLE_DEFEND, EShortcut::BATTLE_WAIT},
 		std::vector{EShortcut::BATTLE_ACTION_RADIAL, EShortcut::BATTLE_CONTROLLER_CAST_SPELL},
 		LIBRARY->generaltexth->translate("vcmi.battleWindow.controller.select"),
@@ -1381,7 +1379,10 @@ void BattleWindow::bSpellf()
 
 	if(spellCastProblem == ESpellCastProblem::OK)
 	{
-		ENGINE->windows().createAndPushWindow<CSpellWindow>(myHero, owner.curInt.get());
+		ENGINE->windows().createAndPushWindow<CSpellWindow>(
+			myHero,
+			owner.curInt.get(),
+			CSpellWindow::ControllerNavigationContext::BATTLE);
 	}
 	else if (spellCastProblem == ESpellCastProblem::MAGIC_IS_BLOCKED)
 	{

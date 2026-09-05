@@ -274,7 +274,6 @@ ControllerRadial::ControllerRadial(
 	ItemProvider provider,
 	BoundsProvider bounds,
 	EShortcut shortcut,
-	size_t slots,
 	std::optional<ControllerRadialPageShortcuts> pages,
 	std::vector<EShortcut> captured,
 	std::string selectText,
@@ -283,12 +282,10 @@ ControllerRadial::ControllerRadial(
 	  itemProvider(std::move(provider)),
 	  boundsProvider(std::move(bounds)),
 	  openingShortcut(shortcut),
-	  slotCount(std::max<size_t>(1, slots)),
 	  pageShortcuts(pages),
 	  capturedShortcuts(std::move(captured)),
 	  selectLabel(std::move(selectText)),
-	  closeLabel(std::move(closeText)),
-	  state(slotCount)
+	  closeLabel(std::move(closeText))
 {
 	onScreenResize();
 	state.open(currentEntries(currentItems()));
@@ -307,6 +304,8 @@ JsonNode ControllerRadial::controllerE2ESnapshot() const
 		: openingShortcut == EShortcut::ADVENTURE_CONTROLLER_CONTEXT ? "adventure" : "actions";
 	snapshot["current_page"].Integer() = static_cast<si64>(state.currentPage());
 	snapshot["page_count"].Integer() = static_cast<si64>(state.pageCount());
+	snapshot["slot_count"].Integer() = static_cast<si64>(ControllerRadialState::DEFAULT_SLOT_COUNT);
+	snapshot["page_shortcuts_configured"].Bool() = pageShortcuts.has_value();
 	snapshot["page_transition_active"].Bool() = pageTransitionFrom.has_value();
 
 	const auto selected = state.selectedItem();
@@ -430,7 +429,7 @@ void ControllerRadial::drawKeyPrompt(Canvas & to, Point position, EShortcut shor
 void ControllerRadial::drawWheel(Canvas & to, const std::vector<ControllerRadialItem> & items, size_t page, Point center, double scale, bool active)
 {
 	const auto selected = active ? state.selectedItem() : std::optional<ControllerRadialItemId>{};
-	std::vector<ColorRGBA> colors(slotCount, SECTOR_EMPTY);
+	std::vector<ColorRGBA> colors(ControllerRadialState::DEFAULT_SLOT_COUNT, SECTOR_EMPTY);
 	for(const auto & item : items)
 	{
 		if(item.page != page || item.slot >= colors.size())
@@ -446,11 +445,11 @@ void ControllerRadial::drawWheel(Canvas & to, const std::vector<ControllerRadial
 
 	for(const auto & item : items)
 	{
-		if(item.page != page || item.slot >= slotCount || (item.iconImage.empty() && item.iconAnimation.empty()))
+		if(item.page != page || item.slot >= ControllerRadialState::DEFAULT_SLOT_COUNT || (item.iconImage.empty() && item.iconAnimation.empty()))
 			continue;
 		const auto & icon = item.iconImage.empty() ? itemSprite(item.iconAnimation, item.iconFrame, item.iconPlayerColored) : itemImage(item.iconImage);
 		const bool isSelected = selected == item.id;
-		const Point iconCenter = polarPoint(wheelCenter, slotAngle(item.slot, slotCount), isSelected ? SELECTED_ITEM_RADIUS : ITEM_RADIUS);
+		const Point iconCenter = polarPoint(wheelCenter, slotAngle(item.slot, ControllerRadialState::DEFAULT_SLOT_COUNT), isSelected ? SELECTED_ITEM_RADIUS : ITEM_RADIUS);
 		icon->setAlpha(item.enabled ? 255 : 170);
 		wheelCanvas.draw(icon, iconCenter - icon->dimensions() / 2);
 		icon->setAlpha(255);

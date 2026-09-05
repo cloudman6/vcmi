@@ -241,6 +241,7 @@ public:
 	void setControllerActionPrompts(const std::string & acceptActionText, const std::string & cancelActionText);
 	void activate() override;
 	void deactivate() override;
+	bool requestsControllerPointerHidden() const override;
 
 	std::shared_ptr<CIntObject> genItem(size_t index);
 	void elementSelected();//call callback and close this window

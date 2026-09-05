@@ -31,6 +31,7 @@ void WindowHandler::popWindow(std::shared_ptr<IShowActivatable> top)
 	windowsStack.pop_back();
 	if(!windowsStack.empty())
 		windowsStack.back()->activate();
+	updateControllerPointerVisibility();
 
 	totalRedraw();
 }
@@ -49,6 +50,7 @@ void WindowHandler::pushWindow(std::shared_ptr<IShowActivatable> newInt)
 	windowsStack.push_back(newInt);
 	ENGINE->cursor().set(Cursor::Map::POINTER);
 	newInt->activate();
+	updateControllerPointerVisibility();
 	totalRedraw();
 }
 
@@ -79,6 +81,7 @@ void WindowHandler::popWindows(int howMany)
 		windowsStack.back()->activate();
 		totalRedraw();
 	}
+	updateControllerPointerVisibility();
 	ENGINE->fakeMouseMove();
 }
 
@@ -166,6 +169,7 @@ void WindowHandler::clear()
 
 	windowsStack.clear();
 	disposed.clear();
+	updateControllerPointerVisibility();
 }
 
 void WindowHandler::setOverlay(std::shared_ptr<IShowActivatable> newOverlay)
@@ -189,6 +193,7 @@ std::vector<std::shared_ptr<IShowActivatable>> WindowHandler::detachAll()
 	auto result = std::move(windowsStack);
 	windowsStack.clear();
 	disposed.clear();
+	updateControllerPointerVisibility();
 	return result;
 }
 
@@ -200,6 +205,7 @@ void WindowHandler::attachAll(std::vector<std::shared_ptr<IShowActivatable>> win
 
 	if(!windowsStack.empty())
 		windowsStack.back()->activate();
+	updateControllerPointerVisibility();
 
 	totalRedraw();
 }
@@ -232,4 +238,17 @@ bool WindowHandler::hasNativeControllerAxisContext() const
 	{
 		return window->usesNativeControllerAxis();
 	});
+}
+
+void WindowHandler::updateControllerPointerVisibility()
+{
+	const bool shouldHide = ENGINE->input().getCurrentInputMode() == InputMode::CONTROLLER
+		&& !windowsStack.empty()
+		&& windowsStack.back()->requestsControllerPointerHidden();
+	ENGINE->cursor().setControllerNativeHidden(shouldHide);
+}
+
+void WindowHandler::controllerPointerPresentationChanged()
+{
+	updateControllerPointerVisibility();
 }

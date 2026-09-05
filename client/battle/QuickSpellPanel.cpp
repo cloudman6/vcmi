@@ -131,7 +131,12 @@ void QuickSpellPanel::create()
 		button->setOverlay(std::make_shared<CAnimImage>(AnimationPath::builtin("spellint"), id != SpellID::NONE ? id.num + 1 : 0));
 		button->addPopupCallback([this, i, hero](){
 			ENGINE->input().hapticFeedback();
-			ENGINE->windows().createAndPushWindow<CSpellWindow>(hero, owner.curInt.get(), true, [i](SpellID spell){ changeSelectedSpell(i, spell); });
+			ENGINE->windows().createAndPushWindow<CSpellWindow>(
+				hero,
+				owner.curInt.get(),
+				CSpellWindow::ControllerNavigationContext::BATTLE,
+				true,
+				[i](SpellID spell){ changeSelectedSpell(i, spell); });
 		});
 
 		if(fromSettings)

@@ -216,7 +216,14 @@ bool CWindowWithArtifacts::checkSpecialArts(const CArtifactInstance & artInst, c
 	
 	if(artId == ArtifactID::SPELLBOOK)
 	{
-		ENGINE->windows().createAndPushWindow<CSpellWindow>(&hero, GAME->interface(), GAME->interface()->battleInt.get());
+		const auto navigationContext = GAME->interface()->battleInt
+			? CSpellWindow::ControllerNavigationContext::BATTLE
+			: CSpellWindow::ControllerNavigationContext::NONE;
+		ENGINE->windows().createAndPushWindow<CSpellWindow>(
+			&hero,
+			GAME->interface(),
+			navigationContext,
+			GAME->interface()->battleInt.get());
 		return false;
 	}
 	if(artId == ArtifactID::CATAPULT)

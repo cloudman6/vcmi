@@ -40,6 +40,8 @@
 		{"op": "wait_until", "probe": "scene", "field": "casting", "equals": true, "timeout_ms": 3000, "stable_for_frames": 3},
 		{"op": "tap", "device": "pad0", "control": "ps"},
 		{"op": "wait_until", "probe": "runtime", "field": "input_mode", "equals": "controller", "timeout_ms": 3000},
+		{"op": "assert", "probe": "controller_object_focus", "field": "native_mode", "equals": true},
+		{"op": "assert", "probe": "controller_object_focus", "field": "cursor_mode", "equals": false},
 		{"op": "tap", "device": "pad0", "control": "east"},
 		{"op": "wait_until", "probe": "scene", "field": "casting", "equals": false, "timeout_ms": 3000, "stable_for_frames": 3},
 		{"op": "assert", "probe": "controller_object_focus", "field": "actor_id", "equals": 0},

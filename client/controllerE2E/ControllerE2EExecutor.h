@@ -125,6 +125,8 @@ class ControllerE2EExecutor
 	std::string selectedDeviceAlias;
 	uint64_t modeChangeFrame = 0;
 	std::vector<std::string> autofightPlayerColors;
+	std::set<int> scenarioControllerInstances;
+	bool acceptsExternalControllerInput = false;
 	bool rejectNextBattleAction = false;
 	bool manualHoldActive = false;
 	std::future<void> pendingAuthorityPack;
@@ -187,6 +189,7 @@ public:
 	int startBattleMapGame();
 	bool shouldAutoFightE2E(const std::string & colorName) const;
 	bool consumeNextBattleActionRejection();
+	bool acceptsControllerInputInstance(int instanceId) const;
 
 	/// Writes final manifest and returns the process exit code
 	int finalize();
@@ -202,6 +205,7 @@ namespace Hooks
 void onBeforeInputHandler();
 void onBeforePoll();
 void onAfterPresent();
+bool acceptsControllerInputInstance(int instanceId);
 void recordSdlEvent(const SDL_Event & event);
 void recordBattleOnlyStartInfoApplied(const std::shared_ptr<BattleOnlyModeStartInfo> & startInfo);
 }

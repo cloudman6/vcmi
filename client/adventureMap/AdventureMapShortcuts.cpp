@@ -257,7 +257,14 @@ void AdventureMapShortcuts::showSpellbook()
 
 	owner.centerOnObject(GAME->interface()->localState->getCurrentHero());
 
-	ENGINE->windows().createAndPushWindow<CSpellWindow>(GAME->interface()->localState->getCurrentHero(), GAME->interface(), false);
+	const auto navigationContext = owner.isControllerNativeMode()
+		? CSpellWindow::ControllerNavigationContext::ADVENTURE
+		: CSpellWindow::ControllerNavigationContext::NONE;
+	ENGINE->windows().createAndPushWindow<CSpellWindow>(
+		GAME->interface()->localState->getCurrentHero(),
+		GAME->interface(),
+		navigationContext,
+		false);
 }
 
 void AdventureMapShortcuts::adventureOptions()

@@ -56,8 +56,8 @@ TEST(AdventureMapControllerObjectSelectorTest, RejectsCurrentNonForwardAndInvali
 TEST(AdventureMapControllerStateTest, PrimaryReleaseRequiresTheExactPressedIdentity)
 {
 	AdventureMapControllerState state;
-	const Target town{int3(8, 5, 0), ObjectInstanceID(12), int3(9, 5, 0)};
-	const Target overlappingHero{int3(8, 5, 0), ObjectInstanceID(13), int3(8, 5, 0)};
+	const Target town{int3(8, 5, 0), {int3(9, 5, 0), ObjectInstanceID(12)}};
+	const Target overlappingHero{int3(8, 5, 0), {int3(8, 5, 0), ObjectInstanceID(13)}};
 
 	state.setTarget(town);
 	ASSERT_TRUE(state.pressPrimary());
@@ -72,7 +72,7 @@ TEST(AdventureMapControllerStateTest, PrimaryReleaseRequiresTheExactPressedIdent
 TEST(AdventureMapControllerStateTest, ResetCancelsPendingPrimaryWithoutDiscardingSceneFocus)
 {
 	AdventureMapControllerState state;
-	const Target tile{int3(4, 3, 0), std::nullopt, int3(4, 3, 0)};
+	const Target tile{int3(4, 3, 0), {int3(4, 3, 0), std::nullopt}};
 
 	state.setTarget(tile);
 	ASSERT_TRUE(state.pressPrimary());
@@ -85,8 +85,8 @@ TEST(AdventureMapControllerStateTest, ResetCancelsPendingPrimaryWithoutDiscardin
 TEST(AdventureMapControllerStateTest, InvalidatedObjectCannotCommitAtItsFormerTile)
 {
 	AdventureMapControllerState state;
-	const Target object{int3(5, 5, 0), ObjectInstanceID(21), int3(6, 5, 0)};
-	const Target replacementTile{int3(5, 5, 0), std::nullopt, int3(5, 5, 0)};
+	const Target object{int3(5, 5, 0), {int3(6, 5, 0), ObjectInstanceID(21)}};
+	const Target replacementTile{int3(5, 5, 0), {int3(5, 5, 0), std::nullopt}};
 
 	state.setTarget(object);
 	ASSERT_TRUE(state.pressPrimary());

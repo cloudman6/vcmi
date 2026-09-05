@@ -32,6 +32,7 @@
 #include "../gui/Shortcut.h"
 #include "../gui/ShortcutHandler.h"
 #include "../gui/TextAlignment.h"
+#include "../gui/WindowHandler.h"
 #include "../render/CAnimation.h"
 #include "../render/Canvas.h"
 #include "../render/Colors.h"
@@ -267,7 +268,6 @@ BattleFieldController::BattleFieldController(BattleInterface & owner):
 
 BattleFieldController::~BattleFieldController()
 {
-	ENGINE->cursor().setControllerNativeHidden(false);
 }
 
 void BattleFieldController::startShakeAnimation()
@@ -298,7 +298,6 @@ void BattleFieldController::activate()
 	CIntObject::activate();
 	if(isControllerNativeMode())
 	{
-		ENGINE->cursor().setControllerNativeHidden(true);
 		ensureControllerFocus();
 		// Modal windows replace the global cursor with a generic pointer when opened.
 		// Recompute the canonical battle cursor before Native mode draws it at the restored focus.
@@ -316,7 +315,6 @@ void BattleFieldController::inputModeChanged(InputMode inputMode)
 {
 	if(inputMode == InputMode::CONTROLLER && !controllerCursorMode)
 	{
-		ENGINE->cursor().setControllerNativeHidden(true);
 		if(isActive())
 		{
 			if(controllerRestoreHex.isValid())
@@ -325,10 +323,6 @@ void BattleFieldController::inputModeChanged(InputMode inputMode)
 				focusActiveStack();
 		}
 		refreshControllerPresentation();
-	}
-	else
-	{
-		ENGINE->cursor().setControllerNativeHidden(false);
 	}
 }
 
@@ -796,18 +790,17 @@ void BattleFieldController::toggleControllerCursorMode()
 	{
 		controllerRestoreHex = hoveredHex;
 		controllerCursorMode = true;
-		ENGINE->cursor().setControllerNativeHidden(false);
 	}
 	else
 	{
 		controllerCursorMode = false;
-		ENGINE->cursor().setControllerNativeHidden(true);
 		if(controllerRestoreHex.isValid())
 			focusHex(controllerRestoreHex);
 		else
 			focusActiveStack();
 		refreshControllerPresentation();
 	}
+	ENGINE->windows().controllerPointerPresentationChanged();
 	redraw();
 }
 

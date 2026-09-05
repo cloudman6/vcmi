@@ -94,6 +94,7 @@ public:
 
 	bool captureThisKey(EShortcut key) override;
 	void keyReleased(EShortcut key) override;
+	void controllerInputReset() override;
 	void mouseDraggedPopup(const Point & cursorPosition, const Point & lastUpdateDistance) override;
 };
 
@@ -106,6 +107,9 @@ public:
 	template<typename... Args>
 		requires (sizeof...(Args) != 1 || (!std::is_base_of_v<AdventureMapPopup, std::remove_cvref_t<Args>> && ...))
 	AdventureMapPopup(Args&&... args);
+	bool captureThisKey(EShortcut key) override;
+	void keyReleased(EShortcut key) override;
+	void controllerInputReset() override;
 	void mouseDraggedPopup(const Point & cursorPosition, const Point & lastUpdateDistance) override;
 };
 

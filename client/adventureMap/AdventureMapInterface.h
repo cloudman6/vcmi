@@ -57,6 +57,7 @@ struct MapDrawingInfo;
 /// can get to the towns and heroes.
 class AdventureMapInterface : public CIntObject
 {
+	friend class AdventureMapShortcuts;
 #ifdef VCMI_CONTROLLER_E2E
 	friend class ControllerE2E::ControllerE2EExecutor;
 #endif
@@ -116,7 +117,9 @@ private:
 
 	const CGObjectInstance *getActiveObject(const int3 &tile) const;
 	const CGObjectInstance * getControllerObject(ObjectInstanceID id, const int3 & interactionTile) const;
-	bool handleTilePrimary(const int3 & targetPosition, std::optional<ObjectInstanceID> fixedObject, bool execute);
+	AdventureMapInteractionTarget pointerInteractionTarget(const int3 & tile) const;
+	bool handleTilePrimary(const AdventureMapInteractionTarget & target, bool execute);
+	void handleTileSecondary(const std::optional<AdventureMapInteractionTarget> & target);
 	void presentControllerTarget();
 	void ensureControllerTarget();
 	std::optional<AdventureMapControllerTarget> revalidateControllerTarget();
@@ -134,7 +137,7 @@ private:
 	void updateControllerNavigationOwner(ControllerNavigationOwner changedOwner);
 	void drawControllerTarget(Canvas & to);
 	bool isControllerNativeMode() const;
-	void onTileHovered(const int3 & targetPosition, std::optional<ObjectInstanceID> fixedObject);
+	void onTileHovered(const AdventureMapInteractionTarget & target);
 
 	/// exits currently opened world view mode and returns to normal map
 	void exitCastingMode();

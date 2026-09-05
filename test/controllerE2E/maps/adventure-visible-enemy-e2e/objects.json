@@ -85,8 +85,15 @@
 		"template": {
 			"animation": "AVCCASX0",
 			"editorAnimation": "AVCCASX0",
-			"mask": ["A"],
-			"visitableFrom": ["+++", "+-+", "+++"]
+			"mask": [
+				"VVVVVV",
+				"VVVVVV",
+				"VVVVVV",
+				"VVBBBV",
+				"VBBBBB",
+				"VBBABB"
+			],
+			"visitableFrom": ["---", "+-+", "+++"]
 		},
 		"x": 14,
 		"y": 17,
@@ -106,8 +113,15 @@
 		"template": {
 			"animation": "AVCRAMP0",
 			"editorAnimation": "AVCRAMP0",
-			"mask": ["A"],
-			"visitableFrom": ["+++", "+-+", "+++"]
+			"mask": [
+				"VVVVVV",
+				"VVVVVV",
+				"VVVVVV",
+				"VVBBBV",
+				"VBBBBB",
+				"VBBABB"
+			],
+			"visitableFrom": ["---", "+-+", "+++"]
 		},
 		"x": 7,
 		"y": 18,

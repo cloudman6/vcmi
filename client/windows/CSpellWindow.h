@@ -30,6 +30,15 @@ class VideoWidgetOnce;
 /// The spell window
 class CSpellWindow : public CWindowObject, public IVideoHolder
 {
+public:
+	enum class ControllerNavigationContext
+	{
+		NONE,
+		BATTLE,
+		ADVENTURE
+	};
+
+private:
 	class SpellArea : public CIntObject
 	{
 		const CSpell * mySpell;
@@ -127,6 +136,7 @@ class CSpellWindow : public CWindowObject, public IVideoHolder
 	uint32_t controllerAxisSettleElapsed = 0;
 	bool controllerAxisPending = false;
 	bool controllerAxisLatched = false;
+	ControllerNavigationContext controllerNavigationContext;
 
 	const CGHeroInstance * myHero; //hero whose spells are presented
 	CPlayerInterface * myInt;
@@ -154,7 +164,12 @@ class CSpellWindow : public CWindowObject, public IVideoHolder
 	std::function<void(SpellID)> onSpellSelect; //external processing of selected spell
 
 public:
-	CSpellWindow(const CGHeroInstance * _myHero, CPlayerInterface * _myInt, bool openOnBattleSpells = true, const std::function<void(SpellID)> & onSpellSelect = nullptr);
+	CSpellWindow(
+		const CGHeroInstance * _myHero,
+		CPlayerInterface * _myInt,
+		ControllerNavigationContext controllerNavigationContext = ControllerNavigationContext::NONE,
+		bool openOnBattleSpells = true,
+		const std::function<void(SpellID)> & onSpellSelect = nullptr);
 	~CSpellWindow();
 
 	void fexitb();

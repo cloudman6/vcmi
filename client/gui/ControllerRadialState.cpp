@@ -17,11 +17,6 @@ namespace
 constexpr double PI = 3.14159265358979323846;
 }
 
-ControllerRadialState::ControllerRadialState(size_t slots)
-	: slotCount(std::max<size_t>(1, slots))
-{
-}
-
 std::optional<ControllerRadialItemId> ControllerRadialState::itemAt(size_t slot) const
 {
 	if(activePageIndex >= pageIds.size())
@@ -51,7 +46,7 @@ void ControllerRadialState::open(const std::vector<ControllerRadialEntry> & init
 	pageIds.clear();
 	for(const auto & entry : initialEntries)
 	{
-		if(entry.slot >= slotCount)
+		if(entry.slot >= DEFAULT_SLOT_COUNT)
 			continue;
 		entries.push_back(entry);
 		if(!vstd::contains(pageIds, entry.page))
@@ -75,8 +70,8 @@ bool ControllerRadialState::selectDirection(double x, double y)
 		if(counterclockwiseFromNorth < 0.0)
 			counterclockwiseFromNorth += 2.0 * PI;
 
-		const double sectorAngle = 2.0 * PI / static_cast<double>(slotCount);
-		const auto slot = static_cast<size_t>(std::floor(counterclockwiseFromNorth / sectorAngle + 0.5)) % slotCount;
+		const double sectorAngle = 2.0 * PI / static_cast<double>(DEFAULT_SLOT_COUNT);
+		const auto slot = static_cast<size_t>(std::floor(counterclockwiseFromNorth / sectorAngle + 0.5)) % DEFAULT_SLOT_COUNT;
 		newSelection = itemAt(slot);
 	}
 
