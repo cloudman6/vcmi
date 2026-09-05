@@ -11,6 +11,7 @@
 		{"op": "assert", "probe": "scene", "field": "spellbook_open", "equals": false},
 		{"op": "set_axis", "device": "pad0", "control": "r2", "value": 1.0},
 		{"op": "wait_until", "probe": "controller_object_focus", "field": "context_radial.open", "equals": true, "timeout_ms": 3000},
+		{"op": "assert", "probe": "controller_object_focus", "field": "context_radial.items.spellbook.icon_player_colored", "equals": true},
 		{"op": "neutralize", "device": "pad0"},
 		{"op": "assert", "probe": "controller_object_focus", "field": "context_radial.open", "equals": true},
 		{"op": "set_axis", "device": "pad0", "control": "left_stick_x", "value": 0.8},
